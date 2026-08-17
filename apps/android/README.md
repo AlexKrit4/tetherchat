@@ -34,6 +34,14 @@ The debug APK is written to:
 app/build/outputs/apk/debug/app-debug.apk
 ```
 
+Скопируйте его в веб, чтобы кнопка «Скачать APK» в настройках профиля работала:
+
+```
+cp app/build/outputs/apk/debug/app-debug.apk ../../apps/web/public/app/tetherchat.apk
+```
+
+После деплоя файл отдаётся как https://tetherchat.ru/app/tetherchat.apk.
+
 Release build (unsigned, for local testing):
 
 ```bash

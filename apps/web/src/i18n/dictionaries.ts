@@ -322,6 +322,11 @@ export const ru = {
     saveChanges: 'Сохранить изменения',
     profileUpdated: 'Профиль обновлён',
     avatarUpdated: 'Аватар обновлён',
+    downloadApp: 'Приложение для Android',
+    downloadAppHint:
+      'Поставьте TetherChat на телефон — тот же мессенджер, что в браузере. После скачивания разрешите установку из этого источника.',
+    downloadApk: 'Скачать APK',
+    downloadAppInstalled: 'Приложение уже установлено',
   },
   status: {
     online: 'В сети',
@@ -678,6 +683,11 @@ export const en = {
     saveChanges: 'Save changes',
     profileUpdated: 'Profile updated',
     avatarUpdated: 'Avatar updated',
+    downloadApp: 'Android app',
+    downloadAppHint:
+      'Install TetherChat on your phone — the same messenger as in the browser. After downloading, allow installs from this source.',
+    downloadApk: 'Download APK',
+    downloadAppInstalled: 'The app is already installed',
   },
   status: {
     online: 'Online',

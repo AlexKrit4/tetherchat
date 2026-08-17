@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Trash2, Upload } from 'lucide-react';
+import { Trash2, Upload, Smartphone } from 'lucide-react';
 import { LIMITS } from '@tetherchat/shared';
 import type { SelfUser } from '@tetherchat/shared';
 import { api, errorMessage } from '@/lib/api';
@@ -11,6 +11,7 @@ import { Input, Textarea } from '@/components/ui/Input';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from '@/stores/toastStore';
 import { queryKeys } from '@/lib/queryKeys';
+import { ANDROID_APK_FILENAME, ANDROID_APK_PATH, isNativeAndroidApp } from '@/lib/androidApp';
 
 /** Avatar, display name, bio and custom status. Shared by desktop and mobile. */
 export function ProfileSettings() {
@@ -124,6 +125,27 @@ export function ProfileSettings() {
       >
         {t('settings.saveChanges')}
       </Button>
+
+      <div className="h-px bg-divider" />
+
+      <div className="flex items-start gap-3 rounded-lg bg-surface-secondary p-4">
+        <Smartphone size={20} className="mt-0.5 shrink-0 text-brand" aria-hidden />
+        <div className="min-w-0 flex-1">
+          <p className="text-base font-semibold text-text-heading">{t('settings.downloadApp')}</p>
+          <p className="mt-1 text-sm text-text-muted">{t('settings.downloadAppHint')}</p>
+          {isNativeAndroidApp() ? (
+            <p className="mt-3 text-sm text-success">{t('settings.downloadAppInstalled')}</p>
+          ) : (
+            <a
+              href={ANDROID_APK_PATH}
+              download={ANDROID_APK_FILENAME}
+              className="mt-3 inline-flex h-9 min-h-touch items-center justify-center gap-2 rounded bg-brand px-4 text-base font-medium text-white transition-colors hover:bg-brand-hover active:bg-brand-active md:min-h-0"
+            >
+              {t('settings.downloadApk')}
+            </a>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
