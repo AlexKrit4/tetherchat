@@ -8,6 +8,8 @@ coverage/
 .env
 .env.*
 !.env.example
+letsencrypt/
+certbot-www/
 
 # Build & runtime artifacts
 apps/web/dist/

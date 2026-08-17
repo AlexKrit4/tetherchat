@@ -190,13 +190,19 @@ npm run test:e2e       # Playwright: seed + desktop + mobile
    Ключи для Web Push: `npx web-push generate-vapid-keys` → `VAPID_PUBLIC_KEY`
    и `VAPID_PRIVATE_KEY`.
 
-3. Сертификаты и запуск:
+3. Стек поднимается по HTTP сразу (`nginx/tetherchat.ru.http.conf`). Когда DNS
+   уже смотрит на сервер, выпустите сертификаты и переключите edge на TLS:
 
    ```bash
-   docker compose -f docker-compose.prod.yml up -d postgres redis minio minio-init
-   docker compose -f docker-compose.prod.yml run --rm --service-ports certbot \
-     certonly --standalone -d tetherchat.ru -d www.tetherchat.ru
+   mkdir -p letsencrypt certbot-www
    docker compose -f docker-compose.prod.yml up -d --build
+   docker compose -f docker-compose.prod.yml exec api ../../node_modules/.bin/tsx prisma/seed.ts
+
+   docker compose -f docker-compose.prod.yml stop edge
+   docker compose -f docker-compose.prod.yml --profile certs run --rm --service-ports certbot \
+     certonly --standalone --agree-tos -m admin@tetherchat.ru \
+     -d tetherchat.ru -d www.tetherchat.ru
+   NGINX_EDGE_CONF=./nginx/tetherchat.ru.conf docker compose -f docker-compose.prod.yml up -d edge
    ```
 
 Контейнер `api` сам применяет миграции при старте. Edge-nginx терминирует TLS,
