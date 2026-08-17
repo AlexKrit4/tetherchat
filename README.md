@@ -212,6 +212,14 @@ npm run test:e2e       # Playwright: seed + desktop + mobile
 
 Проверка живости: `GET /api/health`.
 
+## Android-приложение
+
+Проект Android Studio лежит в `apps/android`. Это оболочка WebView над https://tetherchat.ru: тот же дизайн и тот же функционал, что у веба (вход, серверы, каналы, ЛС, сообщения, реакции, закрепления, поиск, загрузки, инвайты, настройки, WebSocket).
+
+Откройте папку `apps/android` через **File → Open** в Android Studio и соберите APK (`./gradlew assembleDebug`). Подробности — в [apps/android/README.md](apps/android/README.md).
+
+Язык интерфейса по умолчанию — **русский** (и в вебе, и в приложении). Английский включается в Настройки → Оформление.
+
 ## Переменные окружения
 
 Полный список с комментариями — в [`.env.example`](.env.example). Ключевое:

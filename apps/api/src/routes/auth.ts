@@ -93,7 +93,7 @@ export async function authRoutes(app: FastifyInstance) {
     });
 
     const valid = user ? await verifyPassword(body.password, user.passwordHash) : false;
-    if (!user || !valid) throw ApiError.unauthorized('Invalid credentials');
+    if (!user || !valid) throw ApiError.unauthorized('Неверный логин или пароль');
 
     const tokens = await issueSession(request.headers['user-agent'], request.ip, user.id, user.username);
     reply.setCookie(REFRESH_COOKIE, tokens.refreshToken, refreshCookieOptions());

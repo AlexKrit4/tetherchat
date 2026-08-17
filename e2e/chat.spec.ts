@@ -35,11 +35,11 @@ test.describe('TetherChat', () => {
     await openMessageActions(page, original);
 
     await messageAction(page, 'Reply').click();
-    await expect(page.getByText('Replying to')).toBeVisible();
+    await expect(page.getByText(/Ответ для|Replying to/)).toBeVisible();
 
     const answer = uniqueText('the reply itself');
     await sendMessage(page, answer);
-    await expect(page.getByText('Replying to')).toBeHidden();
+    await expect(page.getByText(/Ответ для|Replying to/)).toBeHidden();
   });
 
   test('edits and deletes its own message', async ({ page }) => {
@@ -58,7 +58,7 @@ test.describe('TetherChat', () => {
     await editor.press('Enter');
 
     await expect(page.getByText(edited, { exact: true }).first()).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText('(edited)').first()).toBeVisible();
+    await expect(page.getByText(/^\(изменено\)|^\(edited\)$/).first()).toBeVisible();
 
     await openMessageActions(page, edited);
     await messageAction(page, 'Delete').click();
@@ -74,15 +74,15 @@ test.describe('TetherChat', () => {
     await openMessageActions(page, text);
 
     if (isMobileViewport(page)) {
-      await expect(page.getByRole('button', { name: 'Copy text' })).toBeVisible();
-      await page.getByRole('button', { name: 'React with 👍' }).click();
-      await expect(page.getByRole('button', { name: /reacted with 👍/ }).first()).toBeVisible({
+      await expect(page.getByRole('button', { name: /Копировать текст|Copy text/ })).toBeVisible();
+      await page.getByRole('button', { name: /Реакция 👍|React with 👍/ }).click();
+      await expect(page.getByRole('button', { name: /с реакцией 👍|reacted with 👍/ }).first()).toBeVisible({
         timeout: 15_000,
       });
     } else {
       // The quick-reaction row is mobile-only, so on desktop we assert the
       // emoji-mart picker mounts and closes again.
-      await page.getByRole('button', { name: 'Add reaction' }).first().click();
+      await page.getByRole('button', { name: /Добавить реакцию|Add reaction/ }).first().click();
       await expect(page.locator('em-emoji-picker')).toBeVisible({ timeout: 20_000 });
       await page.keyboard.press('Escape');
       await expect(page.locator('em-emoji-picker')).toBeHidden();
@@ -113,8 +113,8 @@ test.describe('TetherChat', () => {
     await login(page);
     await openChannel(page, 'chat');
 
-    await page.getByRole('button', { name: 'Search' }).click();
-    await page.getByRole('textbox', { name: 'Search messages' }).fill('cliffhanger');
+    await page.getByRole('button', { name: /^(Поиск|Search)$/ }).click();
+    await page.getByRole('textbox', { name: /Поиск сообщений|Search messages/ }).fill('cliffhanger');
 
     await expect(page.getByText(/cliffhanger/).first()).toBeVisible({ timeout: 15_000 });
   });
@@ -124,16 +124,16 @@ test.describe('TetherChat', () => {
     await openChannel(page, 'chat');
 
     if (isMobileViewport(page)) {
-      await page.getByRole('button', { name: /member list/ }).click();
-      await expect(page.getByRole('heading', { level: 1, name: 'Members' })).toBeVisible();
+      await page.getByRole('button', { name: /список участников|member list/ }).click();
+      await expect(page.getByRole('heading', { level: 1, name: /Участники|Members/ })).toBeVisible();
       await page.getByRole('button', { name: /^Wumpus/ }).first().click();
     } else {
-      await page.getByRole('button', { name: 'Open Wumpus profile' }).first().click();
+      await page.getByRole('button', { name: /Открыть профиль Wumpus|Open Wumpus profile/ }).first().click();
     }
 
     await expect(page.getByText('@wumpus').first()).toBeVisible({ timeout: 15_000 });
 
-    await page.getByRole('button', { name: 'Send a direct message' }).click();
+    await page.getByRole('button', { name: /Написать в личные|Send a direct message/ }).click();
     await expect(page).toHaveURL(/\/channels\/@me\//, { timeout: 20_000 });
   });
 });
@@ -145,8 +145,8 @@ test.describe('desktop layout', () => {
     await login(page);
     await openChannel(page, 'chat');
 
-    const rail = page.getByRole('navigation', { name: 'Servers' });
-    const members = page.getByRole('complementary', { name: 'Members' });
+    const rail = page.getByRole('navigation', { name: /Серверы|Servers/ });
+    const members = page.getByRole('complementary', { name: /Участники|Members/ });
 
     await expect(rail).toBeVisible();
     await expect(members).toBeVisible();
@@ -155,10 +155,10 @@ test.describe('desktop layout', () => {
     expect((await rail.boundingBox())?.width).toBeCloseTo(72, 0);
     expect((await members.boundingBox())?.width).toBeCloseTo(240, 0);
 
-    await page.getByRole('button', { name: 'Hide member list' }).click();
+    await page.getByRole('button', { name: /Скрыть список участников|Hide member list/ }).click();
     await expect(members).toBeHidden();
 
-    await page.getByRole('button', { name: 'Show member list' }).click();
+    await page.getByRole('button', { name: /Показать список участников|Show member list/ }).click();
     await expect(members).toBeVisible();
   });
 
@@ -172,15 +172,15 @@ test.describe('desktop layout', () => {
     await sendMessage(page, text);
     await page.getByText(text, { exact: true }).last().hover();
 
-    await expect(page.getByRole('button', { name: 'Reply', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Edit', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^(Ответить|Reply)$/, exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^(Изменить|Edit)$/, exact: true })).toBeVisible();
   });
 
   test('sends with Enter and inserts a newline with Shift+Enter', async ({ page }) => {
     await login(page);
     await openChannel(page, 'chat');
 
-    const composer = page.getByRole('textbox', { name: /^Message / });
+    const composer = page.getByRole('textbox', { name: /^(Написать |Message )/ });
     await composer.click();
     await composer.type('first line');
     await composer.press('Shift+Enter');
@@ -198,10 +198,10 @@ test.describe('mobile layout', () => {
   test('lands on direct messages and walks the panel stack', async ({ page }) => {
     await login(page);
 
-    await expect(page.getByRole('heading', { level: 1, name: 'Direct Messages' }).first()).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: /Личные сообщения|Direct Messages/ }).first()).toBeVisible();
     await expectNoHorizontalScroll(page);
 
-    await page.getByRole('button', { name: 'Back' }).first().click();
+    await page.getByRole('button', { name: /^(Назад|Back)$/ }).first().click();
     await expect(page.getByRole('heading', { level: 1, name: 'TetherChat' })).toBeVisible();
 
     await page.getByRole('button', { name: 'Friendos', exact: true }).click();
@@ -215,13 +215,13 @@ test.describe('mobile layout', () => {
     // Once the slide transition settles only the chat panel remains mounted.
     await expect(page.getByRole('heading', { level: 1, name: 'Friendos' })).toBeHidden();
 
-    await page.getByRole('button', { name: 'Back' }).first().click();
+    await page.getByRole('button', { name: /^(Назад|Back)$/ }).first().click();
     await expect(page.getByRole('heading', { level: 1, name: 'Friendos' })).toBeVisible();
   });
 
   test('keeps tap targets at or above 44px', async ({ page }) => {
     await login(page);
-    await page.getByRole('button', { name: 'Back' }).first().click();
+    await page.getByRole('button', { name: /^(Назад|Back)$/ }).first().click();
     await page.getByRole('button', { name: 'Friendos', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Friendos' })).toBeVisible();
 
@@ -230,7 +230,7 @@ test.describe('mobile layout', () => {
       expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
     }
 
-    const back = await page.getByRole('button', { name: 'Back' }).first().boundingBox();
+    const back = await page.getByRole('button', { name: /^(Назад|Back)$/ }).first().boundingBox();
     expect(back?.height ?? 0).toBeGreaterThanOrEqual(44);
     expect(back?.width ?? 0).toBeGreaterThanOrEqual(44);
   });
@@ -239,7 +239,7 @@ test.describe('mobile layout', () => {
     await login(page);
     await openChannel(page, 'chat');
 
-    const composer = page.getByRole('textbox', { name: /^Message / });
+    const composer = page.getByRole('textbox', { name: /^(Написать |Message )/ });
     await composer.click();
     await composer.type('line one');
     await composer.press('Enter');
@@ -249,7 +249,7 @@ test.describe('mobile layout', () => {
 
     const text = uniqueText('sent with the button');
     await composer.fill(text);
-    await page.getByRole('button', { name: 'Send message' }).click();
+    await page.getByRole('button', { name: /^(Отправить сообщение|Send message)$/ }).click();
     await expect(page.getByText(text, { exact: true }).first()).toBeVisible({ timeout: 15_000 });
   });
 
@@ -257,8 +257,8 @@ test.describe('mobile layout', () => {
     await login(page);
     await openChannel(page, 'chat');
 
-    await page.getByRole('button', { name: /member list/ }).click();
-    await expect(page.getByRole('heading', { level: 1, name: 'Members' })).toBeVisible();
+    await page.getByRole('button', { name: /список участников|member list/ }).click();
+    await expect(page.getByRole('heading', { level: 1, name: /Участники|Members/ })).toBeVisible();
   });
 
   test('opens message actions with a long press', async ({ page }) => {
@@ -269,16 +269,21 @@ test.describe('mobile layout', () => {
     await sendMessage(page, text);
     await openMessageActions(page, text);
 
-    await expect(page.getByRole('button', { name: 'Copy text' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Копировать текст|Copy text/ })).toBeVisible();
   });
 });
 
-/** The hover toolbar and the mobile sheet label the same actions differently. */
-const SHEET_LABELS = { Reply: 'Reply', Edit: 'Edit message', Delete: 'Delete message' } as const;
+/** Hover toolbar vs mobile sheet: Russian is the product default. */
+const DESKTOP_ACTIONS = { Reply: /^(Ответить|Reply)$/, Edit: /^(Изменить|Edit)$/, Delete: /^(Удалить|Delete)$/ } as const;
+const SHEET_ACTIONS = {
+  Reply: /^(Ответить|Reply)$/,
+  Edit: /^(Изменить сообщение|Edit message)$/,
+  Delete: /^(Удалить сообщение|Delete message)$/,
+} as const;
 
-function messageAction(page: Page, action: keyof typeof SHEET_LABELS) {
-  const name = isMobileViewport(page) ? SHEET_LABELS[action] : action;
-  return page.getByRole('button', { name, exact: true }).first();
+function messageAction(page: Page, action: keyof typeof DESKTOP_ACTIONS) {
+  const name = isMobileViewport(page) ? SHEET_ACTIONS[action] : DESKTOP_ACTIONS[action];
+  return page.getByRole('button', { name }).first();
 }
 
 /** Hover on pointer devices, long-press on touch — one helper for both. */

@@ -91,7 +91,7 @@ describe('auth', () => {
     });
 
     expect(response.statusCode).toBe(401);
-    expect(response.json().message).toBe('Invalid credentials');
+    expect(response.json().message).toBe('Неверный логин или пароль');
   });
 
   it('rotates the refresh token and invalidates the used one', async () => {

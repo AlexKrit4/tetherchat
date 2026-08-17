@@ -4,6 +4,7 @@ import type { Channel, DirectConversation, ServerDetail } from '@tetherchat/shar
 import { useConversation, conversationTitle } from './useDms';
 import { useServer } from './useServers';
 import { useAuthStore } from '@/stores/authStore';
+import { useT } from '@/i18n/useT';
 
 export const DM_ROUTE = '@me';
 
@@ -23,6 +24,7 @@ export interface ChatTarget {
 
 /** Single source of truth for "what am I looking at", derived from the URL. */
 export function useChatTarget(): ChatTarget {
+  const t = useT();
   const params = useParams<{ serverId?: string; channelId?: string }>();
   const currentUserId = useAuthStore((state) => state.user?.id);
 
@@ -40,7 +42,7 @@ export function useChatTarget(): ChatTarget {
   const title = isDm
     ? conversation
       ? conversationTitle(conversation, currentUserId)
-      : 'Direct Messages'
+      : t('nav.directMessages')
     : (channel?.name ?? '');
 
   return {

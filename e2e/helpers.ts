@@ -8,13 +8,12 @@ export const DEMO = {
 
 export async function login(page: Page, account = DEMO.owner): Promise<void> {
   await page.goto('/login');
-  await page.getByLabel(/Email or username/).fill(account.login);
-  await page.getByLabel(/^Password/).fill(account.password);
-  await page.getByRole('button', { name: 'Log In' }).click();
+  await page.getByLabel(/Email или имя пользователя|Email or username/).fill(account.login);
+  await page.getByLabel(/^(Пароль|Password)/).fill(account.password);
+  await page.getByRole('button', { name: /^(Войти|Log In)$/ }).click();
   await expect(page).toHaveURL(/\/channels\//, { timeout: 20_000 });
 }
 
-/** The channel title in the chat header, distinct from the "Welcome to #x" intro. */
 export function channelHeading(page: Page, channel: string) {
   return page.getByRole('heading', { level: 1, name: channel, exact: true });
 }
@@ -24,14 +23,9 @@ export function isMobileViewport(page: Page): boolean {
   return (size?.width ?? 1440) < 768;
 }
 
-/**
- * Opens the Friendos demo server and the given channel, following whichever
- * navigation the current layout uses.
- */
 export async function openChannel(page: Page, channel = 'chat'): Promise<void> {
   if (isMobileViewport(page)) {
-    // The phone stack starts on the DM list, so step back to the server list first.
-    const back = page.getByRole('button', { name: 'Back' });
+    const back = page.getByRole('button', { name: /^(Назад|Back)$/ });
     if (await back.count()) await back.first().click();
     await expect(page.getByRole('heading', { name: 'TetherChat' })).toBeVisible({ timeout: 15_000 });
     await page.getByRole('button', { name: 'Friendos', exact: true }).click();
@@ -45,12 +39,12 @@ export async function openChannel(page: Page, channel = 'chat'): Promise<void> {
 }
 
 export async function sendMessage(page: Page, text: string): Promise<void> {
-  const composer = page.getByRole('textbox', { name: /^Message / });
+  const composer = page.getByRole('textbox', { name: /^(Написать |Message )/ });
   await composer.click();
   await composer.fill(text);
 
   if (isMobileViewport(page)) {
-    await page.getByRole('button', { name: 'Send message' }).click();
+    await page.getByRole('button', { name: /^(Отправить сообщение|Send message)$/ }).click();
   } else {
     await composer.press('Enter');
   }
@@ -62,7 +56,6 @@ export function uniqueText(prefix: string): string {
   return `${prefix} ${Date.now().toString(36)}`;
 }
 
-/** Fails the test if the page ever scrolls sideways, the classic mobile bug. */
 export async function expectNoHorizontalScroll(page: Page): Promise<void> {
   const overflow = await page.evaluate(() => {
     const doc = document.documentElement;

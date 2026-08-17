@@ -24,7 +24,7 @@ export const errorHandlerPlugin = fp(async (app) => {
     if (error instanceof ZodError) {
       reply.status(400).send({
         code: 'validation_error',
-        message: 'Request payload is invalid',
+        message: 'Тело запроса некорректно',
         details: error.issues.map((issue) => ({
           path: issue.path.join('.'),
           message: issue.message,
@@ -37,12 +37,12 @@ export const errorHandlerPlugin = fp(async (app) => {
       if (error.code === 'P2002') {
         reply.status(409).send({
           code: 'conflict',
-          message: 'A record with these values already exists',
+          message: 'Запрос с такими данными уже существует',
         } satisfies ApiErrorBody);
         return;
       }
       if (error.code === 'P2025') {
-        reply.status(404).send({ code: 'not_found', message: 'Not found' } satisfies ApiErrorBody);
+        reply.status(404).send({ code: 'not_found', message: 'Не найдено' } satisfies ApiErrorBody);
         return;
       }
     }
@@ -52,21 +52,21 @@ export const errorHandlerPlugin = fp(async (app) => {
     if (statusCode === 429) {
       reply.status(429).send({
         code: 'rate_limited',
-        message: 'Too many requests, slow down',
+        message: 'Слишком много запросов, подождите',
       } satisfies ApiErrorBody);
       return;
     }
     if (statusCode === 413) {
       reply.status(413).send({
         code: 'payload_too_large',
-        message: 'Uploaded file is too large',
+        message: 'Файл слишком большой',
       } satisfies ApiErrorBody);
       return;
     }
     if (statusCode && statusCode < 500) {
       reply.status(statusCode).send({
         code: 'bad_request',
-        message: raw.message ?? 'Bad request',
+        message: raw.message ?? 'Некорректный запрос',
       } satisfies ApiErrorBody);
       return;
     }

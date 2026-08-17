@@ -29,7 +29,7 @@ const typingByChannel = new Map<string, Map<string, TypingEntry>>();
 
 function fail(error: unknown): AckResult<never> {
   if (isApiError(error)) return { ok: false, code: error.code, message: error.message };
-  return { ok: false, code: 'internal_error', message: 'Something went wrong' };
+  return { ok: false, code: 'internal_error', message: 'Что-то пошло не так' };
 }
 
 /** Rooms a user must join on connect so they receive server and channel traffic. */

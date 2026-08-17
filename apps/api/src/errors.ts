@@ -13,15 +13,15 @@ export class ApiError extends Error {
     return new ApiError(400, 'bad_request', message, details);
   }
 
-  static unauthorized(message = 'Authentication required') {
+  static unauthorized(message = 'Нужна авторизация') {
     return new ApiError(401, 'unauthorized', message);
   }
 
-  static forbidden(message = 'Missing permissions') {
+  static forbidden(message = 'Недостаточно прав') {
     return new ApiError(403, 'forbidden', message);
   }
 
-  static notFound(message = 'Not found') {
+  static notFound(message = 'Не найдено') {
     return new ApiError(404, 'not_found', message);
   }
 
@@ -33,11 +33,11 @@ export class ApiError extends Error {
     return new ApiError(413, 'payload_too_large', message);
   }
 
-  static tooManyRequests(message = 'Slow down') {
+  static tooManyRequests(message = 'Подождите') {
     return new ApiError(429, 'rate_limited', message);
   }
 
-  static internal(message = 'Internal server error') {
+  static internal(message = 'Внутренняя ошибка сервера') {
     return new ApiError(500, 'internal_error', message);
   }
 }
