@@ -3,11 +3,15 @@ import react from '@vitejs/plugin-react';
 import { defineConfig, loadEnv } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
+// A single .env at the repository root configures both the API and the web app.
+const envDir = fileURLToPath(new URL('../../', import.meta.url));
+
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '');
+  const env = loadEnv(mode, envDir, '');
   const apiTarget = env.VITE_DEV_API_PROXY ?? 'http://localhost:4000';
 
   return {
+    envDir,
     plugins: [
       react(),
       VitePWA({

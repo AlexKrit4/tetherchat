@@ -24,7 +24,8 @@
     "db:deploy": "npm run db:deploy -w @tetherchat/api",
     "db:seed": "npm run db:seed -w @tetherchat/api",
     "db:reset": "npm run db:reset -w @tetherchat/api",
-    "test:e2e:only": "playwright test -c e2e/playwright.config.ts"
+    "test:e2e:only": "playwright test -c e2e/playwright.config.ts",
+    "db:studio": "npm run db:studio -w @tetherchat/api"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
