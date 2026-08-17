@@ -1,0 +1,17 @@
+export const queryKeys = {
+  me: ['me'] as const,
+  servers: ['servers'] as const,
+  server: (serverId: string) => ['server', serverId] as const,
+  members: (serverId: string) => ['members', serverId] as const,
+  bans: (serverId: string) => ['bans', serverId] as const,
+  invites: (serverId: string) => ['invites', serverId] as const,
+  messages: (channelId: string) => ['messages', channelId] as const,
+  pins: (channelId: string) => ['pins', channelId] as const,
+  search: (channelId: string, query: string) => ['search', channelId, query] as const,
+  readStates: ['read-states'] as const,
+  dms: ['dms'] as const,
+  dm: (conversationId: string) => ['dm', conversationId] as const,
+  channelNotifications: (channelId: string) => ['channel-notifications', channelId] as const,
+  userSearch: (query: string) => ['user-search', query] as const,
+  invitePreview: (code: string) => ['invite-preview', code] as const,
+};

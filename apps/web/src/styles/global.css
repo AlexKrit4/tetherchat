@@ -1,0 +1,233 @@
+@import './tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg-tertiary);
+    color: var(--text-normal);
+    font-family: theme('fontFamily.sans');
+    font-size: 15px;
+    line-height: 1.375;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overscroll-behavior-y: none;
+  }
+
+  /* The app owns scrolling; the document itself never scrolls. */
+  body {
+    overflow: hidden;
+  }
+
+  button {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  input,
+  textarea,
+  select {
+    font: inherit;
+    color: inherit;
+  }
+
+  /* iOS zooms in on focus when the font is under 16px. */
+  @supports (-webkit-touch-callout: none) {
+    input,
+    textarea,
+    select {
+      font-size: 16px;
+    }
+  }
+
+  a {
+    color: var(--text-link);
+    text-decoration: none;
+  }
+
+  a:hover {
+    text-decoration: underline;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 1px;
+  }
+
+  ::selection {
+    background: rgba(88, 101, 242, 0.6);
+    color: #fff;
+  }
+}
+
+@layer components {
+  /* Thin dark scrollbars, hidden until the container is hovered on desktop. */
+  .scroller {
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  }
+
+  .scroller::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scroller::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+  }
+
+  .scroller::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 4px;
+  }
+
+  @media (hover: hover) {
+    .scroller-hover::-webkit-scrollbar-thumb {
+      background: transparent;
+    }
+
+    .scroller-hover:hover::-webkit-scrollbar-thumb {
+      background: var(--scrollbar-thumb);
+    }
+  }
+
+  /* Active-channel and unread pill indicators on the server rail. */
+  .rail-pill {
+    position: absolute;
+    left: -16px;
+    width: 8px;
+    border-radius: 0 4px 4px 0;
+    background: var(--header-primary);
+    transition: height 150ms ease, opacity 150ms ease;
+  }
+}
+
+@layer utilities {
+  .h-screen-dvh {
+    height: 100dvh;
+  }
+
+  .pt-safe {
+    padding-top: var(--safe-top);
+  }
+
+  .pb-safe {
+    padding-bottom: var(--safe-bottom);
+  }
+
+  .px-safe {
+    padding-left: var(--safe-left);
+    padding-right: var(--safe-right);
+  }
+
+  /* Message markdown: tight spacing, code blocks on the deepest surface. */
+  .md-content > :first-child {
+    margin-top: 0;
+  }
+
+  .md-content > :last-child {
+    margin-bottom: 0;
+  }
+
+  .md-content p {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .md-content strong {
+    font-weight: 700;
+    color: inherit;
+  }
+
+  .md-content em {
+    font-style: italic;
+  }
+
+  .md-content del {
+    text-decoration: line-through;
+  }
+
+  .md-content ul,
+  .md-content ol {
+    margin: 4px 0;
+    padding-left: 20px;
+  }
+
+  .md-content li {
+    margin: 2px 0;
+  }
+
+  .md-content blockquote {
+    margin: 4px 0;
+    padding-left: 12px;
+    border-left: 4px solid var(--divider);
+    color: var(--text-normal);
+  }
+
+  .md-content code {
+    background: var(--bg-tertiary);
+    border-radius: 3px;
+    padding: 1px 3px;
+    font-family: theme('fontFamily.mono');
+    font-size: 0.875em;
+  }
+
+  .md-content pre {
+    margin: 6px 0;
+    padding: 8px 10px;
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+    overflow-x: auto;
+  }
+
+  .md-content pre code {
+    background: none;
+    padding: 0;
+    font-size: 13px;
+    line-height: 1.25rem;
+  }
+
+  .md-content a {
+    color: var(--text-link);
+  }
+
+  .md-content h1,
+  .md-content h2,
+  .md-content h3 {
+    margin: 8px 0 4px;
+    font-weight: 700;
+    color: var(--header-primary);
+  }
+
+  .md-content h1 {
+    font-size: 1.5em;
+  }
+
+  .md-content h2 {
+    font-size: 1.25em;
+  }
+
+  .md-content h3 {
+    font-size: 1.1em;
+  }
+}
