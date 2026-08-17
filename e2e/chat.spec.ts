@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import {
   DEMO,
   channelHeading,
@@ -275,16 +276,13 @@ test.describe('mobile layout', () => {
 /** The hover toolbar and the mobile sheet label the same actions differently. */
 const SHEET_LABELS = { Reply: 'Reply', Edit: 'Edit message', Delete: 'Delete message' } as const;
 
-function messageAction(
-  page: import('@playwright/test').Page,
-  action: keyof typeof SHEET_LABELS,
-) {
+function messageAction(page: Page, action: keyof typeof SHEET_LABELS) {
   const name = isMobileViewport(page) ? SHEET_LABELS[action] : action;
   return page.getByRole('button', { name, exact: true }).first();
 }
 
 /** Hover on pointer devices, long-press on touch — one helper for both. */
-async function openMessageActions(page: import('@playwright/test').Page, text: string) {
+async function openMessageActions(page: Page, text: string) {
   const message = page.getByText(text, { exact: true }).last();
   await message.scrollIntoViewIfNeeded();
 

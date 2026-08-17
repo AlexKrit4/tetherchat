@@ -21,7 +21,9 @@ export async function dmRoutes(app: FastifyInstance) {
     const conversations = await prisma.directConversation.findMany({
       where: { members: { some: { userId: request.userId, leftAt: null } } },
       include: conversationInclude,
-      orderBy: [{ lastMessageAt: 'desc' }, { createdAt: 'desc' }],
+      // Postgres sorts NULLs first on DESC, which would float conversations that
+      // have no messages yet above active ones.
+      orderBy: [{ lastMessageAt: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }],
     });
     return conversations.map(toConversation);
   });
