@@ -19,21 +19,21 @@ export function AppearanceSettings() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="rounded-lg bg-base-secondary p-4">
+      <div className="rounded-lg bg-surface-secondary p-4">
         <p className="text-base font-semibold text-text-heading">Theme</p>
         <p className="mt-1 text-sm text-text-muted">
           TetherChat ships with a single dark theme. Colours come from CSS variables, so a light
           theme can be added without touching components.
         </p>
         <div className="mt-3 flex gap-2">
-          <span className="flex items-center gap-2 rounded bg-base-tertiary px-3 py-2 text-base text-text-heading ring-2 ring-brand">
-            <span className="h-4 w-4 rounded-full bg-base" aria-hidden />
+          <span className="flex items-center gap-2 rounded bg-surface-tertiary px-3 py-2 text-base text-text-heading ring-2 ring-brand">
+            <span className="h-4 w-4 rounded-full bg-surface" aria-hidden />
             Dark
           </span>
         </div>
       </div>
 
-      <div className="flex items-start gap-3 rounded-lg bg-base-secondary p-4">
+      <div className="flex items-start gap-3 rounded-lg bg-surface-secondary p-4">
         <div className="min-w-0 flex-1">
           <p className="text-base font-semibold text-text-heading">Enter sends the message</p>
           <p className="mt-1 text-sm text-text-muted">

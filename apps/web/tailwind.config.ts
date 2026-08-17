@@ -24,15 +24,18 @@ const config: Config = {
       white: '#ffffff',
       black: '#000000',
 
-      base: {
+      /**
+       * Surfaces deliberately avoid the names Tailwind uses for font sizes
+       * (base, sm, lg, xl): a colour key called `base` would turn every
+       * `text-base` into a colour utility instead of a size.
+       */
+      surface: {
         DEFAULT: 'var(--bg-primary)',
         secondary: 'var(--bg-secondary)',
         tertiary: 'var(--bg-tertiary)',
         floating: 'var(--bg-floating)',
         input: 'var(--input-bg)',
         overlay: 'var(--bg-overlay)',
-      },
-      surface: {
         hover: 'var(--bg-modifier-hover)',
         active: 'var(--bg-modifier-active)',
         selected: 'var(--bg-modifier-selected)',

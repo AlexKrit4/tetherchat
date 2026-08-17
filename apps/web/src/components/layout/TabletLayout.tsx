@@ -11,12 +11,12 @@ import { useChatTarget } from '@/hooks/useChatTarget';
  * for a fourth column, so members slide over the chat instead.
  */
 export function TabletLayout() {
-  const membersOpen = useUiStore((state) => state.membersOpen);
-  const setMembersOpen = useUiStore((state) => state.setMembersOpen);
+  const membersOpen = useUiStore((state) => state.membersOverlayOpen);
+  const setMembersOpen = useUiStore((state) => state.setMembersOverlayOpen);
   const { channelId } = useChatTarget();
 
   return (
-    <div className="relative flex h-screen-dvh w-full overflow-hidden bg-base-tertiary">
+    <div className="relative flex h-screen-dvh w-full overflow-hidden bg-surface-tertiary">
       <ServerRail />
       <ChannelSidebar />
       <ChatArea />
@@ -27,7 +27,7 @@ export function TabletLayout() {
             <motion.button
               type="button"
               aria-label="Close member list"
-              className="absolute inset-0 z-20 bg-base-overlay"
+              className="absolute inset-0 z-20 bg-surface-overlay"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}

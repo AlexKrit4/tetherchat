@@ -42,7 +42,7 @@ export function Pill({ children, className }: { children: React.ReactNode; class
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded bg-base-tertiary px-1.5 py-0.5 text-2xs font-semibold uppercase tracking-wide text-text-muted',
+        'inline-flex items-center gap-1 rounded bg-surface-tertiary px-1.5 py-0.5 text-2xs font-semibold uppercase tracking-wide text-text-muted',
         className,
       )}
     >

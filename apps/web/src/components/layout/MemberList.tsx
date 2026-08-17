@@ -94,7 +94,7 @@ export function MemberList({ className, compact = true }: MemberListProps) {
 
   if (isDm) {
     return (
-      <aside className={cn('flex flex-col bg-base-secondary', className)}>
+      <aside className={cn('flex flex-col bg-surface-secondary', className)}>
         <div className="scroller flex-1 px-2 py-4">
           <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-[0.02em] text-text-muted">
             {conversation?.isGroup ? `Members — ${conversation.members.length}` : 'Conversation'}
@@ -125,7 +125,7 @@ export function MemberList({ className, compact = true }: MemberListProps) {
   return (
     <aside
       aria-label="Members"
-      className={cn('flex flex-col bg-base-secondary', className)}
+      className={cn('flex flex-col bg-surface-secondary', className)}
     >
       <div className="scroller scroller-hover flex-1 px-2 py-4">
         {isLoading ? (

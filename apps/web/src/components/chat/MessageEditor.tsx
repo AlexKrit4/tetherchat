@@ -38,7 +38,7 @@ export function MessageEditor({ initialValue, onSubmit, onCancel }: MessageEdito
             if (trimmed) onSubmit(trimmed);
           }
         }}
-        className="w-full resize-none rounded-lg bg-base-input px-3 py-2.5 text-message text-text outline-none"
+        className="w-full resize-none rounded-lg bg-surface-input px-3 py-2.5 text-message text-text outline-none"
       />
       <p className="text-xs text-text-muted">
         escape to{' '}

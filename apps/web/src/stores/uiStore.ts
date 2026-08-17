@@ -13,7 +13,10 @@ interface UiState {
   mobileView: MobileView;
   /** Views the user navigated through, so the back button can unwind them. */
   mobileHistory: MobileView[];
+  /** Desktop keeps the member column visible by default, like Discord. */
   membersOpen: boolean;
+  /** Tablet shows members as a slide-over, so it starts closed. */
+  membersOverlayOpen: boolean;
   pinsOpen: boolean;
   searchOpen: boolean;
   collapsedCategories: Record<string, boolean>;
@@ -26,6 +29,8 @@ interface UiState {
   popMobileView: () => void;
   toggleMembers: () => void;
   setMembersOpen: (open: boolean) => void;
+  toggleMembersOverlay: () => void;
+  setMembersOverlayOpen: (open: boolean) => void;
   setPinsOpen: (open: boolean) => void;
   setSearchOpen: (open: boolean) => void;
   toggleCategory: (categoryId: string) => void;
@@ -38,6 +43,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   mobileView: 'chat',
   mobileHistory: [],
   membersOpen: true,
+  membersOverlayOpen: false,
   pinsOpen: false,
   searchOpen: false,
   collapsedCategories: {},
@@ -66,6 +72,8 @@ export const useUiStore = create<UiState>((set, get) => ({
 
   toggleMembers: () => set((state) => ({ membersOpen: !state.membersOpen })),
   setMembersOpen: (open) => set({ membersOpen: open }),
+  toggleMembersOverlay: () => set((state) => ({ membersOverlayOpen: !state.membersOverlayOpen })),
+  setMembersOverlayOpen: (open) => set({ membersOverlayOpen: open }),
   setPinsOpen: (open) => set({ pinsOpen: open }),
   setSearchOpen: (open) => set({ searchOpen: open }),
 

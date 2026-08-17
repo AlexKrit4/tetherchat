@@ -4,7 +4,7 @@ export function Skeleton({ className, style }: { className?: string; style?: Rea
   return (
     <div
       aria-hidden
-      className={cn('animate-pulse-soft rounded bg-base-secondary', className)}
+      className={cn('animate-pulse-soft rounded bg-surface-secondary', className)}
       style={style}
     />
   );

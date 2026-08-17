@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import './loadEnv.js';
 
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),

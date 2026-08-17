@@ -54,7 +54,7 @@ export function Modal({
           <motion.button
             type="button"
             aria-label="Close"
-            className="absolute inset-0 bg-base-overlay"
+            className="absolute inset-0 bg-surface-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -67,7 +67,7 @@ export function Modal({
             aria-modal="true"
             aria-label={typeof title === 'string' ? title : undefined}
             className={cn(
-              'relative z-10 flex w-full flex-col overflow-hidden rounded-lg bg-base shadow-floating',
+              'relative z-10 flex w-full flex-col overflow-hidden rounded-lg bg-surface shadow-floating',
               widths[width],
               className,
             )}
@@ -91,7 +91,7 @@ export function Modal({
             <div className="scroller max-h-[70vh] px-4 py-3">{children}</div>
 
             {footer ? (
-              <footer className="flex items-center justify-end gap-2 bg-base-secondary px-4 py-4">
+              <footer className="flex items-center justify-end gap-2 bg-surface-secondary px-4 py-4">
                 {footer}
               </footer>
             ) : null}

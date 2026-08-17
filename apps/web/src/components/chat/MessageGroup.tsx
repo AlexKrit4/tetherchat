@@ -74,6 +74,8 @@ export const MessageGroup = memo(function MessageGroup({
 
   const displayName = member?.nickname ?? message.author.displayName ?? message.author.username;
   const avatarSize = isMobile ? 32 : 40;
+  // Avatar column plus the 16px gap, so quoted replies line up with the body text.
+  const textIndent = isMobile ? 'pl-[48px]' : 'pl-[56px]';
 
   if (message.system) {
     return (
@@ -106,7 +108,7 @@ export const MessageGroup = memo(function MessageGroup({
           onClick={() => message.replyTo && onJumpToMessage?.(message.replyTo.id)}
           className={cn(
             'mb-1 flex w-full items-center gap-1.5 text-left text-sm text-text-muted',
-            isMobile ? 'pl-[56px]' : 'pl-[72px]',
+            textIndent,
           )}
         >
           <CornerUpLeft size={14} className="shrink-0 text-text-faint" aria-hidden />
@@ -124,7 +126,9 @@ export const MessageGroup = memo(function MessageGroup({
           <button
             type="button"
             onClick={() => onOpenProfile(message.authorId)}
-            className="mt-0.5 shrink-0"
+            // self-start keeps the avatar at the top of a tall group instead of
+            // letting the button stretch and centre it.
+            className="mt-0.5 shrink-0 self-start"
             aria-label={`Open ${displayName} profile`}
           >
             <Avatar user={message.author} size={avatarSize} />
@@ -197,7 +201,7 @@ export const MessageGroup = memo(function MessageGroup({
 
       {/* Hover toolbar is desktop-only: touch devices use long-press instead. */}
       {hasHover && hovered && !editing ? (
-        <div className="absolute -top-4 right-4 z-10 flex items-center gap-0.5 rounded bg-base-secondary p-0.5 shadow-elevated">
+        <div className="absolute -top-4 right-4 z-10 flex items-center gap-0.5 rounded bg-surface-secondary p-0.5 shadow-elevated">
           {actions.canReact ? (
             <IconButton icon={SmilePlus} label="Add reaction" size="sm" onClick={onOpenEmojiPicker} />
           ) : null}

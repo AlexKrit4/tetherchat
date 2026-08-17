@@ -46,7 +46,7 @@ export function Attachments({ attachments }: { attachments: Attachment[] }) {
                   height={size?.height}
                   loading="lazy"
                   decoding="async"
-                  className="h-auto w-full rounded-lg bg-base-tertiary object-cover"
+                  className="h-auto w-full rounded-lg bg-surface-tertiary object-cover"
                 />
               </button>
             );
@@ -97,7 +97,7 @@ export function Attachments({ attachments }: { attachments: Attachment[] }) {
             type="button"
             aria-label="Close"
             onClick={() => setLightbox(null)}
-            className="absolute right-4 top-[calc(env(safe-area-inset-top,0px)+16px)] flex h-touch w-touch items-center justify-center rounded-full bg-base-floating text-text-heading"
+            className="absolute right-4 top-[calc(env(safe-area-inset-top,0px)+16px)] flex h-touch w-touch items-center justify-center rounded-full bg-surface-floating text-text-heading"
           >
             <X size={22} aria-hidden />
           </button>
@@ -115,7 +115,7 @@ function FileCard({ attachment }: { attachment: Attachment }) {
       rel="noopener noreferrer"
       download
       className={cn(
-        'flex max-w-[420px] items-center gap-3 rounded-lg bg-base-secondary px-3 py-2.5',
+        'flex max-w-[420px] items-center gap-3 rounded-lg bg-surface-secondary px-3 py-2.5',
         'no-underline transition-colors hover:bg-surface-hover',
       )}
     >
@@ -141,7 +141,7 @@ export function LinkPreviews({ previews }: { previews: LinkPreview[] }) {
           target="_blank"
           rel="noopener noreferrer nofollow"
           className={cn(
-            'flex max-w-[440px] gap-3 rounded border-l-4 border-l-[#4f545c] bg-base-secondary p-3',
+            'flex max-w-[440px] gap-3 rounded border-l-4 border-l-[#4f545c] bg-surface-secondary p-3',
             'no-underline transition-colors hover:bg-surface-hover',
           )}
         >

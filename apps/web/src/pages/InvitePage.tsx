@@ -63,7 +63,7 @@ export function InvitePage() {
       }
     >
       <div className="flex flex-col items-center gap-4">
-        <span className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl bg-base-tertiary text-xl font-semibold text-text">
+        <span className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl bg-surface-tertiary text-xl font-semibold text-text">
           {data.server.iconUrl ? (
             <img src={data.server.iconUrl} alt="" className="h-full w-full object-cover" />
           ) : (

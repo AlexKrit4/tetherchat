@@ -17,7 +17,7 @@ export function ChatArea({ className }: { className?: string }) {
 
   return (
     <main
-      className={cn('flex min-w-0 flex-1 flex-col bg-base', className)}
+      className={cn('flex min-w-0 flex-1 flex-col bg-surface', className)}
       style={isMobile && offset > 0 ? { paddingBottom: offset } : undefined}
     >
       <ChatHeader />

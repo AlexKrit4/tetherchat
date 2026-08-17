@@ -10,7 +10,7 @@ export function MobileMembersView() {
   const count = isDm ? (conversation?.members.length ?? 0) : (server?.memberCount ?? 0);
 
   return (
-    <div className="flex h-full flex-col bg-base-secondary">
+    <div className="flex h-full flex-col bg-surface-secondary">
       <MobileHeader
         title="Members"
         subtitle={count > 0 ? `${count} total` : undefined}

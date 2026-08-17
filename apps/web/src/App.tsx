@@ -70,7 +70,7 @@ function AnonymousOnly({ children }: { children: React.ReactNode }) {
 
 function BootSplash() {
   return (
-    <div className="flex h-screen-dvh flex-col items-center justify-center gap-3 bg-base-tertiary">
+    <div className="flex h-screen-dvh flex-col items-center justify-center gap-3 bg-surface-tertiary">
       <Spinner className="h-8 w-8 text-brand" />
       <p className="text-base text-text-muted">Connecting to TetherChat…</p>
     </div>

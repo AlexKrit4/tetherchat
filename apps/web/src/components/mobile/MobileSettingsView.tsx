@@ -23,7 +23,7 @@ export function MobileSettingsView() {
 
   if (section !== 'root') {
     return (
-      <div className="flex h-full flex-col bg-base">
+      <div className="flex h-full flex-col bg-surface">
         <MobileHeader title={titles[section]} onBack={() => setSection('root')} />
         <div className="scroller flex-1 px-4 pb-safe pt-3">
           {section === 'profile' ? <ProfileSettings /> : null}
@@ -36,7 +36,7 @@ export function MobileSettingsView() {
   }
 
   return (
-    <div className="flex h-full flex-col bg-base">
+    <div className="flex h-full flex-col bg-surface">
       <MobileHeader title="User Settings" onBack={popMobileView} />
 
       <div className="scroller flex-1 pb-safe">

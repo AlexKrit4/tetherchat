@@ -28,11 +28,26 @@ function FieldShell({
           )}
         >
           {label}
-          {required ? <span className="ml-1 text-danger">*</span> : null}
-          {error ? <span className="ml-2 normal-case tracking-normal">— {error}</span> : null}
+          {/* Decorative markers stay out of the accessible name. */}
+          {required ? (
+            <span aria-hidden className="ml-1 text-danger">
+              *
+            </span>
+          ) : null}
+          {error ? (
+            <span aria-hidden className="ml-2 normal-case tracking-normal">
+              — {error}
+            </span>
+          ) : null}
         </label>
       ) : null}
       {children}
+      {/* The visible error lives in the label; this announces it to screen readers. */}
+      {error ? (
+        <p role="alert" className="sr-only">
+          {error}
+        </p>
+      ) : null}
       {hint ? <p className="text-xs text-text-muted">{hint}</p> : null}
     </div>
   );
@@ -55,7 +70,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         aria-invalid={error ? true : undefined}
         // 48px tall on phones so the field is easy to hit and iOS does not zoom.
         className={cn(
-          'w-full rounded bg-base-tertiary px-3 text-base text-text placeholder:text-text-faint',
+          'w-full rounded bg-surface-tertiary px-3 text-base text-text placeholder:text-text-faint',
           'h-12 md:h-10',
           'outline-none transition-shadow duration-150',
           error
@@ -85,7 +100,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
         id={inputId}
         aria-invalid={error ? true : undefined}
         className={cn(
-          'w-full resize-none rounded bg-base-tertiary px-3 py-2.5 text-base text-text',
+          'w-full resize-none rounded bg-surface-tertiary px-3 py-2.5 text-base text-text',
           'placeholder:text-text-faint outline-none transition-shadow duration-150',
           'focus:shadow-[0_0_0_2px_var(--brand)]',
           className,

@@ -27,7 +27,7 @@ export function ServerRail() {
   return (
     <nav
       aria-label="Servers"
-      className="flex h-full w-rail shrink-0 flex-col items-center gap-2 bg-base-tertiary pt-3"
+      className="flex h-full w-rail shrink-0 flex-col items-center gap-2 bg-surface-tertiary pt-3"
     >
       <RailButton
         label="Direct Messages"
@@ -131,10 +131,10 @@ function RailButton({
             'transition-[border-radius,background-color] duration-150 ease-out',
             active ? 'rounded-2xl' : 'rounded-3xl hover:rounded-2xl',
             tone === 'accent'
-              ? 'bg-base-secondary text-success hover:bg-success hover:text-white'
+              ? 'bg-surface-secondary text-success hover:bg-success hover:text-white'
               : active
                 ? 'bg-brand text-white'
-                : 'bg-base-secondary text-text hover:bg-brand hover:text-white',
+                : 'bg-surface-secondary text-text hover:bg-brand hover:text-white',
           )}
         >
           {children}
@@ -144,7 +144,7 @@ function RailButton({
       {mentions > 0 ? (
         <MentionBadge
           count={mentions}
-          className="pointer-events-none absolute bottom-0 right-2 ring-2 ring-base-tertiary"
+          className="pointer-events-none absolute bottom-0 right-2 ring-2 ring-surface-tertiary"
         />
       ) : null}
     </div>

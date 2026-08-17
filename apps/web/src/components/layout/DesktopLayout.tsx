@@ -14,7 +14,7 @@ export function DesktopLayout() {
   const { channelId } = useChatTarget();
 
   return (
-    <div className="flex h-screen-dvh w-full overflow-hidden bg-base-tertiary">
+    <div className="flex h-screen-dvh w-full overflow-hidden bg-surface-tertiary">
       <ServerRail />
       <ChannelSidebar />
       <ChatArea />

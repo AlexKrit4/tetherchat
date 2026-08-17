@@ -32,7 +32,7 @@ export function PinnedMessagesPanel() {
       ) : pins && pins.length > 0 ? (
         <ul className="flex flex-col gap-3">
           {pins.map((message) => (
-            <li key={message.id} className="rounded-lg bg-base-secondary p-3">
+            <li key={message.id} className="rounded-lg bg-surface-secondary p-3">
               <div className="flex items-center gap-2">
                 <Avatar user={message.author} size={24} />
                 <span className="text-base font-medium text-text-heading">

@@ -38,7 +38,7 @@ export function AccountSettings() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="rounded-lg bg-base-secondary p-4">
+      <div className="rounded-lg bg-surface-secondary p-4">
         <p className="text-xs font-bold uppercase tracking-[0.02em] text-text-muted">Email</p>
         <p className="mt-1 flex flex-wrap items-center gap-2 text-base text-text">
           {user.email}

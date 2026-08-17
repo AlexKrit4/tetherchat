@@ -57,7 +57,7 @@ export function InviteDialog({ server, open, onClose }: InviteDialogProps) {
       width="md"
     >
       <div className="flex flex-col gap-3">
-        <div className="flex items-center gap-2 rounded-lg bg-base-tertiary p-2">
+        <div className="flex items-center gap-2 rounded-lg bg-surface-tertiary p-2">
           <input
             readOnly
             value={link}

@@ -17,7 +17,7 @@ export function UpdatePrompt() {
   if (!needRefresh) return null;
 
   return (
-    <div className="fixed inset-x-4 bottom-[calc(env(safe-area-inset-bottom,0px)+16px)] z-[96] flex items-center gap-3 rounded-lg bg-base-floating p-3 shadow-floating md:left-auto md:right-6 md:w-[360px]">
+    <div className="fixed inset-x-4 bottom-[calc(env(safe-area-inset-bottom,0px)+16px)] z-[96] flex items-center gap-3 rounded-lg bg-surface-floating p-3 shadow-floating md:left-auto md:right-6 md:w-[360px]">
       <Download size={18} className="shrink-0 text-brand" aria-hidden />
       <p className="min-w-0 flex-1 text-base text-text">A new version of TetherChat is ready.</p>
       <Button size="sm" onClick={() => void updateServiceWorker(true)}>

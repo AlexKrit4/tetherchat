@@ -67,7 +67,7 @@ export function UserProfileDialog({ userId, open, onClose }: UserProfileDialogPr
             />
           </div>
 
-          <div className="mt-3 rounded-lg bg-base-tertiary p-3">
+          <div className="mt-3 rounded-lg bg-surface-tertiary p-3">
             <p className="text-xl font-bold text-text-heading">
               {member?.nickname ?? user.displayName ?? user.username}
             </p>
@@ -97,7 +97,7 @@ export function UserProfileDialog({ userId, open, onClose }: UserProfileDialogPr
                   {roles.map((role) => (
                     <span
                       key={role.id}
-                      className="flex items-center gap-1.5 rounded bg-base-secondary px-2 py-1 text-sm text-text"
+                      className="flex items-center gap-1.5 rounded bg-surface-secondary px-2 py-1 text-sm text-text"
                     >
                       <span
                         aria-hidden
@@ -137,7 +137,7 @@ export function UserProfileDialog({ userId, open, onClose }: UserProfileDialogPr
                 }
               >
                 <MessageSquare size={16} aria-hidden />
-                Send message
+                Send a direct message
               </Button>
             ) : null}
           </div>

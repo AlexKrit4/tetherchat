@@ -132,6 +132,8 @@ export function MessageList() {
         data={entries}
         firstItemIndex={VIRTUOSO_START_INDEX - entries.length}
         initialTopMostItemIndex={entries.length - 1}
+        // Short histories rest against the composer instead of floating at the top.
+        alignToBottom
         followOutput={(isAtBottom) => (isAtBottom ? 'smooth' : false)}
         atBottomStateChange={setAtBottom}
         atBottomThreshold={80}
@@ -217,7 +219,7 @@ export function MessageList() {
           type="button"
           onClick={jumpToBottom}
           className={cn(
-            'absolute right-4 flex items-center gap-2 rounded-full bg-base-floating px-3 py-2',
+            'absolute right-4 flex items-center gap-2 rounded-full bg-surface-floating px-3 py-2',
             'text-sm font-medium text-text-heading shadow-floating',
             isMobile ? 'bottom-3' : 'bottom-4',
           )}
@@ -263,7 +265,7 @@ function DayDivider({ label }: { label: string }) {
   return (
     <div className="relative mx-4 my-4 flex items-center justify-center" aria-hidden>
       <span className="absolute inset-x-0 top-1/2 h-px bg-divider" />
-      <span className="relative bg-base px-2 text-2xs font-semibold text-text-muted">{label}</span>
+      <span className="relative bg-surface px-2 text-2xs font-semibold text-text-muted">{label}</span>
     </div>
   );
 }

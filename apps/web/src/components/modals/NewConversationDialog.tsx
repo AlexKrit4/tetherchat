@@ -83,7 +83,7 @@ export function NewConversationDialog({ open, onClose }: { open: boolean; onClos
                 <button
                   type="button"
                   onClick={() => setSelected((current) => current.filter((entry) => entry.id !== user.id))}
-                  className="flex min-h-8 items-center gap-1.5 rounded bg-base-tertiary px-2 text-sm text-text"
+                  className="flex min-h-8 items-center gap-1.5 rounded bg-surface-tertiary px-2 text-sm text-text"
                 >
                   {user.displayName ?? user.username}
                   <X size={14} aria-hidden />
@@ -141,7 +141,7 @@ export function NewConversationDialog({ open, onClose }: { open: boolean; onClos
                       <span
                         className={cn(
                           'flex h-5 w-5 shrink-0 items-center justify-center rounded',
-                          picked ? 'bg-brand text-white' : 'bg-base-tertiary',
+                          picked ? 'bg-brand text-white' : 'bg-surface-tertiary',
                         )}
                       >
                         {picked ? <Check size={14} aria-hidden /> : null}

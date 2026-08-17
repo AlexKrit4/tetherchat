@@ -45,7 +45,7 @@ export function BottomSheet({ open, onClose, title, children, full, className }:
           <motion.button
             type="button"
             aria-label="Close"
-            className="absolute inset-0 bg-base-overlay"
+            className="absolute inset-0 bg-surface-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -56,7 +56,7 @@ export function BottomSheet({ open, onClose, title, children, full, className }:
           <motion.div
             ref={sheetRef}
             className={cn(
-              'relative z-10 w-full rounded-t-2xl bg-base pb-safe shadow-sheet',
+              'relative z-10 w-full rounded-t-2xl bg-surface pb-safe shadow-sheet',
               full ? 'h-[90dvh]' : 'max-h-[90dvh]',
               className,
             )}

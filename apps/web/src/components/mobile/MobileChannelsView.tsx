@@ -36,7 +36,7 @@ export function MobileChannelsView() {
   const isOwner = server?.ownerId === currentUserId;
 
   return (
-    <div className="flex h-full flex-col bg-base-secondary">
+    <div className="flex h-full flex-col bg-surface-secondary">
       <MobileHeader
         title={server?.name ?? 'Loading…'}
         subtitle={server ? `${server.memberCount} members` : undefined}

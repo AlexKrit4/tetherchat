@@ -40,7 +40,7 @@ export function Toaster() {
               exit={{ opacity: 0, y: 8 }}
               transition={{ duration: 0.18 }}
               role="status"
-              className="pointer-events-auto flex items-start gap-3 rounded-lg bg-base-floating px-3 py-3 shadow-floating"
+              className="pointer-events-auto flex items-start gap-3 rounded-lg bg-surface-floating px-3 py-3 shadow-floating"
             >
               <Icon size={18} className={cn('mt-0.5 shrink-0', tones[toast.kind])} aria-hidden />
               <p className="min-w-0 flex-1 text-base text-text">{toast.message}</p>

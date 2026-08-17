@@ -95,6 +95,7 @@ export async function channelRoutes(app: FastifyInstance) {
         content: z.string().max(LIMITS.messageContent.max).default(''),
         replyToId: z.string().nullable().optional(),
         attachmentIds: z.array(z.string()).max(LIMITS.attachmentsPerMessage).optional(),
+        nonce: z.string().max(64).optional(),
       })
       .parse(request.body);
 
@@ -104,6 +105,7 @@ export async function channelRoutes(app: FastifyInstance) {
       content: body.content,
       replyToId: body.replyToId ?? null,
       attachmentIds: body.attachmentIds,
+      nonce: body.nonce,
     });
 
     reply.status(201).send(message);

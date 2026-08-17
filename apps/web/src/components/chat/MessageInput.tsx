@@ -164,11 +164,11 @@ export function MessageInput() {
       {replyTo ? <ReplyBar message={replyTo} onCancel={() => setReplyDraft(channelId, null)} /> : null}
 
       {pending.length > 0 ? (
-        <div className="mb-1 flex flex-wrap gap-2 rounded-t-lg bg-base-input p-2">
+        <div className="mb-1 flex flex-wrap gap-2 rounded-t-lg bg-surface-input p-2">
           {pending.map((attachment) => (
             <div
               key={attachment.id}
-              className="relative flex w-[120px] flex-col gap-1 rounded bg-base-secondary p-2"
+              className="relative flex w-[120px] flex-col gap-1 rounded bg-surface-secondary p-2"
             >
               {attachment.contentType.startsWith('image/') ? (
                 <img
@@ -187,7 +187,7 @@ export function MessageInput() {
                 onClick={() =>
                   setPending((current) => current.filter((item) => item.id !== attachment.id))
                 }
-                className="absolute -right-1.5 -top-1.5 rounded-full bg-base-floating text-text-muted hover:text-danger"
+                className="absolute -right-1.5 -top-1.5 rounded-full bg-surface-floating text-text-muted hover:text-danger"
               >
                 <CircleX size={18} aria-hidden />
               </button>
@@ -208,7 +208,7 @@ export function MessageInput() {
 
       <div
         className={cn(
-          'flex items-end gap-1 rounded-lg bg-base-input',
+          'flex items-end gap-1 rounded-lg bg-surface-input',
           isMobile ? 'px-1 py-1' : 'px-4 py-0.5',
         )}
         onDragOver={(event) => event.preventDefault()}
@@ -317,7 +317,7 @@ export function MessageInput() {
 
 function ReplyBar({ message, onCancel }: { message: Message; onCancel: () => void }) {
   return (
-    <div className="flex items-center gap-2 rounded-t-lg bg-base-secondary px-3 py-1.5 text-sm text-text-muted">
+    <div className="flex items-center gap-2 rounded-t-lg bg-surface-secondary px-3 py-1.5 text-sm text-text-muted">
       <Avatar user={message.author} size={18} />
       <span className="shrink-0">Replying to</span>
       <span className="truncate font-medium text-text-subheading">

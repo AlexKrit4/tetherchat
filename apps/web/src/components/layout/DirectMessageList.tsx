@@ -65,13 +65,13 @@ export function DirectMessageList({
                 )}
               >
                 {conversation.isGroup ? (
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-base-tertiary text-text-subheading">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-tertiary text-text-subheading">
                     <Users size={16} aria-hidden />
                   </span>
                 ) : others[0] ? (
                   <Avatar user={others[0]} size={32} showStatus ringColor="var(--bg-secondary)" />
                 ) : (
-                  <span className="h-8 w-8 shrink-0 rounded-full bg-base-tertiary" />
+                  <span className="h-8 w-8 shrink-0 rounded-full bg-surface-tertiary" />
                 )}
 
                 <span className="flex min-w-0 flex-1 flex-col">

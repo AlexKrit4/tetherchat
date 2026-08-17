@@ -17,8 +17,8 @@ export function AuthLayout({
   footer?: ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen-dvh flex-col items-center justify-center bg-base-tertiary px-safe pb-safe pt-safe md:p-6">
-      <div className="flex w-full max-w-[480px] flex-col gap-6 bg-base p-6 md:rounded-lg md:p-8 md:shadow-floating">
+    <div className="flex min-h-screen-dvh flex-col items-center justify-center bg-surface-tertiary px-safe pb-safe pt-safe md:p-6">
+      <div className="flex w-full max-w-[480px] flex-col gap-6 bg-surface p-6 md:rounded-lg md:p-8 md:shadow-floating">
         <div className="flex flex-col items-center gap-3 text-center">
           <TetherWordmark />
           <div>

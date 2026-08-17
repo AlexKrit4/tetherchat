@@ -24,7 +24,7 @@ export function MobileSearchView() {
   const { data: results, isFetching } = useMessageSearch(channelId, debounced, isDm);
 
   return (
-    <div className="flex h-full flex-col bg-base">
+    <div className="flex h-full flex-col bg-surface">
       <MobileHeader title="Search" subtitle={isDm ? title : `#${title}`} onBack={popMobileView} />
 
       <div className="shrink-0 px-4 pb-3 pt-1">
@@ -34,7 +34,7 @@ export function MobileSearchView() {
           onChange={(event) => setTerm(event.target.value)}
           placeholder="Search messages…"
           aria-label="Search messages"
-          className="h-12 w-full rounded-lg bg-base-tertiary px-3 text-base text-text outline-none placeholder:text-text-faint focus:shadow-[0_0_0_2px_var(--brand)]"
+          className="h-12 w-full rounded-lg bg-surface-tertiary px-3 text-base text-text outline-none placeholder:text-text-faint focus:shadow-[0_0_0_2px_var(--brand)]"
         />
       </div>
 
@@ -51,7 +51,7 @@ export function MobileSearchView() {
         ) : results && results.length > 0 ? (
           <ul className="flex flex-col gap-2 pb-6">
             {results.map((message) => (
-              <li key={message.id} className="rounded-lg bg-base-secondary p-3">
+              <li key={message.id} className="rounded-lg bg-surface-secondary p-3">
                 <div className="flex items-center gap-2">
                   <Avatar user={message.author} size={24} />
                   <span className="text-base font-medium text-text-heading">

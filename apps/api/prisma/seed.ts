@@ -6,6 +6,7 @@
  */
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import '../src/loadEnv.js';
 import {
   ALL_PERMISSIONS,
   DEFAULT_PERMISSIONS,

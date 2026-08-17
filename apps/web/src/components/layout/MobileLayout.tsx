@@ -21,14 +21,18 @@ export function MobileLayout() {
   const mobileView = useUiStore((state) => state.mobileView);
   const setMobileView = useUiStore((state) => state.setMobileView);
   const popMobileView = useUiStore((state) => state.popMobileView);
-  const { channelId, serverId } = useChatTarget();
+  const { channelId, serverId, isDm } = useChatTarget();
 
-  // Landing on a URL without a channel should show the picker, not empty chat.
+  // Landing on a URL without a channel shows the matching picker, not empty chat.
+  // "@me" is a route marker rather than a server, so it resolves to the DM list.
   useEffect(() => {
-    if (!channelId && (mobileView === 'chat' || mobileView === 'members')) {
-      setMobileView(serverId ? 'channels' : 'servers');
-    }
-  }, [channelId, mobileView, serverId, setMobileView]);
+    if (channelId) return;
+    const needsChannel: MobileView[] = ['chat', 'members', 'search'];
+    if (!needsChannel.includes(mobileView) && !(isDm && mobileView === 'channels')) return;
+
+    const fallback: MobileView = isDm ? 'dms' : serverId ? 'channels' : 'servers';
+    if (fallback !== mobileView) setMobileView(fallback);
+  }, [channelId, isDm, mobileView, serverId, setMobileView]);
 
   useSwipeBack(popMobileView, mobileView !== 'servers');
 
@@ -46,7 +50,7 @@ export function MobileLayout() {
   }, [popMobileView]);
 
   return (
-    <div className="relative flex h-screen-dvh w-full flex-col overflow-hidden bg-base-tertiary px-safe pt-safe">
+    <div className="relative flex h-screen-dvh w-full flex-col overflow-hidden bg-surface-tertiary px-safe pt-safe">
       <AnimatePresence initial={false} mode="popLayout">
         <motion.div
           key={mobileView}

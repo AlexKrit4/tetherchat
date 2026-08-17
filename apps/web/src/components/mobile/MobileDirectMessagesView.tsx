@@ -18,7 +18,7 @@ export function MobileDirectMessagesView() {
   const [newOpen, setNewOpen] = useState(false);
 
   return (
-    <div className="flex h-full flex-col bg-base-secondary">
+    <div className="flex h-full flex-col bg-surface-secondary">
       <MobileHeader
         title="Direct Messages"
         onBack={() => setMobileView('servers')}

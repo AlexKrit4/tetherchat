@@ -78,7 +78,7 @@ export function Tooltip({ content, placement = 'top', children, delay = 120 }: T
               style={{ top: position.top, left: position.left, transform: translate[placement] }}
               className={cn(
                 'pointer-events-none fixed z-[100] max-w-[240px] animate-fade-in',
-                'rounded bg-base-floating px-2 py-1.5 text-sm font-medium text-text-heading shadow-floating',
+                'rounded bg-surface-floating px-2 py-1.5 text-sm font-medium text-text-heading shadow-floating',
               )}
             >
               {content}

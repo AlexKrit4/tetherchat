@@ -125,7 +125,7 @@ export function MentionAutocomplete({
   if (results.length === 0) return null;
 
   return (
-    <div className="absolute bottom-full left-0 right-0 z-20 mb-2 overflow-hidden rounded-lg bg-base-floating shadow-floating">
+    <div className="absolute bottom-full left-0 right-0 z-20 mb-2 overflow-hidden rounded-lg bg-surface-floating shadow-floating">
       <p className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
         {query.kind === 'user' ? 'Members' : 'Channels'}
       </p>

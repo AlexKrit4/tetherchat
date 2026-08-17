@@ -29,7 +29,7 @@ export function MobileServersView() {
   const [joinOpen, setJoinOpen] = useState(false);
 
   return (
-    <div className="flex h-full flex-col bg-base-tertiary">
+    <div className="flex h-full flex-col bg-surface-tertiary">
       <MobileHeader
         title={
           <span className="flex items-center gap-2">
@@ -109,7 +109,11 @@ function ServerRow({ server, onOpen }: { server: ServerSummary; onOpen: () => vo
       onClick={onOpen}
       className="flex min-h-14 w-full items-center gap-3 px-4 py-2 text-left active:bg-surface-hover"
     >
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-base-secondary text-base font-semibold text-text">
+      {/* The icon only repeats the name, so it stays out of the accessible name. */}
+      <span
+        aria-hidden
+        className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-surface-secondary text-base font-semibold text-text"
+      >
         {server.iconUrl ? (
           <img src={server.iconUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
         ) : (
@@ -126,7 +130,9 @@ function ServerRow({ server, onOpen }: { server: ServerSummary; onOpen: () => vo
         >
           {server.name}
         </span>
-        <span className="truncate text-xs text-text-muted">{server.memberCount} members</span>
+        <span aria-hidden className="truncate text-xs text-text-muted">
+          {server.memberCount} members
+        </span>
       </span>
 
       <MentionBadge count={mentions} />
@@ -150,7 +156,7 @@ function ActionRow({
       onClick={onSelect}
       className="flex min-h-14 w-full items-center gap-3 px-4 text-left active:bg-surface-hover"
     >
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-base-secondary text-success">
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-surface-secondary text-success">
         <Icon size={20} aria-hidden />
       </span>
       <span className="text-base font-medium text-success">{label}</span>

@@ -36,10 +36,10 @@ export function ChannelSidebar({ className }: { className?: string }) {
   const isOwner = server?.ownerId === currentUserId;
 
   return (
-    <div className={cn('flex h-full w-sidebar shrink-0 flex-col bg-base-secondary', className)}>
+    <div className={cn('flex h-full w-sidebar shrink-0 flex-col bg-surface-secondary', className)}>
       {isDm ? (
         <header className="flex h-header shrink-0 items-center px-2 shadow-elevated">
-          <div className="flex h-7 w-full items-center rounded bg-base-tertiary px-2 text-sm text-text-muted">
+          <div className="flex h-7 w-full items-center rounded bg-surface-tertiary px-2 text-sm text-text-muted">
             Find or start a conversation
           </div>
         </header>

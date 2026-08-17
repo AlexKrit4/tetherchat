@@ -83,7 +83,7 @@ export function ContextMenu({
       ref={ref}
       role="menu"
       style={{ top: position.top, left: position.left, width: MENU_WIDTH }}
-      className="fixed z-[90] animate-fade-in rounded bg-base-floating p-2 shadow-floating"
+      className="fixed z-[90] animate-fade-in rounded bg-surface-floating p-2 shadow-floating"
     >
       {state.items.map((item) => (
         <div key={item.id}>

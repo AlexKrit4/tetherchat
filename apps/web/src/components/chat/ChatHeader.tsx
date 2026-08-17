@@ -1,7 +1,7 @@
 import { ArrowLeft, AtSign, Bell, Hash, Pin, Search, Users } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { useChatTarget } from '@/hooks/useChatTarget';
-import { useIsMobile } from '@/hooks/useMediaQuery';
+import { useIsDesktop, useIsMobile } from '@/hooks/useMediaQuery';
 import { Avatar } from '@/components/ui/Avatar';
 import { IconButton } from '@/components/ui/IconButton';
 import { useUiStore } from '@/stores/uiStore';
@@ -16,19 +16,23 @@ export function ChatHeader() {
   const { title, topic, isDm, conversation } = useChatTarget();
   const currentUserId = useAuthStore((state) => state.user?.id);
 
-  const membersOpen = useUiStore((state) => state.membersOpen);
+  const isDesktop = useIsDesktop();
+  const membersColumnOpen = useUiStore((state) => state.membersOpen);
+  const membersOverlayOpen = useUiStore((state) => state.membersOverlayOpen);
   const toggleMembers = useUiStore((state) => state.toggleMembers);
+  const toggleMembersOverlay = useUiStore((state) => state.toggleMembersOverlay);
   const setPinsOpen = useUiStore((state) => state.setPinsOpen);
   const setSearchOpen = useUiStore((state) => state.setSearchOpen);
   const popMobileView = useUiStore((state) => state.popMobileView);
   const pushMobileView = useUiStore((state) => state.pushMobileView);
 
   const dmPeer = conversation?.members.find((member) => member.id !== currentUserId);
+  const membersVisible = isDesktop ? membersColumnOpen : membersOverlayOpen;
 
   return (
     <header
       className={cn(
-        'flex h-header shrink-0 items-center gap-1 bg-base px-2 shadow-elevated md:px-4',
+        'flex h-header shrink-0 items-center gap-1 bg-surface px-2 shadow-elevated md:px-4',
       )}
     >
       {isMobile ? (
@@ -82,10 +86,14 @@ export function ChatHeader() {
 
         <IconButton
           icon={Users}
-          label={membersOpen ? 'Hide member list' : 'Show member list'}
+          label={membersVisible ? 'Hide member list' : 'Show member list'}
           size={isMobile ? 'lg' : 'md'}
-          active={membersOpen}
-          onClick={() => (isMobile ? pushMobileView('members') : toggleMembers())}
+          active={membersVisible}
+          onClick={() => {
+            if (isMobile) pushMobileView('members');
+            else if (isDesktop) toggleMembers();
+            else toggleMembersOverlay();
+          }}
         />
 
         <IconButton

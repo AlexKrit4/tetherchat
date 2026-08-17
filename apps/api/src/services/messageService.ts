@@ -29,6 +29,11 @@ export interface CreateMessageInput {
   content: string;
   replyToId?: string | null;
   attachmentIds?: string[];
+  /**
+   * Client-generated id echoed back in the broadcast so the sender can replace
+   * its optimistic row instead of rendering the message twice.
+   */
+  nonce?: string;
 }
 
 interface Target {
@@ -173,7 +178,11 @@ export async function createMessage(input: CreateMessageInput): Promise<Message>
     ? await prisma.message.findUniqueOrThrow({ where: { id: created.id }, include: messageInclude })
     : created;
 
-  const payload: Message = { ...toMessage(full, null), serverId: target.serverId };
+  const payload: Message = {
+    ...toMessage(full, null),
+    serverId: target.serverId,
+    ...(input.nonce ? { nonce: input.nonce } : {}),
+  };
 
   if (target.kind === 'channel') {
     emitToChannel(target.id, 'message:new', payload);

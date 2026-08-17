@@ -126,6 +126,10 @@
     height: 100dvh;
   }
 
+  .min-h-screen-dvh {
+    min-height: 100dvh;
+  }
+
   .pt-safe {
     padding-top: var(--safe-top);
   }

@@ -114,7 +114,7 @@ function OverviewTab({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-4">
-        <span className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-base-tertiary text-xl font-semibold text-text">
+        <span className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-surface-tertiary text-xl font-semibold text-text">
           {server.iconUrl ? (
             <img src={server.iconUrl} alt="" className="h-full w-full object-cover" />
           ) : (
@@ -263,7 +263,7 @@ function RolesTab({ server }: { server: ServerDetail }) {
             placeholder="New role"
             aria-label="New role name"
             onChange={(event) => setNewName(event.target.value)}
-            className="h-10 min-w-0 flex-1 rounded bg-base-tertiary px-2 text-base text-text outline-none"
+            className="h-10 min-w-0 flex-1 rounded bg-surface-tertiary px-2 text-base text-text outline-none"
           />
           <Button
             size="sm"
@@ -331,7 +331,7 @@ function RoleEditor({
         onChange={(event) => setName(event.target.value)}
       />
 
-      <div className="flex items-center justify-between gap-3 rounded-lg bg-base-secondary p-3">
+      <div className="flex items-center justify-between gap-3 rounded-lg bg-surface-secondary p-3">
         <div>
           <p className="text-base font-semibold text-text-heading">Show separately</p>
           <p className="text-sm text-text-muted">
@@ -421,7 +421,7 @@ function MembersTab({ server }: { server: ServerDetail }) {
   return (
     <ul className="flex flex-col gap-2">
       {members?.map((member) => (
-        <li key={member.userId} className="rounded-lg bg-base-secondary p-3">
+        <li key={member.userId} className="rounded-lg bg-surface-secondary p-3">
           <div className="flex items-center gap-3">
             <Avatar user={member.user} size={36} showStatus ringColor="var(--bg-secondary)" />
             <div className="min-w-0 flex-1">
@@ -491,7 +491,7 @@ function MembersTab({ server }: { server: ServerDetail }) {
                       'flex min-h-8 items-center gap-1.5 rounded px-2 text-sm transition-colors',
                       active
                         ? 'bg-surface-active text-text-heading'
-                        : 'bg-base-tertiary text-text-muted hover:text-text',
+                        : 'bg-surface-tertiary text-text-muted hover:text-text',
                     )}
                   >
                     <span
@@ -522,7 +522,7 @@ function BansTab({ server }: { server: ServerDetail }) {
   return (
     <ul className="flex flex-col gap-2">
       {bans.map((entry) => (
-        <li key={entry.userId} className="flex items-center gap-3 rounded-lg bg-base-secondary p-3">
+        <li key={entry.userId} className="flex items-center gap-3 rounded-lg bg-surface-secondary p-3">
           <Avatar user={entry.user} size={32} />
           <div className="min-w-0 flex-1">
             <p className="truncate text-base text-text-heading">@{entry.user.username}</p>

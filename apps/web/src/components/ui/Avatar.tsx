@@ -70,8 +70,10 @@ export function Avatar({
       )}
 
       {showStatus ? (
+        // Decorative: presence is conveyed by the member list section headings,
+        // and an aria-label here would leak "offline" into every button name.
         <span
-          aria-label={status}
+          aria-hidden
           className="absolute bottom-0 right-0 rounded-full"
           style={{
             width: dot,

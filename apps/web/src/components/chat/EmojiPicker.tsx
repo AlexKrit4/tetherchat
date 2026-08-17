@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Spinner } from '@/components/ui/Spinner';
@@ -36,6 +36,16 @@ export interface EmojiPickerProps {
  */
 export function EmojiPicker({ open, onClose, onSelect }: EmojiPickerProps) {
   const isMobile = useIsMobile();
+
+  // The sheet handles Escape itself; the floating desktop panel needs its own.
+  useEffect(() => {
+    if (!open || isMobile) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isMobile, onClose, open]);
 
   const picker = (
     <Suspense

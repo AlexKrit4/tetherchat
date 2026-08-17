@@ -121,9 +121,10 @@ export async function attachSocketServer(app: FastifyInstance): Promise<TypedSer
             content: payload.content,
             replyToId: payload.replyToId ?? null,
             attachmentIds: payload.attachmentIds,
+            nonce: payload.nonce,
           });
           clearTyping(payload.channelId, userId, io);
-          ack?.({ ok: true, data: { ...message, nonce: payload.nonce } });
+          ack?.({ ok: true, data: message });
         } catch (error) {
           ack?.(fail(error));
         }

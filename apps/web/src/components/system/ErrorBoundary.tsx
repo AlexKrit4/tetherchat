@@ -23,12 +23,12 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
     if (!error) return this.props.children;
 
     return (
-      <div className="flex h-screen-dvh flex-col items-center justify-center gap-4 bg-base-tertiary px-6 text-center">
+      <div className="flex h-screen-dvh flex-col items-center justify-center gap-4 bg-surface-tertiary px-6 text-center">
         <h1 className="text-2xl font-bold text-text-heading">Something broke</h1>
         <p className="max-w-[420px] text-base text-text-muted">
           TetherChat hit an unexpected error. Reloading usually clears it.
         </p>
-        <pre className="max-w-full overflow-x-auto rounded bg-base-secondary p-3 text-left text-sm text-text-muted">
+        <pre className="max-w-full overflow-x-auto rounded bg-surface-secondary p-3 text-left text-sm text-text-muted">
           {error.message}
         </pre>
         <div className="flex gap-2">

@@ -22,6 +22,8 @@ export function Reactions({ reactions, onToggle, onAdd, disabled }: ReactionsPro
             disabled={disabled}
             onClick={() => onToggle(reaction.emoji)}
             aria-pressed={reaction.me}
+            // Tooltips are hover-only, so the count needs a real label of its own.
+            aria-label={`${reaction.count} reacted with ${reaction.emoji}`}
             className={cn(
               'flex h-7 min-w-[36px] items-center justify-center gap-1 rounded px-1.5 transition-colors',
               reaction.me

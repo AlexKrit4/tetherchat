@@ -52,7 +52,7 @@ export function MessageActionSheet({
                 type="button"
                 aria-label={`React with ${emoji}`}
                 onClick={() => run(() => onReact(message, emoji))}
-                className="flex h-touch w-touch items-center justify-center rounded-full bg-base-secondary text-xl active:bg-surface-hover"
+                className="flex h-touch w-touch items-center justify-center rounded-full bg-surface-secondary text-xl active:bg-surface-hover"
               >
                 {emoji}
               </button>
@@ -61,7 +61,7 @@ export function MessageActionSheet({
               type="button"
               aria-label="More reactions"
               onClick={() => run(() => onOpenEmojiPicker(message))}
-              className="flex h-touch w-touch items-center justify-center rounded-full bg-base-secondary text-text-muted active:bg-surface-hover"
+              className="flex h-touch w-touch items-center justify-center rounded-full bg-surface-secondary text-text-muted active:bg-surface-hover"
             >
               <SmilePlus size={20} aria-hidden />
             </button>
