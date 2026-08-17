@@ -1,7 +1,9 @@
+import { useT } from '@/i18n/useT';
 import { useTypingUsers } from '@/stores/typingStore';
 
 /** Sits in the 24px gutter under the composer, exactly like Discord. */
 export function TypingIndicator({ channelId }: { channelId: string }) {
+  const t = useT();
   const users = useTypingUsers(channelId);
 
   return (
@@ -18,8 +20,10 @@ export function TypingIndicator({ channelId }: { channelId: string }) {
             ))}
           </span>
           <span className="truncate">
-            <strong className="font-semibold">{describe(users.map((user) => user.username))}</strong>{' '}
-            {users.length === 1 ? 'is typing…' : 'are typing…'}
+            <strong className="font-semibold">
+              {describe(users.map((user) => user.username), t)}
+            </strong>{' '}
+            {users.length === 1 ? t('typing.one') : t('typing.many')}
           </span>
         </span>
       ) : null}
@@ -27,9 +31,12 @@ export function TypingIndicator({ channelId }: { channelId: string }) {
   );
 }
 
-function describe(names: string[]): string {
+function describe(
+  names: string[],
+  t: (key: string, vars?: Record<string, string | number>) => string,
+): string {
   if (names.length === 1) return names[0];
-  if (names.length === 2) return `${names[0]} and ${names[1]}`;
-  if (names.length === 3) return `${names[0]}, ${names[1]} and ${names[2]}`;
-  return `${names.length} people`;
+  if (names.length === 2) return t('typing.and', { a: names[0], b: names[1] });
+  if (names.length === 3) return t('typing.three', { a: names[0], b: names[1], c: names[2] });
+  return t('typing.people', { count: names.length });
 }

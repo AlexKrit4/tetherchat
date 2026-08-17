@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react';
+import { useT } from '@/i18n/useT';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Spinner } from '@/components/ui/Spinner';
@@ -35,6 +36,7 @@ export interface EmojiPickerProps {
  * both cases, only the container changes.
  */
 export function EmojiPicker({ open, onClose, onSelect }: EmojiPickerProps) {
+  const t = useT();
   const isMobile = useIsMobile();
 
   // The sheet handles Escape itself; the floating desktop panel needs its own.
@@ -66,7 +68,7 @@ export function EmojiPicker({ open, onClose, onSelect }: EmojiPickerProps) {
 
   if (isMobile) {
     return (
-      <BottomSheet open={open} onClose={onClose} title="Reactions">
+      <BottomSheet open={open} onClose={onClose} title={t('chat.reactions')}>
         <div className="flex justify-center px-2 pb-2">{picker}</div>
       </BottomSheet>
     );
@@ -78,7 +80,7 @@ export function EmojiPicker({ open, onClose, onSelect }: EmojiPickerProps) {
     <>
       <button
         type="button"
-        aria-label="Close emoji picker"
+        aria-label={t('chat.closePicker')}
         className="fixed inset-0 z-40 cursor-default"
         onClick={onClose}
       />

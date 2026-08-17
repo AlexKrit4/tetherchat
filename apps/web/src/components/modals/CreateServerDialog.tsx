@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LIMITS } from '@tetherchat/shared';
 import { errorMessage } from '@/lib/api';
+import { useT } from '@/i18n/useT';
 import { useCreateServer } from '@/hooks/useServers';
 import { AdaptiveDialog } from '@/components/ui/AdaptiveDialog';
 import { Button } from '@/components/ui/Button';
@@ -12,6 +13,7 @@ import { useUiStore } from '@/stores/uiStore';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 
 export function CreateServerDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const t = useT();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const pushMobileView = useUiStore((state) => state.pushMobileView);
@@ -22,7 +24,7 @@ export function CreateServerDialog({ open, onClose }: { open: boolean; onClose: 
   const submit = () => {
     const trimmed = name.trim();
     if (trimmed.length < LIMITS.serverName.min) {
-      setError(`Use at least ${LIMITS.serverName.min} characters`);
+      setError(t('server.nameMin', { min: LIMITS.serverName.min }));
       return;
     }
 
@@ -33,7 +35,7 @@ export function CreateServerDialog({ open, onClose }: { open: boolean; onClose: 
         if (isMobile) pushMobileView('chat');
         setName('');
         onClose();
-        toast.success(`${server.name} is ready`);
+        toast.success(t('server.createReady', { name: server.name }));
       },
       onError: (mutationError) => setError(errorMessage(mutationError)),
     });
@@ -43,26 +45,26 @@ export function CreateServerDialog({ open, onClose }: { open: boolean; onClose: 
     <AdaptiveDialog
       open={open}
       onClose={onClose}
-      title="Create a server"
-      description="Your server is where you and your friends hang out. Make yours and start talking."
+      title={t('server.createTitle')}
+      description={t('server.createDescription')}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button loading={create.isPending} onClick={submit}>
-            Create
+            {t('common.create')}
           </Button>
         </>
       }
     >
       <Input
-        label="Server name"
+        label={t('server.name')}
         autoFocus
         value={name}
         error={error}
         maxLength={LIMITS.serverName.max}
-        placeholder="Friendos"
+        placeholder={t('server.namePlaceholder')}
         onChange={(event) => {
           setName(event.target.value);
           setError(null);
@@ -70,7 +72,7 @@ export function CreateServerDialog({ open, onClose }: { open: boolean; onClose: 
         onKeyDown={(event) => {
           if (event.key === 'Enter') submit();
         }}
-        hint="A #general and #off-topic channel are created for you."
+        hint={t('server.createHint')}
       />
     </AdaptiveDialog>
   );

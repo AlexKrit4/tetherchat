@@ -17,10 +17,12 @@ import { useUiStore } from '@/stores/uiStore';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from '@/stores/toastStore';
 import { errorMessage } from '@/lib/api';
+import { useT } from '@/i18n/useT';
 import { DM_ROUTE } from '@/hooks/useChatTarget';
 
 /** Full-screen channel picker with the user panel pinned to the bottom. */
 export function MobileChannelsView() {
+  const t = useT();
   const navigate = useNavigate();
   const { server, channelId, serverId } = useChatTarget();
   const currentUserId = useAuthStore((state) => state.user?.id);
@@ -38,15 +40,15 @@ export function MobileChannelsView() {
   return (
     <div className="flex h-full flex-col bg-surface-secondary">
       <MobileHeader
-        title={server?.name ?? 'Loading…'}
-        subtitle={server ? `${server.memberCount} members` : undefined}
+        title={server?.name ?? t('common.loading')}
+        subtitle={server ? t('server.membersCount', { count: server.memberCount }) : undefined}
         onBack={() => setMobileView('servers')}
         actions={
           <>
             {server && can(server.permissions, Permission.CREATE_INVITE) ? (
               <IconButton
                 icon={UserPlus}
-                label="Invite people"
+                label={t('nav.invitePeople')}
                 size="lg"
                 showTooltip={false}
                 onClick={() => setInviteOpen(true)}
@@ -54,7 +56,7 @@ export function MobileChannelsView() {
             ) : null}
             <IconButton
               icon={MoreVertical}
-              label="Server options"
+              label={t('server.options')}
               size="lg"
               showTooltip={false}
               onClick={() => setMenuOpen(true)}
@@ -83,7 +85,7 @@ export function MobileChannelsView() {
 
       <BottomSheet open={menuOpen} onClose={() => setMenuOpen(false)} title={server?.name}>
         <SheetAction
-          label="Invite people"
+          label={t('nav.invitePeople')}
           onSelect={() => {
             setMenuOpen(false);
             setInviteOpen(true);
@@ -91,7 +93,7 @@ export function MobileChannelsView() {
           disabled={!server || !can(server.permissions, Permission.CREATE_INVITE)}
         />
         <SheetAction
-          label="Create channel"
+          label={t('nav.createChannel')}
           onSelect={() => {
             setMenuOpen(false);
             setCreateChannelOpen(true);
@@ -99,7 +101,7 @@ export function MobileChannelsView() {
           disabled={!server || !can(server.permissions, Permission.MANAGE_CHANNELS)}
         />
         <SheetAction
-          label="Server settings"
+          label={t('nav.serverSettings')}
           onSelect={() => {
             setMenuOpen(false);
             setSettingsOpen(true);
@@ -107,7 +109,7 @@ export function MobileChannelsView() {
           disabled={!server || !can(server.permissions, Permission.MANAGE_SERVER)}
         />
         <SheetAction
-          label="Leave server"
+          label={t('nav.leaveServer')}
           tone="danger"
           disabled={isOwner || !serverId}
           onSelect={() => {

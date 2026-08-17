@@ -2,6 +2,7 @@ import { memo, useState } from 'react';
 import { CornerUpLeft, Pencil, Pin, Reply, SmilePlus, Trash2 } from 'lucide-react';
 import type { Message, ServerMember } from '@tetherchat/shared';
 import { cn } from '@/lib/cn';
+import { useT } from '@/i18n/useT';
 import { messageTimestamp, shortTime } from '@/lib/time';
 import { useHasHover, useIsMobile } from '@/hooks/useMediaQuery';
 import { useLongPress } from '@/hooks/useLongPress';
@@ -66,6 +67,7 @@ export const MessageGroup = memo(function MessageGroup({
   onOpenProfile,
   onJumpToMessage,
 }: MessageGroupProps) {
+  const t = useT();
   const isMobile = useIsMobile();
   const hasHover = useHasHover();
   const [hovered, setHovered] = useState(false);
@@ -113,10 +115,10 @@ export const MessageGroup = memo(function MessageGroup({
         >
           <CornerUpLeft size={14} className="shrink-0 text-text-faint" aria-hidden />
           <span className="shrink-0 font-medium text-text-subheading">
-            @{message.replyTo.author?.displayName ?? message.replyTo.author?.username ?? 'unknown'}
+            @{message.replyTo.author?.displayName ?? message.replyTo.author?.username ?? t('common.unknown')}
           </span>
           <span className="truncate opacity-80">
-            {message.replyTo.deleted ? 'Original message was deleted' : message.replyTo.content}
+            {message.replyTo.deleted ? t('chat.originalDeleted') : message.replyTo.content}
           </span>
         </button>
       ) : null}
@@ -129,7 +131,7 @@ export const MessageGroup = memo(function MessageGroup({
             // self-start keeps the avatar at the top of a tall group instead of
             // letting the button stretch and centre it.
             className="mt-0.5 shrink-0 self-start"
-            aria-label={`Open ${displayName} profile`}
+            aria-label={t('chat.openProfile', { name: displayName })}
           >
             <Avatar user={message.author} size={avatarSize} />
           </button>
@@ -173,14 +175,14 @@ export const MessageGroup = memo(function MessageGroup({
                   <MessageContent content={message.content} />
                   {message.editedAt ? (
                     <Tooltip content={messageTimestamp(message.editedAt)}>
-                      <span className="text-2xs text-text-faint">(edited)</span>
+                      <span className="text-2xs text-text-faint">{t('chat.edited')}</span>
                     </Tooltip>
                   ) : null}
                   {message.pending ? (
-                    <span className="text-2xs text-text-faint">Sending…</span>
+                    <span className="text-2xs text-text-faint">{t('chat.sending')}</span>
                   ) : null}
                   {message.failed ? (
-                    <span className="text-2xs text-danger">Failed to send</span>
+                    <span className="text-2xs text-danger">{t('chat.failed')}</span>
                   ) : null}
                 </div>
               ) : null}
@@ -203,16 +205,16 @@ export const MessageGroup = memo(function MessageGroup({
       {hasHover && hovered && !editing ? (
         <div className="absolute -top-4 right-4 z-10 flex items-center gap-0.5 rounded bg-surface-secondary p-0.5 shadow-elevated">
           {actions.canReact ? (
-            <IconButton icon={SmilePlus} label="Add reaction" size="sm" onClick={onOpenEmojiPicker} />
+            <IconButton icon={SmilePlus} label={t('chat.addReaction')} size="sm" onClick={onOpenEmojiPicker} />
           ) : null}
-          <IconButton icon={Reply} label="Reply" size="sm" onClick={() => onReply(message)} />
+          <IconButton icon={Reply} label={t('chat.reply')} size="sm" onClick={() => onReply(message)} />
           {actions.canEdit ? (
-            <IconButton icon={Pencil} label="Edit" size="sm" onClick={() => onEdit(message)} />
+            <IconButton icon={Pencil} label={t('chat.edit')} size="sm" onClick={() => onEdit(message)} />
           ) : null}
           {actions.canPin ? (
             <IconButton
               icon={Pin}
-              label={message.pinned ? 'Unpin' : 'Pin'}
+              label={message.pinned ? t('chat.unpin') : t('chat.pin')}
               size="sm"
               active={message.pinned}
               onClick={() => onTogglePin(message)}
@@ -221,7 +223,7 @@ export const MessageGroup = memo(function MessageGroup({
           {actions.canDelete ? (
             <IconButton
               icon={Trash2}
-              label="Delete"
+              label={t('chat.delete')}
               size="sm"
               tone="danger"
               onClick={() => onDelete(message)}

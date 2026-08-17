@@ -5,12 +5,14 @@ import { MemberList } from './MemberList';
 import { ChatArea } from '@/components/chat/ChatArea';
 import { useUiStore } from '@/stores/uiStore';
 import { useChatTarget } from '@/hooks/useChatTarget';
+import { useT } from '@/i18n/useT';
 
 /**
  * 768–1023px: rail, channels and chat stay side by side, but there is no room
  * for a fourth column, so members slide over the chat instead.
  */
 export function TabletLayout() {
+  const t = useT();
   const membersOpen = useUiStore((state) => state.membersOverlayOpen);
   const setMembersOpen = useUiStore((state) => state.setMembersOverlayOpen);
   const { channelId } = useChatTarget();
@@ -26,7 +28,7 @@ export function TabletLayout() {
           <>
             <motion.button
               type="button"
-              aria-label="Close member list"
+              aria-label={t('common.closeMemberList')}
               className="absolute inset-0 z-20 bg-surface-overlay"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}

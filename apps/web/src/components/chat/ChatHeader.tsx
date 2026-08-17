@@ -1,5 +1,6 @@
 import { ArrowLeft, AtSign, Bell, Hash, Pin, Search, Users } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { useT } from '@/i18n/useT';
 import { useChatTarget } from '@/hooks/useChatTarget';
 import { useIsDesktop, useIsMobile } from '@/hooks/useMediaQuery';
 import { Avatar } from '@/components/ui/Avatar';
@@ -12,6 +13,7 @@ import { useAuthStore } from '@/stores/authStore';
  * button, and every action is a 44px touch target.
  */
 export function ChatHeader() {
+  const t = useT();
   const isMobile = useIsMobile();
   const { title, topic, isDm, conversation } = useChatTarget();
   const currentUserId = useAuthStore((state) => state.user?.id);
@@ -38,7 +40,7 @@ export function ChatHeader() {
       {isMobile ? (
         <IconButton
           icon={ArrowLeft}
-          label="Back"
+          label={t('common.back')}
           size="lg"
           showTooltip={false}
           onClick={popMobileView}
@@ -71,7 +73,7 @@ export function ChatHeader() {
         {!isDm ? (
           <IconButton
             icon={Bell}
-            label="Notification settings"
+            label={t('chat.notificationSettings')}
             size={isMobile ? 'lg' : 'md'}
             className="hidden md:inline-flex"
           />
@@ -79,14 +81,14 @@ export function ChatHeader() {
 
         <IconButton
           icon={Pin}
-          label="Pinned messages"
+          label={t('chat.pinned')}
           size={isMobile ? 'lg' : 'md'}
           onClick={() => setPinsOpen(true)}
         />
 
         <IconButton
           icon={Users}
-          label={membersVisible ? 'Hide member list' : 'Show member list'}
+          label={membersVisible ? t('chat.hideMembers') : t('chat.showMembers')}
           size={isMobile ? 'lg' : 'md'}
           active={membersVisible}
           onClick={() => {
@@ -98,7 +100,7 @@ export function ChatHeader() {
 
         <IconButton
           icon={Search}
-          label="Search"
+          label={t('chat.search')}
           size={isMobile ? 'lg' : 'md'}
           onClick={() => (isMobile ? pushMobileView('search') : setSearchOpen(true))}
         />

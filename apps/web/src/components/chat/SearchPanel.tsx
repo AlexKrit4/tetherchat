@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Search } from 'lucide-react';
+import { useT } from '@/i18n/useT';
 import { useChatTarget } from '@/hooks/useChatTarget';
 import { useMessageSearch } from '@/hooks/useMessages';
 import { AdaptiveDialog } from '@/components/ui/AdaptiveDialog';
@@ -12,6 +13,7 @@ import { useUiStore } from '@/stores/uiStore';
 
 /** Ctrl/Cmd+F opens this over the channel; on mobile it becomes a sheet. */
 export function SearchPanel() {
+  const t = useT();
   const open = useUiStore((state) => state.searchOpen);
   const setOpen = useUiStore((state) => state.setSearchOpen);
   const { channelId, isDm, title } = useChatTarget();
@@ -38,15 +40,15 @@ export function SearchPanel() {
     <AdaptiveDialog
       open={open}
       onClose={() => setOpen(false)}
-      title={isDm ? `Search ${title}` : `Search #${title}`}
+      title={isDm ? t('chat.searchTitleDm', { name: title }) : t('chat.searchTitleChannel', { name: title })}
       width="md"
     >
       <Input
         autoFocus
         value={term}
         onChange={(event) => setTerm(event.target.value)}
-        placeholder="Search messages…"
-        aria-label="Search messages"
+        placeholder={t('chat.searchMessages')}
+        aria-label={t('chat.searchMessages')}
       />
 
       <div className="mt-3">
@@ -57,7 +59,7 @@ export function SearchPanel() {
         ) : debounced.trim().length < 2 ? (
           <div className="flex flex-col items-center gap-2 py-8 text-center">
             <Search size={30} className="text-text-faint" aria-hidden />
-            <p className="text-base text-text-muted">Type at least two characters to search.</p>
+            <p className="text-base text-text-muted">{t('chat.searchHint')}</p>
           </div>
         ) : results && results.length > 0 ? (
           <ul className="flex flex-col gap-2">
@@ -79,7 +81,7 @@ export function SearchPanel() {
             ))}
           </ul>
         ) : (
-          <p className="py-8 text-center text-base text-text-muted">No messages matched.</p>
+          <p className="py-8 text-center text-base text-text-muted">{t('chat.searchEmpty')}</p>
         )}
       </div>
     </AdaptiveDialog>

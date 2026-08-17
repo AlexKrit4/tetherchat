@@ -1,39 +1,39 @@
 import dayjs from 'dayjs';
 import calendar from 'dayjs/plugin/calendar';
 import relativeTime from 'dayjs/plugin/relativeTime';
+import { getLocale, t } from '@/i18n';
 
 dayjs.extend(calendar);
 dayjs.extend(relativeTime);
 
-/** "Today at 2:13 PM" — the timestamp format shown next to a message author. */
+/** Timestamp next to a message author. */
 export function messageTimestamp(iso: string): string {
+  const locale = getLocale();
   return dayjs(iso).calendar(null, {
-    sameDay: '[Today at] h:mm A',
-    lastDay: '[Yesterday at] h:mm A',
-    lastWeek: 'MM/DD/YYYY h:mm A',
-    sameElse: 'MM/DD/YYYY h:mm A',
+    sameDay: t('time.todayAt'),
+    lastDay: t('time.yesterdayAt'),
+    lastWeek: locale === 'ru' ? 'D MMMM YYYY, HH:mm' : 'MM/DD/YYYY h:mm A',
+    sameElse: locale === 'ru' ? 'D MMMM YYYY, HH:mm' : 'MM/DD/YYYY h:mm A',
   });
 }
 
-/** Compact form used on grouped messages when hovered. */
 export function shortTime(iso: string): string {
-  return dayjs(iso).format('h:mm A');
+  return dayjs(iso).format(getLocale() === 'ru' ? 'HH:mm' : 'h:mm A');
 }
 
-/** Divider label between days of history. */
 export function dayLabel(dayKey: string): string {
   const day = dayjs(dayKey);
-  if (day.isSame(dayjs(), 'day')) return 'Today';
-  if (day.isSame(dayjs().subtract(1, 'day'), 'day')) return 'Yesterday';
-  return day.format('MMMM D, YYYY');
+  if (day.isSame(dayjs(), 'day')) return t('time.today');
+  if (day.isSame(dayjs().subtract(1, 'day'), 'day')) return t('time.yesterday');
+  return day.format(getLocale() === 'ru' ? 'D MMMM YYYY' : 'MMMM D, YYYY');
 }
 
 export function fullTimestamp(iso: string): string {
-  return dayjs(iso).format('dddd, MMMM D, YYYY h:mm A');
+  return dayjs(iso).format(getLocale() === 'ru' ? 'dddd, D MMMM YYYY, HH:mm' : 'dddd, MMMM D, YYYY h:mm A');
 }
 
 export function memberSince(iso: string): string {
-  return dayjs(iso).format('MMM D, YYYY');
+  return dayjs(iso).format(getLocale() === 'ru' ? 'D MMMM YYYY' : 'MMM D, YYYY');
 }
 
 export function relativeFromNow(iso: string): string {

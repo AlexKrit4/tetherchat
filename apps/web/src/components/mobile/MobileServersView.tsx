@@ -15,6 +15,7 @@ import { JoinServerDialog } from '@/components/modals/JoinServerDialog';
 import { MobileHeader } from './MobileHeader';
 import { serverInitials } from '@/components/layout/ServerRail';
 import { useUiStore } from '@/stores/uiStore';
+import { useT } from '@/i18n/useT';
 import { TetherLogo } from '@/components/brand/TetherLogo';
 
 /**
@@ -22,6 +23,7 @@ import { TetherLogo } from '@/components/brand/TetherLogo';
  * narrow icon rail — 72px of icons is a desktop affordance.
  */
 export function MobileServersView() {
+  const t = useT();
   const navigate = useNavigate();
   const { data: servers, isLoading } = useServers();
   const pushMobileView = useUiStore((state) => state.pushMobileView);
@@ -40,7 +42,7 @@ export function MobileServersView() {
         actions={
           <IconButton
             icon={Settings}
-            label="Settings"
+            label={t('nav.settings')}
             size="lg"
             showTooltip={false}
             onClick={() => pushMobileView('settings')}
@@ -60,7 +62,7 @@ export function MobileServersView() {
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand text-white">
             <MessageSquare size={20} aria-hidden />
           </span>
-          <span className="flex-1 text-base font-medium text-text-heading">Direct Messages</span>
+          <span className="flex-1 text-base font-medium text-text-heading">{t('nav.directMessages')}</span>
           <ChevronRight size={18} className="text-text-muted" aria-hidden />
         </button>
 
@@ -86,8 +88,8 @@ export function MobileServersView() {
 
         <div className="mx-4 my-1 h-px bg-divider" aria-hidden />
 
-        <ActionRow icon={Plus} label="Add a Server" onSelect={() => setCreateOpen(true)} />
-        <ActionRow icon={Compass} label="Join with an Invite" onSelect={() => setJoinOpen(true)} />
+        <ActionRow icon={Plus} label={t('nav.addServer')} onSelect={() => setCreateOpen(true)} />
+        <ActionRow icon={Compass} label={t('nav.joinInvite')} onSelect={() => setJoinOpen(true)} />
       </div>
 
       <CreateServerDialog open={createOpen} onClose={() => setCreateOpen(false)} />
@@ -97,6 +99,7 @@ export function MobileServersView() {
 }
 
 function ServerRow({ server, onOpen }: { server: ServerSummary; onOpen: () => void }) {
+  const t = useT();
   const readStates = useReadStateIndex();
   const channelIndex = useServerChannelIndex();
   const channelIds = useMemo(() => channelIndex[server.id] ?? [], [channelIndex, server.id]);
@@ -131,7 +134,7 @@ function ServerRow({ server, onOpen }: { server: ServerSummary; onOpen: () => vo
           {server.name}
         </span>
         <span aria-hidden className="truncate text-xs text-text-muted">
-          {server.memberCount} members
+          {t('server.membersCount', { count: server.memberCount })}
         </span>
       </span>
 

@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/cn';
+import { useT } from '@/i18n/useT';
 
 export interface BottomSheetProps {
   open: boolean;
@@ -22,6 +23,7 @@ const DRAG_CLOSE_VELOCITY = 500;
  * indicator inset, and can be dismissed by dragging the handle down.
  */
 export function BottomSheet({ open, onClose, title, children, full, className }: BottomSheetProps) {
+  const t = useT();
   const [mounted, setMounted] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
 
@@ -44,7 +46,7 @@ export function BottomSheet({ open, onClose, title, children, full, className }:
         <div className="fixed inset-0 z-50 flex items-end justify-center" role="dialog" aria-modal="true">
           <motion.button
             type="button"
-            aria-label="Close"
+            aria-label={t('common.close')}
             className="absolute inset-0 bg-surface-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

@@ -3,6 +3,7 @@ import { Download, FileText, X } from 'lucide-react';
 import { isAudioMime, isImageMime, isVideoMime } from '@tetherchat/shared';
 import type { Attachment, LinkPreview } from '@tetherchat/shared';
 import { cn } from '@/lib/cn';
+import { useT } from '@/i18n/useT';
 
 const MAX_INLINE_WIDTH = 520;
 const MAX_INLINE_HEIGHT = 350;
@@ -22,6 +23,7 @@ function inlineSize(attachment: Attachment): { width: number; height: number } |
 }
 
 export function Attachments({ attachments }: { attachments: Attachment[] }) {
+  const t = useT();
   const [lightbox, setLightbox] = useState<Attachment | null>(null);
   if (attachments.length === 0) return null;
 
@@ -95,7 +97,7 @@ export function Attachments({ attachments }: { attachments: Attachment[] }) {
           />
           <button
             type="button"
-            aria-label="Close"
+            aria-label={t('common.close')}
             onClick={() => setLightbox(null)}
             className="absolute right-4 top-[calc(env(safe-area-inset-top,0px)+16px)] flex h-touch w-touch items-center justify-center rounded-full bg-surface-floating text-text-heading"
           >

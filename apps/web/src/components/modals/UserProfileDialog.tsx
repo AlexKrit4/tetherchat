@@ -4,6 +4,7 @@ import { MessageSquare } from 'lucide-react';
 import type { PublicUser } from '@tetherchat/shared';
 import { api, errorMessage } from '@/lib/api';
 import { memberSince } from '@/lib/time';
+import { useT } from '@/i18n/useT';
 import { DM_ROUTE, useChatTarget } from '@/hooks/useChatTarget';
 import { useCreateConversation } from '@/hooks/useDms';
 import { useIsMobile } from '@/hooks/useMediaQuery';
@@ -24,6 +25,7 @@ export interface UserProfileDialogProps {
 
 /** Profile card on desktop, full-height sheet on mobile. */
 export function UserProfileDialog({ userId, open, onClose }: UserProfileDialogProps) {
+  const t = useT();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const currentUserId = useAuthStore((state) => state.user?.id);
@@ -81,7 +83,7 @@ export function UserProfileDialog({ userId, open, onClose }: UserProfileDialogPr
               <>
                 <div className="my-3 h-px bg-divider" />
                 <p className="text-xs font-bold uppercase tracking-[0.02em] text-text-subheading">
-                  About me
+                  {t('profile.aboutMe')}
                 </p>
                 <p className="mt-1 whitespace-pre-wrap text-base text-text">{user.bio}</p>
               </>
@@ -91,7 +93,7 @@ export function UserProfileDialog({ userId, open, onClose }: UserProfileDialogPr
               <>
                 <div className="my-3 h-px bg-divider" />
                 <p className="text-xs font-bold uppercase tracking-[0.02em] text-text-subheading">
-                  Roles
+                  {t('profile.roles')}
                 </p>
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
                   {roles.map((role) => (
@@ -113,7 +115,7 @@ export function UserProfileDialog({ userId, open, onClose }: UserProfileDialogPr
 
             <div className="my-3 h-px bg-divider" />
             <p className="text-xs font-bold uppercase tracking-[0.02em] text-text-subheading">
-              Member since
+              {t('profile.memberSince')}
             </p>
             <p className="mt-1 text-base text-text">{memberSince(user.createdAt)}</p>
 
@@ -137,7 +139,7 @@ export function UserProfileDialog({ userId, open, onClose }: UserProfileDialogPr
                 }
               >
                 <MessageSquare size={16} aria-hidden />
-                Send a direct message
+                {t('profile.sendDm')}
               </Button>
             ) : null}
           </div>

@@ -1,4 +1,5 @@
 import { Pin } from 'lucide-react';
+import { useT } from '@/i18n/useT';
 import { useChatTarget } from '@/hooks/useChatTarget';
 import { usePins } from '@/hooks/useMessages';
 import { AdaptiveDialog } from '@/components/ui/AdaptiveDialog';
@@ -9,6 +10,7 @@ import { MessageContent } from './MessageContent';
 import { useUiStore } from '@/stores/uiStore';
 
 export function PinnedMessagesPanel() {
+  const t = useT();
   const open = useUiStore((state) => state.pinsOpen);
   const setOpen = useUiStore((state) => state.setPinsOpen);
   const { channelId, isDm } = useChatTarget();
@@ -18,13 +20,11 @@ export function PinnedMessagesPanel() {
     <AdaptiveDialog
       open={open}
       onClose={() => setOpen(false)}
-      title="Pinned Messages"
+      title={t('chat.pinsTitle')}
       width="md"
     >
       {isDm ? (
-        <p className="py-6 text-center text-base text-text-muted">
-          Pins are available in server channels.
-        </p>
+        <p className="py-6 text-center text-base text-text-muted">{t('chat.pinsDm')}</p>
       ) : isLoading ? (
         <div className="flex justify-center py-8">
           <Spinner />
@@ -49,9 +49,7 @@ export function PinnedMessagesPanel() {
       ) : (
         <div className="flex flex-col items-center gap-2 py-8 text-center">
           <Pin size={32} className="text-text-faint" aria-hidden />
-          <p className="text-base text-text-muted">
-            Nothing pinned yet. Pin a message to keep it handy.
-          </p>
+          <p className="text-base text-text-muted">{t('chat.pinsEmpty')}</p>
         </div>
       )}
     </AdaptiveDialog>

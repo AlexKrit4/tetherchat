@@ -12,12 +12,14 @@ import { Tooltip } from '@/components/ui/Tooltip';
 import { CreateServerDialog } from '@/components/modals/CreateServerDialog';
 import { JoinServerDialog } from '@/components/modals/JoinServerDialog';
 import { TetherLogo } from '@/components/brand/TetherLogo';
+import { useT } from '@/i18n/useT';
 
 /**
  * The 72px column of round server icons. The active server is marked by a white
  * pill on the left edge, and hovering morphs the icon from a squircle to a circle.
  */
 export function ServerRail() {
+  const t = useT();
   const navigate = useNavigate();
   const { serverId } = useParams<{ serverId?: string }>();
   const { data: servers } = useServers();
@@ -26,11 +28,11 @@ export function ServerRail() {
 
   return (
     <nav
-      aria-label="Servers"
+      aria-label={t('nav.servers')}
       className="flex h-full w-rail shrink-0 flex-col items-center gap-2 bg-surface-tertiary pt-3"
     >
       <RailButton
-        label="Direct Messages"
+        label={t('nav.directMessages')}
         active={serverId === DM_ROUTE}
         onClick={() => navigate(`/channels/${DM_ROUTE}`)}
       >
@@ -44,11 +46,11 @@ export function ServerRail() {
           <ServerIcon key={server.id} server={server} active={server.id === serverId} />
         ))}
 
-        <RailButton label="Add a Server" onClick={() => setCreateOpen(true)} tone="accent">
+        <RailButton label={t('nav.addServer')} onClick={() => setCreateOpen(true)} tone="accent">
           <Plus size={24} strokeWidth={2} aria-hidden />
         </RailButton>
 
-        <RailButton label="Join a Server" onClick={() => setJoinOpen(true)} tone="accent">
+        <RailButton label={t('nav.joinServer')} onClick={() => setJoinOpen(true)} tone="accent">
           <Compass size={22} strokeWidth={2} aria-hidden />
         </RailButton>
       </div>

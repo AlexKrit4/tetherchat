@@ -3,34 +3,42 @@ import { LogOut, Moon, MinusCircle, EyeOff, Circle } from 'lucide-react';
 import type { PresenceStatus, SelfUser } from '@tetherchat/shared';
 import { api } from '@/lib/api';
 import { getSocket } from '@/lib/socket';
+import { useT } from '@/i18n/useT';
 import { AdaptiveDialog } from '@/components/ui/AdaptiveDialog';
 import { Avatar } from '@/components/ui/Avatar';
 import { cn } from '@/lib/cn';
 import { useAuthStore } from '@/stores/authStore';
 
-const options: { status: PresenceStatus; label: string; hint?: string; icon: typeof Circle; colour: string }[] = [
-  { status: 'online', label: 'Online', icon: Circle, colour: 'var(--green)' },
-  { status: 'idle', label: 'Idle', icon: Moon, colour: 'var(--yellow)' },
-  {
-    status: 'dnd',
-    label: 'Do Not Disturb',
-    hint: 'No desktop notifications',
-    icon: MinusCircle,
-    colour: 'var(--red)',
-  },
-  {
-    status: 'invisible',
-    label: 'Invisible',
-    hint: 'You appear offline but stay connected',
-    icon: EyeOff,
-    colour: 'var(--grey)',
-  },
-];
-
 export function StatusMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const t = useT();
   const user = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
   const logout = useAuthStore((state) => state.logout);
+
+  const options: {
+    status: PresenceStatus;
+    label: string;
+    hint?: string;
+    icon: typeof Circle;
+    colour: string;
+  }[] = [
+    { status: 'online', label: t('status.online'), icon: Circle, colour: 'var(--green)' },
+    { status: 'idle', label: t('status.idle'), icon: Moon, colour: 'var(--yellow)' },
+    {
+      status: 'dnd',
+      label: t('status.dnd'),
+      hint: t('status.dndHint'),
+      icon: MinusCircle,
+      colour: 'var(--red)',
+    },
+    {
+      status: 'invisible',
+      label: t('status.invisible'),
+      hint: t('status.invisibleHint'),
+      icon: EyeOff,
+      colour: 'var(--grey)',
+    },
+  ];
 
   const save = useMutation({
     mutationFn: (status: PresenceStatus) => api.patch<SelfUser>('/api/users/@me', { status }),
@@ -102,7 +110,7 @@ export function StatusMenu({ open, onClose }: { open: boolean; onClose: () => vo
           className="flex min-h-12 items-center gap-3 rounded px-2 text-left text-danger hover:bg-surface-hover md:min-h-10"
         >
           <LogOut size={16} aria-hidden />
-          Log out
+          {t('status.logOut')}
         </button>
       </div>
     </AdaptiveDialog>

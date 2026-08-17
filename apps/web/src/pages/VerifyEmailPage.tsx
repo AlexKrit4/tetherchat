@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api, errorMessage } from '@/lib/api';
+import { useT } from '@/i18n/useT';
 import { AuthLayout } from './AuthLayout';
 import { Spinner } from '@/components/ui/Spinner';
 
 export function VerifyEmailPage() {
+  const t = useT();
   const [params] = useSearchParams();
   const token = params.get('token') ?? '';
   const [state, setState] = useState<'working' | 'done' | 'failed'>('working');
@@ -13,7 +15,7 @@ export function VerifyEmailPage() {
   useEffect(() => {
     if (!token) {
       setState('failed');
-      setMessage('This link is missing its token.');
+      setMessage(t('auth.missingToken'));
       return;
     }
 
@@ -24,17 +26,21 @@ export function VerifyEmailPage() {
         setState('failed');
         setMessage(errorMessage(error));
       });
-  }, [token]);
+  }, [token, t]);
 
   return (
     <AuthLayout
       title={
-        state === 'working' ? 'Verifying…' : state === 'done' ? 'Email confirmed' : 'Verification failed'
+        state === 'working'
+          ? t('auth.verifyWorking')
+          : state === 'done'
+            ? t('auth.verifyDone')
+            : t('auth.verifyFailed')
       }
       subtitle={state === 'failed' ? message : undefined}
       footer={
         <Link to="/login" className="text-text-link hover:underline">
-          Continue to TetherChat
+          {t('auth.continueToApp')}
         </Link>
       }
     >

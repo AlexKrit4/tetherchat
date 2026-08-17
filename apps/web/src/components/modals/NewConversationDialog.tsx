@@ -5,6 +5,7 @@ import { LIMITS } from '@tetherchat/shared';
 import type { PublicUser } from '@tetherchat/shared';
 import { cn } from '@/lib/cn';
 import { errorMessage } from '@/lib/api';
+import { useT } from '@/i18n/useT';
 import { DM_ROUTE } from '@/hooks/useChatTarget';
 import { useCreateConversation, useUserSearch } from '@/hooks/useDms';
 import { useIsMobile } from '@/hooks/useMediaQuery';
@@ -18,6 +19,7 @@ import { useUiStore } from '@/stores/uiStore';
 
 /** Pick one person for a DM or several for a group conversation. */
 export function NewConversationDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const t = useT();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const pushMobileView = useUiStore((state) => state.pushMobileView);
@@ -62,15 +64,15 @@ export function NewConversationDialog({ open, onClose }: { open: boolean; onClos
     <AdaptiveDialog
       open={open}
       onClose={onClose}
-      title="New conversation"
-      description={`Add up to ${LIMITS.groupDmMembers - 1} people to start a group.`}
+      title={t('dm.newConversation')}
+      description={t('dm.newConversationDescription', { max: LIMITS.groupDmMembers - 1 })}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button loading={create.isPending} disabled={selected.length === 0} onClick={submit}>
-            {selected.length > 1 ? 'Create group' : 'Open conversation'}
+            {selected.length > 1 ? t('dm.createGroup') : t('dm.openConversation')}
           </Button>
         </>
       }
@@ -94,10 +96,10 @@ export function NewConversationDialog({ open, onClose }: { open: boolean; onClos
         ) : null}
 
         <Input
-          label="Find people"
+          label={t('dm.findPeople')}
           autoFocus
           value={term}
-          placeholder="Type a username"
+          placeholder={t('dm.usernamePlaceholder')}
           onChange={(event) => setTerm(event.target.value)}
         />
 
@@ -107,9 +109,7 @@ export function NewConversationDialog({ open, onClose }: { open: boolean; onClos
               <Spinner />
             </div>
           ) : debounced.trim().length < 2 ? (
-            <p className="py-6 text-center text-sm text-text-muted">
-              Type at least two characters to search.
-            </p>
+            <p className="py-6 text-center text-sm text-text-muted">{t('dm.searchHintShort')}</p>
           ) : results && results.length > 0 ? (
             <ul className="flex flex-col gap-0.5">
               {results.map((user) => {
@@ -152,7 +152,7 @@ export function NewConversationDialog({ open, onClose }: { open: boolean; onClos
               })}
             </ul>
           ) : (
-            <p className="py-6 text-center text-sm text-text-muted">Nobody matched that search.</p>
+            <p className="py-6 text-center text-sm text-text-muted">{t('dm.nobodyMatched')}</p>
           )}
         </div>
       </div>

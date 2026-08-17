@@ -19,6 +19,7 @@ import { TypingIndicator } from './TypingIndicator';
 import { useAuthStore } from '@/stores/authStore';
 import { useUiStore } from '@/stores/uiStore';
 import { toast } from '@/stores/toastStore';
+import { useT } from '@/i18n/useT';
 import { formatBytes } from './Attachments';
 
 const TYPING_THROTTLE_MS = 3_000;
@@ -29,6 +30,7 @@ const TYPING_THROTTLE_MS = 3_000;
  * button appears, because on-screen keyboards have no reliable Shift+Enter.
  */
 export function MessageInput() {
+  const t = useT();
   const isMobile = useIsMobile();
   const { channelId, isDm, server, title, serverId } = useChatTarget();
   const user = useAuthStore((state) => state.user);
@@ -98,7 +100,7 @@ export function MessageInput() {
     const content = draft.trim();
     if (content.length === 0 && pending.length === 0) return;
     if (content.length > LIMITS.messageContent.max) {
-      toast.error(`Messages are limited to ${LIMITS.messageContent.max} characters`);
+      toast.error(t('chat.tooLong', { max: LIMITS.messageContent.max }));
       return;
     }
 
@@ -137,23 +139,23 @@ export function MessageInput() {
     const list = Array.from(files).slice(0, LIMITS.attachmentsPerMessage - pending.length);
     for (const file of list) {
       if (file.size > LIMITS.attachmentBytes) {
-        toast.error(`${file.name} is larger than ${formatBytes(LIMITS.attachmentBytes)}`);
+        toast.error(t('chat.fileTooBig', { name: file.name, size: formatBytes(LIMITS.attachmentBytes) }));
         continue;
       }
       try {
         const attachment = await upload.mutateAsync(file);
         setPending((current) => [...current, attachment]);
       } catch (error) {
-        toast.error(errorMessage(error, `Could not upload ${file.name}`));
+        toast.error(errorMessage(error, t('chat.uploadFailed', { name: file.name })));
       }
     }
   };
 
   const placeholder = channelId
     ? isDm
-      ? `Message ${title}`
-      : `Message #${title}`
-    : 'Select a channel';
+      ? t('chat.messageUser', { name: title })
+      : t('chat.messageChannel', { name: title })
+    : t('chat.selectChannel');
 
   const mentionMembers = useMemo(() => members ?? [], [members]);
 
@@ -183,7 +185,7 @@ export function MessageInput() {
               <span className="truncate text-2xs text-text-muted">{attachment.filename}</span>
               <button
                 type="button"
-                aria-label={`Remove ${attachment.filename}`}
+                aria-label={t('chat.removeFile', { name: attachment.filename })}
                 onClick={() =>
                   setPending((current) => current.filter((item) => item.id !== attachment.id))
                 }
@@ -221,7 +223,7 @@ export function MessageInput() {
       >
         <IconButton
           icon={Plus}
-          label="Attach a file"
+          label={t('chat.attach')}
           size={isMobile ? 'lg' : 'md'}
           disabled={!canAttach || pending.length >= LIMITS.attachmentsPerMessage}
           onClick={() => fileInputRef.current?.click()}
@@ -244,7 +246,7 @@ export function MessageInput() {
           rows={1}
           value={draft}
           disabled={!canSend}
-          placeholder={canSend ? placeholder : 'You do not have permission to send messages here'}
+          placeholder={canSend ? placeholder : t('chat.noPermission')}
           inputMode="text"
           enterKeyHint={enterToSend ? 'send' : 'enter'}
           aria-label={placeholder}
@@ -284,7 +286,7 @@ export function MessageInput() {
           <div className="relative">
             <IconButton
               icon={SmilePlus}
-              label="Emoji"
+              label={t('chat.emoji')}
               size={isMobile ? 'lg' : 'md'}
               onClick={() => setEmojiOpen(true)}
             />
@@ -299,7 +301,7 @@ export function MessageInput() {
           {isMobile ? (
             <IconButton
               icon={SendHorizonal}
-              label="Send message"
+              label={t('chat.send')}
               size="lg"
               showTooltip={false}
               disabled={!canSend || (draft.trim().length === 0 && pending.length === 0)}
@@ -316,16 +318,17 @@ export function MessageInput() {
 }
 
 function ReplyBar({ message, onCancel }: { message: Message; onCancel: () => void }) {
+  const t = useT();
   return (
     <div className="flex items-center gap-2 rounded-t-lg bg-surface-secondary px-3 py-1.5 text-sm text-text-muted">
       <Avatar user={message.author} size={18} />
-      <span className="shrink-0">Replying to</span>
+      <span className="shrink-0">{t('chat.replyTo')}</span>
       <span className="truncate font-medium text-text-subheading">
         {message.author.displayName ?? message.author.username}
       </span>
       <button
         type="button"
-        aria-label="Cancel reply"
+        aria-label={t('chat.cancelReply')}
         onClick={onCancel}
         className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded text-text-muted hover:text-text-heading"
       >

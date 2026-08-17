@@ -4,6 +4,7 @@ import type { InvitePreview } from '@tetherchat/shared';
 import { api, errorMessage } from '@/lib/api';
 import { queryKeys } from '@/lib/queryKeys';
 import { useJoinServer } from '@/hooks/useServers';
+import { useT } from '@/i18n/useT';
 import { AuthLayout } from './AuthLayout';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
@@ -13,6 +14,7 @@ import { toast } from '@/stores/toastStore';
 
 /** Landing page for tetherchat.ru/invite/<code>, reachable while signed out. */
 export function InvitePage() {
+  const t = useT();
   const { code = '' } = useParams<{ code: string }>();
   const navigate = useNavigate();
   const status = useAuthStore((state) => state.status);
@@ -27,7 +29,7 @@ export function InvitePage() {
 
   if (isLoading) {
     return (
-      <AuthLayout title="Checking invite…">
+      <AuthLayout title={t('invite.checking')}>
         <div className="flex justify-center py-6">
           <Spinner />
         </div>
@@ -37,9 +39,9 @@ export function InvitePage() {
 
   if (error || !data) {
     return (
-      <AuthLayout title="Invalid invite" subtitle="This invite has expired or never existed.">
+      <AuthLayout title={t('invite.invalid')} subtitle={t('invite.invalidHint')}>
         <Button fullWidth size="lg" onClick={() => navigate('/')}>
-          Go to TetherChat
+          {t('invite.goToApp')}
         </Button>
       </AuthLayout>
     );
@@ -50,13 +52,13 @@ export function InvitePage() {
   return (
     <AuthLayout
       title={data.server.name}
-      subtitle={`${inviterName} invited you to join · ${data.server.memberCount} members`}
+      subtitle={t('invite.invited', { name: inviterName, count: data.server.memberCount })}
       footer={
         status === 'anonymous' ? (
           <>
-            Already have an account?{' '}
+            {t('invite.alreadyHaveAccount')}{' '}
             <Link to="/login" className="text-text-link hover:underline">
-              Log in
+              {t('auth.logIn')}
             </Link>
           </>
         ) : null
@@ -89,7 +91,7 @@ export function InvitePage() {
                   })
             }
           >
-            {data.alreadyMember ? 'Open server' : 'Accept invite'}
+            {data.alreadyMember ? t('invite.openServer') : t('invite.accept')}
           </Button>
         ) : (
           <Button
@@ -97,7 +99,7 @@ export function InvitePage() {
             size="lg"
             onClick={() => navigate('/register', { state: { from: `/invite/${code}` } })}
           >
-            Sign up to join
+            {t('invite.signUpToJoin')}
           </Button>
         )}
       </div>

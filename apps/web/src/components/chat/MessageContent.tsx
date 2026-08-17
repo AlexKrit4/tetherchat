@@ -4,6 +4,8 @@ import remarkGfm from 'remark-gfm';
 import { tokenizeMentions } from '@tetherchat/shared';
 import type { ServerMember } from '@tetherchat/shared';
 import { cn } from '@/lib/cn';
+import { t } from '@/i18n';
+import { useT } from '@/i18n/useT';
 import { useChatTarget } from '@/hooks/useChatTarget';
 import { useMembers } from '@/hooks/useServers';
 import { useNavigate } from 'react-router-dom';
@@ -15,6 +17,7 @@ import { useAuthStore } from '@/stores/authStore';
  * raw HTML stays disabled (react-markdown's default) to keep content inert.
  */
 export function MessageContent({ content, className }: { content: string; className?: string }) {
+  const tr = useT();
   const { server, serverId } = useChatTarget();
   const { data: members } = useMembers(serverId);
   const currentUserId = useAuthStore((state) => state.user?.id);
@@ -63,7 +66,7 @@ export function MessageContent({ content, className }: { content: string; classN
             <MentionChip
               key={index}
               highlighted={token.id === currentUserId}
-              label={`@${name ?? 'unknown'}`}
+              label={`@${name ?? tr('common.unknown')}`}
             />
           );
         }
@@ -73,7 +76,7 @@ export function MessageContent({ content, className }: { content: string; classN
           return (
             <MentionChip
               key={index}
-              label={`#${channel?.name ?? 'unknown'}`}
+              label={`#${channel?.name ?? tr('common.unknown')}`}
               onClick={
                 channel && serverId
                   ? () => navigate(`/channels/${serverId}/${channel.id}`)
@@ -83,7 +86,7 @@ export function MessageContent({ content, className }: { content: string; classN
           );
         }
 
-        return <MentionChip key={index} label="@everyone" highlighted />;
+        return <MentionChip key={index} label={t('chat.everyone')} highlighted />;
       })}
     </div>
   );

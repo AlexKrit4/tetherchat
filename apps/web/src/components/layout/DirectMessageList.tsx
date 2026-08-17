@@ -9,6 +9,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { IconButton } from '@/components/ui/IconButton';
 import { SidebarSkeleton } from '@/components/ui/Skeleton';
 import { NewConversationDialog } from '@/components/modals/NewConversationDialog';
+import { useT } from '@/i18n/useT';
 import { useAuthStore } from '@/stores/authStore';
 
 export interface DirectMessageListProps {
@@ -23,6 +24,7 @@ export function DirectMessageList({
   compact = true,
   onSelect,
 }: DirectMessageListProps) {
+  const t = useT();
   const navigate = useNavigate();
   const currentUserId = useAuthStore((state) => state.user?.id);
   const { data: conversations, isLoading } = useConversations();
@@ -35,9 +37,9 @@ export function DirectMessageList({
     <div className="flex flex-col px-2 pb-4 pt-2">
       <header className="flex items-center justify-between pl-2 pr-1">
         <span className="text-xs font-semibold uppercase tracking-[0.02em] text-text-muted">
-          Direct Messages
+          {t('dm.title')}
         </span>
-        <IconButton icon={Plus} label="New conversation" size="sm" onClick={() => setNewOpen(true)} />
+        <IconButton icon={Plus} label={t('nav.newConversation')} size="sm" onClick={() => setNewOpen(true)} />
       </header>
 
       <ul className="mt-1 flex flex-col gap-0.5">
@@ -82,7 +84,7 @@ export function DirectMessageList({
                   </span>
                   {conversation.isGroup ? (
                     <span className="truncate text-xs text-text-muted">
-                      {conversation.members.length} members
+                      {t('server.membersCount', { count: conversation.members.length })}
                     </span>
                   ) : null}
                 </span>
@@ -91,7 +93,7 @@ export function DirectMessageList({
               {conversation.isGroup ? (
                 <IconButton
                   icon={X}
-                  label="Leave group"
+                  label={t('nav.leaveGroup')}
                   size="sm"
                   className="absolute right-1 top-1/2 hidden -translate-y-1/2 md:inline-flex md:opacity-0 md:group-hover/dm:opacity-100"
                   onClick={() => leave.mutate(conversation.id)}
@@ -102,9 +104,7 @@ export function DirectMessageList({
         })}
 
         {conversations?.length === 0 ? (
-          <li className="px-2 py-6 text-center text-sm text-text-muted">
-            No conversations yet. Start one with the + above.
-          </li>
+          <li className="px-2 py-6 text-center text-sm text-text-muted">{t('dm.emptyHint')}</li>
         ) : null}
       </ul>
 

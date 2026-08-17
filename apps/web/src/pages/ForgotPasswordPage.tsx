@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { LIMITS } from '@tetherchat/shared';
 import { api, errorMessage } from '@/lib/api';
+import { useT } from '@/i18n/useT';
 import { AuthLayout } from './AuthLayout';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { toast } from '@/stores/toastStore';
 
 export function ForgotPasswordPage() {
+  const t = useT();
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -27,22 +29,18 @@ export function ForgotPasswordPage() {
 
   return (
     <AuthLayout
-      title="Reset your password"
-      subtitle={
-        sent
-          ? 'If that address is registered, a reset link is on its way.'
-          : 'We will email you a one-time link.'
-      }
+      title={t('auth.resetTitle')}
+      subtitle={sent ? t('auth.resetSent') : t('auth.resetHint')}
       footer={
         <Link to="/login" className="text-text-link hover:underline">
-          Back to login
+          {t('auth.backToLogin')}
         </Link>
       }
     >
       {sent ? null : (
         <form className="flex flex-col gap-4" onSubmit={submit} noValidate>
           <Input
-            label="Email"
+            label={t('auth.email')}
             type="email"
             autoComplete="email"
             required
@@ -51,7 +49,7 @@ export function ForgotPasswordPage() {
             onChange={(event) => setEmail(event.target.value)}
           />
           <Button type="submit" size="lg" fullWidth loading={busy}>
-            Send reset link
+            {t('auth.sendReset')}
           </Button>
         </form>
       )}
@@ -60,6 +58,7 @@ export function ForgotPasswordPage() {
 }
 
 export function ResetPasswordPage() {
+  const t = useT();
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const token = params.get('token') ?? '';
@@ -71,14 +70,14 @@ export function ResetPasswordPage() {
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (password.length < LIMITS.password.min) {
-      setError(`At least ${LIMITS.password.min} characters`);
+      setError(t('auth.passwordMin', { min: LIMITS.password.min }));
       return;
     }
 
     setBusy(true);
     try {
       await api.post('/api/auth/reset-password', { token, password });
-      toast.success('Password updated — sign in with your new password');
+      toast.success(t('auth.passwordUpdated'));
       navigate('/login', { replace: true });
     } catch (resetError) {
       setError(errorMessage(resetError));
@@ -88,10 +87,10 @@ export function ResetPasswordPage() {
   };
 
   return (
-    <AuthLayout title="Choose a new password">
+    <AuthLayout title={t('auth.newPasswordTitle')}>
       <form className="flex flex-col gap-4" onSubmit={submit} noValidate>
         <Input
-          label="New password"
+          label={t('auth.newPassword')}
           type="password"
           autoComplete="new-password"
           required
@@ -101,10 +100,10 @@ export function ResetPasswordPage() {
           onChange={(event) => setPassword(event.target.value)}
         />
         <Button type="submit" size="lg" fullWidth loading={busy} disabled={token.length === 0}>
-          Update password
+          {t('auth.updatePassword')}
         </Button>
         {token.length === 0 ? (
-          <p className="text-sm text-danger">This link is missing its token.</p>
+          <p className="text-sm text-danger">{t('auth.missingToken')}</p>
         ) : null}
       </form>
     </AuthLayout>

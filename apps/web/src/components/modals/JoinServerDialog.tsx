@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { errorMessage } from '@/lib/api';
+import { useT } from '@/i18n/useT';
 import { useJoinServer } from '@/hooks/useServers';
 import { AdaptiveDialog } from '@/components/ui/AdaptiveDialog';
 import { Button } from '@/components/ui/Button';
@@ -17,6 +18,7 @@ function extractCode(value: string): string {
 }
 
 export function JoinServerDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const t = useT();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const pushMobileView = useUiStore((state) => state.pushMobileView);
@@ -27,7 +29,7 @@ export function JoinServerDialog({ open, onClose }: { open: boolean; onClose: ()
   const submit = () => {
     const code = extractCode(value);
     if (code.length < 4) {
-      setError('Paste an invite link or code');
+      setError(t('server.joinInvalid'));
       return;
     }
 
@@ -37,7 +39,7 @@ export function JoinServerDialog({ open, onClose }: { open: boolean; onClose: ()
         if (isMobile) pushMobileView('channels');
         setValue('');
         onClose();
-        toast.success('Joined the server');
+        toast.success(t('server.joined'));
       },
       onError: (mutationError) => setError(errorMessage(mutationError)),
     });
@@ -47,21 +49,21 @@ export function JoinServerDialog({ open, onClose }: { open: boolean; onClose: ()
     <AdaptiveDialog
       open={open}
       onClose={onClose}
-      title="Join a server"
-      description="Enter an invite below to join an existing server."
+      title={t('server.joinTitle')}
+      description={t('server.joinDescription')}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button loading={join.isPending} onClick={submit}>
-            Join
+            {t('common.join')}
           </Button>
         </>
       }
     >
       <Input
-        label="Invite link"
+        label={t('server.inviteLink')}
         autoFocus
         value={value}
         error={error}

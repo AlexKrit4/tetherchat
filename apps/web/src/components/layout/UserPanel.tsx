@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Mic, MicOff, Settings } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { useT } from '@/i18n/useT';
 import { Avatar } from '@/components/ui/Avatar';
 import { IconButton } from '@/components/ui/IconButton';
 import { UserSettingsDialog } from '@/components/modals/UserSettingsDialog';
@@ -14,6 +15,7 @@ import { useUiStore } from '@/stores/uiStore';
  * quick-settings buttons. Clicking the name area opens the status menu.
  */
 export function UserPanel({ className }: { className?: string }) {
+  const t = useT();
   const user = useAuthStore((state) => state.user);
   const isMobile = useIsMobile();
   const pushMobileView = useUiStore((state) => state.pushMobileView);
@@ -48,7 +50,7 @@ export function UserPanel({ className }: { className?: string }) {
 
       <IconButton
         icon={muted ? MicOff : Mic}
-        label={muted ? 'Unmute notifications' : 'Mute notifications'}
+        label={muted ? t('common.unmuteNotifications') : t('common.muteNotifications')}
         size={isMobile ? 'lg' : 'md'}
         onClick={() => setMuted((current) => !current)}
         active={muted}
@@ -57,7 +59,7 @@ export function UserPanel({ className }: { className?: string }) {
 
       <IconButton
         icon={Settings}
-        label="User settings"
+        label={t('nav.userSettings')}
         size={isMobile ? 'lg' : 'md'}
         onClick={() => (isMobile ? pushMobileView('settings') : setSettingsOpen(true))}
       />

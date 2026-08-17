@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Check, Copy, RefreshCw } from 'lucide-react';
 import type { ServerDetail } from '@tetherchat/shared';
 import { errorMessage } from '@/lib/api';
+import { useT } from '@/i18n/useT';
 import { useCreateInvite } from '@/hooks/useServers';
 import { AdaptiveDialog } from '@/components/ui/AdaptiveDialog';
 import { Button } from '@/components/ui/Button';
@@ -15,6 +16,7 @@ export interface InviteDialogProps {
 
 /** Invites resolve to tetherchat.ru/invite/<code> in production. */
 export function InviteDialog({ server, open, onClose }: InviteDialogProps) {
+  const t = useT();
   const createInvite = useCreateInvite(server.id);
   const [code, setCode] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -41,7 +43,7 @@ export function InviteDialog({ server, open, onClose }: InviteDialogProps) {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1_500);
     } catch {
-      toast.error('Could not copy — select the link and copy manually');
+      toast.error(t('inviteDialog.copyFailed'));
     }
   };
 
@@ -52,8 +54,8 @@ export function InviteDialog({ server, open, onClose }: InviteDialogProps) {
         setCode(null);
         onClose();
       }}
-      title={`Invite people to ${server.name}`}
-      description="Share this link with anyone you want to join."
+      title={t('inviteDialog.title', { name: server.name })}
+      description={t('inviteDialog.description')}
       width="md"
     >
       <div className="flex flex-col gap-3">
@@ -61,12 +63,12 @@ export function InviteDialog({ server, open, onClose }: InviteDialogProps) {
           <input
             readOnly
             value={link}
-            aria-label="Invite link"
+            aria-label={t('inviteDialog.link')}
             className="min-w-0 flex-1 bg-transparent px-1 text-base text-text outline-none"
           />
           <Button size="sm" onClick={() => void copy()} disabled={!link}>
             {copied ? <Check size={16} aria-hidden /> : <Copy size={16} aria-hidden />}
-            {copied ? 'Copied' : 'Copy'}
+            {copied ? t('common.copied') : t('common.copy')}
           </Button>
         </div>
 
@@ -78,7 +80,7 @@ export function InviteDialog({ server, open, onClose }: InviteDialogProps) {
               {
                 onSuccess: (invite) => {
                   setCode(invite.code);
-                  toast.success('New invite generated');
+                  toast.success(t('inviteDialog.generated'));
                 },
                 onError: (error) => toast.error(errorMessage(error)),
               },
@@ -87,7 +89,7 @@ export function InviteDialog({ server, open, onClose }: InviteDialogProps) {
           className="flex items-center gap-1.5 self-start text-sm text-text-link hover:underline"
         >
           <RefreshCw size={14} aria-hidden />
-          Generate a new link
+          {t('inviteDialog.newLink')}
         </button>
       </div>
     </AdaptiveDialog>

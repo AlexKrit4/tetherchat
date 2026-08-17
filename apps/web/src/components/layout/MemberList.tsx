@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import { Crown } from 'lucide-react';
 import type { PublicUser, Role, ServerMember } from '@tetherchat/shared';
 import { cn } from '@/lib/cn';
+import { t } from '@/i18n';
+import { useT } from '@/i18n/useT';
 import { useChatTarget } from '@/hooks/useChatTarget';
 import { useMembers } from '@/hooks/useServers';
 import { Avatar } from '@/components/ui/Avatar';
@@ -52,11 +54,11 @@ function buildSections(
 
   const remaining = online.filter((member) => !assigned.has(member.userId));
   if (remaining.length > 0) {
-    sections.push({ key: 'online', label: 'Online', members: remaining.sort(byName) });
+    sections.push({ key: 'online', label: t('common.online'), members: remaining.sort(byName) });
   }
 
   if (offline.length > 0) {
-    sections.push({ key: 'offline', label: 'Offline', members: offline.sort(byName) });
+    sections.push({ key: 'offline', label: t('common.offline'), members: offline.sort(byName) });
   }
 
   return sections;
@@ -69,6 +71,7 @@ export interface MemberListProps {
 }
 
 export function MemberList({ className, compact = true }: MemberListProps) {
+  const t = useT();
   const { server, serverId, isDm, conversation } = useChatTarget();
   const { data: members, isLoading } = useMembers(serverId);
   const liveStatuses = usePresenceStore((state) => state.statuses);
@@ -97,7 +100,9 @@ export function MemberList({ className, compact = true }: MemberListProps) {
       <aside className={cn('flex flex-col bg-surface-secondary', className)}>
         <div className="scroller flex-1 px-2 py-4">
           <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-[0.02em] text-text-muted">
-            {conversation?.isGroup ? `Members — ${conversation.members.length}` : 'Conversation'}
+            {conversation?.isGroup
+              ? `${t('common.members')} — ${conversation.members.length}`
+              : t('dm.conversation')}
           </p>
           <ul className="flex flex-col gap-0.5">
             {conversation?.members.map((member) => (
@@ -124,7 +129,7 @@ export function MemberList({ className, compact = true }: MemberListProps) {
 
   return (
     <aside
-      aria-label="Members"
+      aria-label={t('common.members')}
       className={cn('flex flex-col bg-surface-secondary', className)}
     >
       <div className="scroller scroller-hover flex-1 px-2 py-4">
@@ -188,6 +193,7 @@ function MemberRow({
   isSelf,
   onOpen,
 }: MemberRowProps) {
+  const t = useT();
   return (
     <button
       type="button"
@@ -209,9 +215,9 @@ function MemberRow({
           >
             {label}
           </span>
-          {isSelf ? <span className="shrink-0 text-2xs text-text-faint">(you)</span> : null}
+          {isSelf ? <span className="shrink-0 text-2xs text-text-faint">{t('common.you')}</span> : null}
           {isOwner ? (
-            <Crown size={13} className="shrink-0 text-warning" aria-label="Server owner" />
+            <Crown size={13} className="shrink-0 text-warning" aria-label={t('common.owner')} />
           ) : null}
         </span>
         {hint ? <span className="truncate text-xs text-text-muted">{hint}</span> : null}

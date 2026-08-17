@@ -9,8 +9,10 @@ import { NewConversationDialog } from '@/components/modals/NewConversationDialog
 import { MobileHeader } from './MobileHeader';
 import { useChatTarget } from '@/hooks/useChatTarget';
 import { useUiStore } from '@/stores/uiStore';
+import { useT } from '@/i18n/useT';
 
 export function MobileDirectMessagesView() {
+  const t = useT();
   const navigate = useNavigate();
   const { channelId } = useChatTarget();
   const setMobileView = useUiStore((state) => state.setMobileView);
@@ -20,12 +22,12 @@ export function MobileDirectMessagesView() {
   return (
     <div className="flex h-full flex-col bg-surface-secondary">
       <MobileHeader
-        title="Direct Messages"
+        title={t('dm.title')}
         onBack={() => setMobileView('servers')}
         actions={
           <IconButton
             icon={PenSquare}
-            label="New conversation"
+            label={t('nav.newConversation')}
             size="lg"
             showTooltip={false}
             onClick={() => setNewOpen(true)}

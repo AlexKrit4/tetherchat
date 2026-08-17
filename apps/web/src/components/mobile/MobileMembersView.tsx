@@ -1,9 +1,11 @@
+import { useT } from '@/i18n/useT';
 import { MemberList } from '@/components/layout/MemberList';
 import { MobileHeader } from './MobileHeader';
 import { useChatTarget } from '@/hooks/useChatTarget';
 import { useUiStore } from '@/stores/uiStore';
 
 export function MobileMembersView() {
+  const t = useT();
   const popMobileView = useUiStore((state) => state.popMobileView);
   const { server, conversation, isDm } = useChatTarget();
 
@@ -12,8 +14,8 @@ export function MobileMembersView() {
   return (
     <div className="flex h-full flex-col bg-surface-secondary">
       <MobileHeader
-        title="Members"
-        subtitle={count > 0 ? `${count} total` : undefined}
+        title={t('common.members')}
+        subtitle={count > 0 ? t('common.total', { count }) : undefined}
         onBack={popMobileView}
       />
       <MemberList className="min-h-0 flex-1 pb-safe" compact={false} />

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { LogOut } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { useT } from '@/i18n/useT';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { ProfileSettings } from '@/components/settings/ProfileSettings';
@@ -11,22 +12,23 @@ import { useAuthStore } from '@/stores/authStore';
 
 type Tab = 'profile' | 'account' | 'notifications' | 'appearance';
 
-const tabs: { id: Tab; label: string }[] = [
-  { id: 'profile', label: 'My Profile' },
-  { id: 'account', label: 'Account' },
-  { id: 'notifications', label: 'Notifications' },
-  { id: 'appearance', label: 'Appearance' },
-];
-
 /** Desktop settings modal. Mobile uses the full-screen MobileSettingsView instead. */
 export function UserSettingsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const t = useT();
   const [tab, setTab] = useState<Tab>('profile');
   const logout = useAuthStore((state) => state.logout);
 
+  const tabs: { id: Tab; label: string }[] = [
+    { id: 'profile', label: t('settings.profile') },
+    { id: 'account', label: t('settings.account') },
+    { id: 'notifications', label: t('settings.notifications') },
+    { id: 'appearance', label: t('settings.appearance') },
+  ];
+
   return (
-    <Modal open={open} onClose={onClose} title="User Settings" width="lg">
+    <Modal open={open} onClose={onClose} title={t('settings.title')} width="lg">
       <div className="flex gap-6">
-        <nav className="flex w-[180px] shrink-0 flex-col gap-0.5" aria-label="Settings sections">
+        <nav className="flex w-[180px] shrink-0 flex-col gap-0.5" aria-label={t('settings.sections')}>
           {tabs.map((entry) => (
             <button
               key={entry.id}
@@ -47,7 +49,7 @@ export function UserSettingsDialog({ open, onClose }: { open: boolean; onClose: 
 
           <Button variant="ghost" className="justify-start text-danger" onClick={() => void logout()}>
             <LogOut size={16} aria-hidden />
-            Log out
+            {t('settings.logOut')}
           </Button>
         </nav>
 

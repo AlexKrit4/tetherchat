@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Bell, BellOff } from 'lucide-react';
+import { useT } from '@/i18n/useT';
 import { Button } from '@/components/ui/Button';
 import { Toggle } from '@/components/ui/Toggle';
 import { disablePush, enablePush, pushState } from '@/lib/push';
@@ -7,6 +8,7 @@ import { toast } from '@/stores/toastStore';
 
 /** Web push opt-in plus the local desktop-notification toggle. */
 export function NotificationSettings() {
+  const t = useT();
   const [state, setState] = useState(() => pushState());
   const [busy, setBusy] = useState(false);
 
@@ -27,15 +29,15 @@ export function NotificationSettings() {
       if (enabled) {
         const result = await enablePush();
         if (result === 'denied') {
-          toast.error('Notifications are blocked in your browser settings');
+          toast.error(t('settings.pushBlocked'));
         } else if (result === 'unsupported') {
-          toast.error('This browser cannot receive push notifications');
+          toast.error(t('settings.pushUnsupportedToast'));
         } else {
-          toast.success('Push notifications enabled');
+          toast.success(t('settings.pushOn'));
         }
       } else {
         await disablePush();
-        toast.info('Push notifications disabled');
+        toast.info(t('settings.pushOff'));
       }
       setState(pushState());
     } finally {
@@ -52,33 +54,29 @@ export function NotificationSettings() {
           <BellOff size={20} className="mt-0.5 shrink-0 text-text-muted" aria-hidden />
         )}
         <div className="min-w-0 flex-1">
-          <p className="text-base font-semibold text-text-heading">Push notifications</p>
+          <p className="text-base font-semibold text-text-heading">{t('settings.push')}</p>
           <p className="mt-1 text-sm text-text-muted">
-            Get notified about mentions and direct messages even when TetherChat is closed.
-            {state.supported ? '' : ' Not supported in this browser.'}
+            {t('settings.pushHint')}
+            {state.supported ? '' : t('settings.pushUnsupported')}
           </p>
         </div>
         <Toggle
           checked={state.subscribed}
           disabled={!state.supported || busy}
-          label="Push notifications"
+          label={t('settings.push')}
           onChange={(next) => void toggle(next)}
         />
       </div>
 
       {state.permission === 'denied' ? (
-        <p className="text-sm text-danger">
-          Notifications are blocked for this site. Allow them in your browser settings, then try again.
-        </p>
+        <p className="text-sm text-danger">{t('settings.pushSiteBlocked')}</p>
       ) : null}
 
       <div className="flex flex-col gap-2">
-        <p className="text-base font-semibold text-text-heading">Per-channel settings</p>
-        <p className="text-sm text-text-muted">
-          Mute a single channel from its context menu in the channel list.
-        </p>
+        <p className="text-base font-semibold text-text-heading">{t('settings.perChannel')}</p>
+        <p className="text-sm text-text-muted">{t('settings.perChannelHint')}</p>
         <Button variant="secondary" disabled>
-          Managed per channel
+          {t('settings.managedPerChannel')}
         </Button>
       </div>
     </div>

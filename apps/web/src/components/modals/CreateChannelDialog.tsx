@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Hash } from 'lucide-react';
 import { LIMITS } from '@tetherchat/shared';
 import { errorMessage } from '@/lib/api';
+import { useT } from '@/i18n/useT';
 import { useCreateChannel } from '@/hooks/useServers';
 import { AdaptiveDialog } from '@/components/ui/AdaptiveDialog';
 import { Button } from '@/components/ui/Button';
@@ -21,6 +22,7 @@ export function CreateChannelDialog({
   open,
   onClose,
 }: CreateChannelDialogProps) {
+  const t = useT();
   const create = useCreateChannel(serverId);
   const [name, setName] = useState('');
   const [topic, setTopic] = useState('');
@@ -29,7 +31,7 @@ export function CreateChannelDialog({
   const submit = () => {
     const trimmed = name.trim();
     if (trimmed.length === 0) {
-      setError('Give the channel a name');
+      setError(t('channel.nameRequired'));
       return;
     }
 
@@ -40,7 +42,7 @@ export function CreateChannelDialog({
           setName('');
           setTopic('');
           onClose();
-          toast.success(`#${channel.name} created`);
+          toast.success(t('channel.created', { name: channel.name }));
         },
         onError: (mutationError) => setError(errorMessage(mutationError)),
       },
@@ -51,14 +53,14 @@ export function CreateChannelDialog({
     <AdaptiveDialog
       open={open}
       onClose={onClose}
-      title="Create a text channel"
+      title={t('channel.createTitle')}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button loading={create.isPending} onClick={submit}>
-            Create channel
+            {t('channel.create')}
           </Button>
         </>
       }
@@ -68,14 +70,14 @@ export function CreateChannelDialog({
           label={
             <span className="inline-flex items-center gap-1">
               <Hash size={12} strokeWidth={3} aria-hidden />
-              Channel name
+              {t('channel.name')}
             </span>
           }
           autoFocus
           value={name}
           error={error}
           maxLength={LIMITS.channelName.max}
-          placeholder="new-channel"
+          placeholder={t('channel.namePlaceholder')}
           onChange={(event) => {
             setName(event.target.value.replace(/\s+/g, '-').toLowerCase());
             setError(null);
@@ -86,10 +88,10 @@ export function CreateChannelDialog({
         />
 
         <Input
-          label="Topic"
+          label={t('channel.topic')}
           value={topic}
           maxLength={LIMITS.channelTopic.max}
-          placeholder="What is this channel about?"
+          placeholder={t('channel.topicPlaceholder')}
           onChange={(event) => setTopic(event.target.value)}
         />
       </div>

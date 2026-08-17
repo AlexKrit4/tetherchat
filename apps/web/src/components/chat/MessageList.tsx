@@ -28,12 +28,14 @@ import { UserProfileDialog } from '@/components/modals/UserProfileDialog';
 import { useAuthStore } from '@/stores/authStore';
 import { useUiStore } from '@/stores/uiStore';
 import { toast } from '@/stores/toastStore';
+import { useT } from '@/i18n/useT';
 
 // Virtuoso keeps scroll position stable when firstItemIndex shrinks as older
 // pages are prepended, so history loads without the viewport jumping.
 const VIRTUOSO_START_INDEX = 1_000_000;
 
 export function MessageList() {
+  const t = useT();
   const isMobile = useIsMobile();
   const { channelId, isDm, server, serverId, title } = useChatTarget();
   const currentUser = useAuthStore((state) => state.user);
@@ -109,7 +111,7 @@ export function MessageList() {
     (messageId: string) => {
       const index = entries.findIndex((entry) => entry.message.id === messageId);
       if (index >= 0) virtuoso.current?.scrollToIndex({ index, align: 'center', behavior: 'smooth' });
-      else toast.info('That message is further back in history');
+      else toast.info(t('chat.historyFar'));
     },
     [entries],
   );
@@ -225,7 +227,7 @@ export function MessageList() {
           )}
         >
           <ArrowDown size={16} aria-hidden />
-          Jump to present
+          {t('chat.jumpToPresent')}
         </button>
       ) : null}
 
@@ -271,11 +273,12 @@ function DayDivider({ label }: { label: string }) {
 }
 
 function UnreadDivider() {
+  const t = useT();
   return (
     <div className="relative mx-4 my-2 flex items-center" role="separator">
       <span className="h-px flex-1 bg-danger" />
       <span className="rounded-b bg-danger px-1.5 py-0.5 text-2xs font-bold uppercase tracking-wide text-white">
-        New
+        {t('chat.unread')}
       </span>
     </div>
   );
@@ -290,6 +293,7 @@ function ChannelIntro({
   isDm: boolean;
   compact?: boolean;
 }) {
+  const t = useT();
   return (
     <div className={cn('px-4', compact ? 'pb-4 pt-6' : 'flex h-full flex-col justify-end pb-8')}>
       {!isDm ? (
@@ -298,25 +302,22 @@ function ChannelIntro({
         </span>
       ) : null}
       <h2 className="text-2xl font-bold text-text-heading">
-        {isDm ? name : `Welcome to #${name}!`}
+        {isDm ? name : t('chat.welcomeChannel', { name })}
       </h2>
       <p className="mt-1 text-base text-text-muted">
-        {isDm
-          ? 'This is the beginning of your direct message history.'
-          : `This is the start of the #${name} channel.`}
+        {isDm ? t('chat.startDm') : t('chat.startChannel', { name })}
       </p>
     </div>
   );
 }
 
 function EmptyChannelState() {
+  const t = useT();
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
       <Hash size={44} className="text-text-faint" aria-hidden />
-      <h2 className="text-xl font-semibold text-text-heading">No channel selected</h2>
-      <p className="max-w-[380px] text-base text-text-muted">
-        Pick a channel from the sidebar to start reading.
-      </p>
+      <h2 className="text-xl font-semibold text-text-heading">{t('chat.noChannel')}</h2>
+      <p className="max-w-[380px] text-base text-text-muted">{t('chat.pickChannel')}</p>
     </div>
   );
 }

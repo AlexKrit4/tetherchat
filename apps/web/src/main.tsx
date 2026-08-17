@@ -4,7 +4,10 @@ import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { App } from './App';
 import { ApiRequestError } from './lib/api';
+import { initI18n } from './i18n';
 import './styles/global.css';
+
+initI18n();
 
 const queryClient = new QueryClient({
   defaultOptions: {

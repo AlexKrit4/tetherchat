@@ -48,7 +48,7 @@ export default defineConfig(({ mode }) => {
             },
           ],
           shortcuts: [
-            { name: 'Direct Messages', url: '/channels/@me' },
+            { name: 'Личные сообщения', url: '/channels/@me' },
           ],
         },
         devOptions: { enabled: false },

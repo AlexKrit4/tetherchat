@@ -1,6 +1,7 @@
 import { SmilePlus } from 'lucide-react';
 import type { Reaction } from '@tetherchat/shared';
 import { cn } from '@/lib/cn';
+import { useT } from '@/i18n/useT';
 import { Tooltip } from '@/components/ui/Tooltip';
 
 export interface ReactionsProps {
@@ -11,19 +12,23 @@ export interface ReactionsProps {
 }
 
 export function Reactions({ reactions, onToggle, onAdd, disabled }: ReactionsProps) {
+  const t = useT();
+
   if (reactions.length === 0) return null;
 
   return (
     <div className="mt-1 flex flex-wrap items-center gap-1">
       {reactions.map((reaction) => (
-        <Tooltip key={reaction.emoji} content={`${reaction.count} reacted with ${reaction.emoji}`}>
+        <Tooltip
+          key={reaction.emoji}
+          content={t('chat.reactedWith', { count: reaction.count, emoji: reaction.emoji })}
+        >
           <button
             type="button"
             disabled={disabled}
             onClick={() => onToggle(reaction.emoji)}
             aria-pressed={reaction.me}
-            // Tooltips are hover-only, so the count needs a real label of its own.
-            aria-label={`${reaction.count} reacted with ${reaction.emoji}`}
+            aria-label={t('chat.reactedWith', { count: reaction.count, emoji: reaction.emoji })}
             className={cn(
               'flex h-7 min-w-[36px] items-center justify-center gap-1 rounded px-1.5 transition-colors',
               reaction.me
@@ -37,12 +42,12 @@ export function Reactions({ reactions, onToggle, onAdd, disabled }: ReactionsPro
         </Tooltip>
       ))}
 
-      <Tooltip content="Add reaction">
+      <Tooltip content={t('chat.addReaction')}>
         <button
           type="button"
           disabled={disabled}
           onClick={onAdd}
-          aria-label="Add reaction"
+          aria-label={t('chat.addReaction')}
           className="flex h-7 w-8 items-center justify-center rounded bg-surface-accent text-text-muted transition-colors hover:text-text-heading"
         >
           <SmilePlus size={16} aria-hidden />

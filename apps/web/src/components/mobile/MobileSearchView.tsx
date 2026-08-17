@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Search } from 'lucide-react';
+import { useT } from '@/i18n/useT';
 import { useChatTarget } from '@/hooks/useChatTarget';
 import { useMessageSearch } from '@/hooks/useMessages';
 import { Avatar } from '@/components/ui/Avatar';
@@ -11,6 +12,7 @@ import { useUiStore } from '@/stores/uiStore';
 
 /** Search gets its own screen on phones rather than a cramped overlay. */
 export function MobileSearchView() {
+  const t = useT();
   const popMobileView = useUiStore((state) => state.popMobileView);
   const { channelId, isDm, title } = useChatTarget();
   const [term, setTerm] = useState('');
@@ -25,15 +27,19 @@ export function MobileSearchView() {
 
   return (
     <div className="flex h-full flex-col bg-surface">
-      <MobileHeader title="Search" subtitle={isDm ? title : `#${title}`} onBack={popMobileView} />
+      <MobileHeader
+        title={t('common.search')}
+        subtitle={isDm ? title : `#${title}`}
+        onBack={popMobileView}
+      />
 
       <div className="shrink-0 px-4 pb-3 pt-1">
         <input
           autoFocus
           value={term}
           onChange={(event) => setTerm(event.target.value)}
-          placeholder="Search messages…"
-          aria-label="Search messages"
+          placeholder={t('chat.searchMessages')}
+          aria-label={t('chat.searchMessages')}
           className="h-12 w-full rounded-lg bg-surface-tertiary px-3 text-base text-text outline-none placeholder:text-text-faint focus:shadow-[0_0_0_2px_var(--brand)]"
         />
       </div>
@@ -46,7 +52,7 @@ export function MobileSearchView() {
         ) : debounced.trim().length < 2 ? (
           <div className="flex flex-col items-center gap-2 py-12 text-center">
             <Search size={32} className="text-text-faint" aria-hidden />
-            <p className="text-base text-text-muted">Type at least two characters.</p>
+            <p className="text-base text-text-muted">{t('dm.searchHintShort')}</p>
           </div>
         ) : results && results.length > 0 ? (
           <ul className="flex flex-col gap-2 pb-6">
@@ -68,7 +74,7 @@ export function MobileSearchView() {
             ))}
           </ul>
         ) : (
-          <p className="py-12 text-center text-base text-text-muted">No messages matched.</p>
+          <p className="py-12 text-center text-base text-text-muted">{t('chat.searchEmpty')}</p>
         )}
       </div>
     </div>

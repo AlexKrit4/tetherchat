@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { LIMITS } from '@tetherchat/shared';
 import type { Channel, ServerDetail } from '@tetherchat/shared';
 import { errorMessage } from '@/lib/api';
+import { useT } from '@/i18n/useT';
 import { useDeleteChannel, useUpdateChannel } from '@/hooks/useServers';
 import { AdaptiveDialog } from '@/components/ui/AdaptiveDialog';
 import { Button } from '@/components/ui/Button';
@@ -21,6 +22,7 @@ export function ChannelSettingsDialog({
   open,
   onClose,
 }: ChannelSettingsDialogProps) {
+  const t = useT();
   const update = useUpdateChannel(server.id);
   const remove = useDeleteChannel(server.id);
   const [name, setName] = useState(channel.name);
@@ -35,7 +37,7 @@ export function ChannelSettingsDialog({
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button
             loading={update.isPending}
@@ -45,32 +47,32 @@ export function ChannelSettingsDialog({
                 {
                   onSuccess: () => {
                     onClose();
-                    toast.success('Channel updated');
+                    toast.success(t('channel.channelUpdated'));
                   },
                   onError: (error) => toast.error(errorMessage(error)),
                 },
               )
             }
           >
-            Save changes
+            {t('settings.saveChanges')}
           </Button>
         </>
       }
     >
       <div className="flex flex-col gap-4">
         <Input
-          label="Channel name"
+          label={t('channel.settingsName')}
           value={name}
           maxLength={LIMITS.channelName.max}
           onChange={(event) => setName(event.target.value.replace(/\s+/g, '-').toLowerCase())}
         />
 
         <Textarea
-          label="Channel topic"
+          label={t('channel.settingsTopic')}
           rows={3}
           value={topic}
           maxLength={LIMITS.channelTopic.max}
-          placeholder="Let people know what this channel is for."
+          placeholder={t('channel.settingsTopicHint')}
           onChange={(event) => setTopic(event.target.value)}
         />
 
@@ -79,11 +81,11 @@ export function ChannelSettingsDialog({
         {confirmDelete ? (
           <div className="flex flex-col gap-2 rounded-lg bg-[rgba(242,63,67,0.08)] p-3">
             <p className="text-base text-text">
-              Delete <strong>#{channel.name}</strong> and all of its messages? This cannot be undone.
+              {t('channel.deleteConfirm', { name: channel.name })}
             </p>
             <div className="flex gap-2">
               <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(false)}>
-                Keep channel
+                {t('channel.keepChannel')}
               </Button>
               <Button
                 variant="danger"
@@ -93,19 +95,19 @@ export function ChannelSettingsDialog({
                   remove.mutate(channel.id, {
                     onSuccess: () => {
                       onClose();
-                      toast.success('Channel deleted');
+                      toast.success(t('channel.channelDeleted'));
                     },
                     onError: (error) => toast.error(errorMessage(error)),
                   })
                 }
               >
-                Delete channel
+                {t('channel.deleteChannel')}
               </Button>
             </div>
           </div>
         ) : (
           <Button variant="danger" onClick={() => setConfirmDelete(true)}>
-            Delete channel
+            {t('channel.deleteChannel')}
           </Button>
         )}
       </div>

@@ -4,6 +4,7 @@ import { Trash2, Upload } from 'lucide-react';
 import { LIMITS } from '@tetherchat/shared';
 import type { SelfUser } from '@tetherchat/shared';
 import { api, errorMessage } from '@/lib/api';
+import { useT } from '@/i18n/useT';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Input, Textarea } from '@/components/ui/Input';
@@ -13,6 +14,7 @@ import { queryKeys } from '@/lib/queryKeys';
 
 /** Avatar, display name, bio and custom status. Shared by desktop and mobile. */
 export function ProfileSettings() {
+  const t = useT();
   const client = useQueryClient();
   const user = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
@@ -28,7 +30,7 @@ export function ProfileSettings() {
     onSuccess: (updated) => {
       setUser(updated);
       void client.invalidateQueries({ queryKey: queryKeys.me });
-      toast.success('Profile updated');
+      toast.success(t('settings.profileUpdated'));
     },
     onError: (error) => toast.error(errorMessage(error)),
   });
@@ -41,7 +43,7 @@ export function ProfileSettings() {
     },
     onSuccess: (updated) => {
       setUser(updated);
-      toast.success('Avatar updated');
+      toast.success(t('settings.avatarUpdated'));
     },
     onError: (error) => toast.error(errorMessage(error)),
   });
@@ -62,12 +64,12 @@ export function ProfileSettings() {
         <div className="flex flex-col gap-2">
           <Button size="sm" onClick={() => fileRef.current?.click()} loading={uploadAvatar.isPending}>
             <Upload size={16} aria-hidden />
-            Change avatar
+            {t('settings.changeAvatar')}
           </Button>
           {user.avatarUrl ? (
             <Button size="sm" variant="ghost" onClick={() => removeAvatar.mutate()}>
               <Trash2 size={16} aria-hidden />
-              Remove
+              {t('settings.remove')}
             </Button>
           ) : null}
           <input
@@ -85,28 +87,28 @@ export function ProfileSettings() {
       </div>
 
       <Input
-        label="Display name"
+        label={t('settings.displayName')}
         value={displayName}
         maxLength={LIMITS.displayName.max}
         placeholder={user.username}
-        hint="Shown instead of your username. Leave empty to use @username."
+        hint={t('settings.displayHint')}
         onChange={(event) => setDisplayName(event.target.value)}
       />
 
       <Input
-        label="Custom status"
+        label={t('settings.customStatus')}
         value={customStatus}
         maxLength={LIMITS.customStatus.max}
-        placeholder="What are you up to?"
+        placeholder={t('settings.customStatusPlaceholder')}
         onChange={(event) => setCustomStatus(event.target.value)}
       />
 
       <Textarea
-        label="About me"
+        label={t('settings.about')}
         rows={4}
         value={bio}
         maxLength={LIMITS.bio.max}
-        placeholder="A short description for your profile."
+        placeholder={t('settings.aboutPlaceholder')}
         onChange={(event) => setBio(event.target.value)}
       />
 
@@ -120,7 +122,7 @@ export function ProfileSettings() {
           })
         }
       >
-        Save changes
+        {t('settings.saveChanges')}
       </Button>
     </div>
   );

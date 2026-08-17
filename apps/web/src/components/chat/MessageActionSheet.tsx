@@ -1,5 +1,6 @@
 import { Copy, Pencil, Pin, Reply, SmilePlus, Trash2 } from 'lucide-react';
 import type { Message } from '@tetherchat/shared';
+import { useT } from '@/i18n/useT';
 import { BottomSheet, SheetAction } from '@/components/ui/BottomSheet';
 import { toast } from '@/stores/toastStore';
 
@@ -36,6 +37,8 @@ export function MessageActionSheet({
   onReact,
   onOpenEmojiPicker,
 }: MessageActionSheetProps) {
+  const t = useT();
+
   const run = (action: () => void) => {
     action();
     onClose();
@@ -50,7 +53,7 @@ export function MessageActionSheet({
               <button
                 key={emoji}
                 type="button"
-                aria-label={`React with ${emoji}`}
+                aria-label={t('chat.reactWith', { emoji })}
                 onClick={() => run(() => onReact(message, emoji))}
                 className="flex h-touch w-touch items-center justify-center rounded-full bg-surface-secondary text-xl active:bg-surface-hover"
               >
@@ -59,7 +62,7 @@ export function MessageActionSheet({
             ))}
             <button
               type="button"
-              aria-label="More reactions"
+              aria-label={t('chat.moreReactions')}
               onClick={() => run(() => onOpenEmojiPicker(message))}
               className="flex h-touch w-touch items-center justify-center rounded-full bg-surface-secondary text-text-muted active:bg-surface-hover"
             >
@@ -72,37 +75,37 @@ export function MessageActionSheet({
           <div className="pt-1">
             <SheetAction
               icon={<Reply size={18} aria-hidden />}
-              label="Reply"
+              label={t('chat.reply')}
               onSelect={() => run(() => onReply(message))}
             />
             <SheetAction
               icon={<Copy size={18} aria-hidden />}
-              label="Copy text"
+              label={t('chat.copyText')}
               onSelect={() =>
                 run(() => {
                   void navigator.clipboard.writeText(message.content);
-                  toast.success('Message copied');
+                  toast.success(t('chat.copied'));
                 })
               }
             />
             {canEdit ? (
               <SheetAction
                 icon={<Pencil size={18} aria-hidden />}
-                label="Edit message"
+                label={t('chat.editMessage')}
                 onSelect={() => run(() => onEdit(message))}
               />
             ) : null}
             {canPin ? (
               <SheetAction
                 icon={<Pin size={18} aria-hidden />}
-                label={message.pinned ? 'Unpin message' : 'Pin message'}
+                label={message.pinned ? t('chat.unpinMessage') : t('chat.pinMessage')}
                 onSelect={() => run(() => onTogglePin(message))}
               />
             ) : null}
             {canDelete ? (
               <SheetAction
                 icon={<Trash2 size={18} aria-hidden />}
-                label="Delete message"
+                label={t('chat.deleteMessage')}
                 tone="danger"
                 onSelect={() => run(() => onDelete(message))}
               />

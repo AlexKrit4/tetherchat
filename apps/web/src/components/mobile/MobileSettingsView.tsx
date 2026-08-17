@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Bell, ChevronRight, LogOut, Palette, ShieldCheck, User } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { useT } from '@/i18n/useT';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { MobileHeader } from './MobileHeader';
@@ -16,10 +17,18 @@ type Section = 'root' | 'profile' | 'account' | 'notifications' | 'appearance';
 
 /** Full-screen settings with a second level, instead of a desktop modal. */
 export function MobileSettingsView() {
+  const t = useT();
   const popMobileView = useUiStore((state) => state.popMobileView);
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
   const [section, setSection] = useState<Section>('root');
+
+  const titles: Record<Exclude<Section, 'root'>, string> = {
+    profile: t('settings.editProfile'),
+    account: t('settings.accountSecurity'),
+    notifications: t('settings.notifications'),
+    appearance: t('settings.appearance'),
+  };
 
   if (section !== 'root') {
     return (
@@ -37,7 +46,7 @@ export function MobileSettingsView() {
 
   return (
     <div className="flex h-full flex-col bg-surface">
-      <MobileHeader title="User Settings" onBack={popMobileView} />
+      <MobileHeader title={t('settings.title')} onBack={popMobileView} />
 
       <div className="scroller flex-1 pb-safe">
         {user ? (
@@ -52,26 +61,30 @@ export function MobileSettingsView() {
           </div>
         ) : null}
 
-        <SettingsGroup label="My Account">
+        <SettingsGroup label={t('settings.myAccount')}>
           <SettingsRow
             icon={User}
-            label="Edit Profile"
+            label={t('settings.editProfile')}
             onSelect={() => setSection('profile')}
           />
           <SettingsRow
             icon={ShieldCheck}
-            label="Account & Security"
+            label={t('settings.accountSecurity')}
             onSelect={() => setSection('account')}
           />
         </SettingsGroup>
 
-        <SettingsGroup label="App Settings">
+        <SettingsGroup label={t('settings.appSettings')}>
           <SettingsRow
             icon={Bell}
-            label="Notifications"
+            label={t('settings.notifications')}
             onSelect={() => setSection('notifications')}
           />
-          <SettingsRow icon={Palette} label="Appearance" onSelect={() => setSection('appearance')} />
+          <SettingsRow
+            icon={Palette}
+            label={t('settings.appearance')}
+            onSelect={() => setSection('appearance')}
+          />
         </SettingsGroup>
 
         <div className="px-4 py-6">
@@ -83,20 +96,13 @@ export function MobileSettingsView() {
             className="justify-center"
           >
             <LogOut size={18} aria-hidden />
-            Log Out
+            {t('settings.logOut')}
           </Button>
         </div>
       </div>
     </div>
   );
 }
-
-const titles: Record<Exclude<Section, 'root'>, string> = {
-  profile: 'Edit Profile',
-  account: 'Account & Security',
-  notifications: 'Notifications',
-  appearance: 'Appearance',
-};
 
 function SettingsGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (

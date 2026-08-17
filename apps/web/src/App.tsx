@@ -12,6 +12,7 @@ import { InvitePage } from '@/pages/InvitePage';
 import { ForgotPasswordPage, ResetPasswordPage } from '@/pages/ForgotPasswordPage';
 import { VerifyEmailPage } from '@/pages/VerifyEmailPage';
 import { useAuthStore } from '@/stores/authStore';
+import { useT } from '@/i18n/useT';
 
 export function App() {
   const status = useAuthStore((state) => state.status);
@@ -69,10 +70,11 @@ function AnonymousOnly({ children }: { children: React.ReactNode }) {
 }
 
 function BootSplash() {
+  const t = useT();
   return (
     <div className="flex h-screen-dvh flex-col items-center justify-center gap-3 bg-surface-tertiary">
       <Spinner className="h-8 w-8 text-brand" />
-      <p className="text-base text-text-muted">Connecting to TetherChat…</p>
+      <p className="text-base text-text-muted">{t('boot.connecting')}</p>
     </div>
   );
 }

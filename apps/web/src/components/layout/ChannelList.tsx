@@ -15,6 +15,7 @@ import { ChannelSettingsDialog } from '@/components/modals/ChannelSettingsDialog
 import { useUiStore } from '@/stores/uiStore';
 import { toast } from '@/stores/toastStore';
 import { errorMessage } from '@/lib/api';
+import { useT } from '@/i18n/useT';
 
 export interface ChannelListProps {
   server: ServerDetail;
@@ -25,6 +26,7 @@ export interface ChannelListProps {
 }
 
 export function ChannelList({ server, activeChannelId, compact = true, onSelect }: ChannelListProps) {
+  const t = useT();
   const navigate = useNavigate();
   const collapsed = useUiStore((state) => state.collapsedCategories);
   const toggleCategory = useUiStore((state) => state.toggleCategory);
@@ -79,7 +81,7 @@ export function ChannelList({ server, activeChannelId, compact = true, onSelect 
                   {manageChannels ? (
                     <IconButton
                       icon={Plus}
-                      label={`Create channel in ${group.name}`}
+                      label={t('channel.createIn', { name: group.name })}
                       size="sm"
                       className="opacity-0 focus-visible:opacity-100 group-hover/category:opacity-100 md:h-4 md:w-4"
                       onClick={() => setCreateIn(group.id === 'uncategorised' ? null : group.id)}
@@ -105,31 +107,31 @@ export function ChannelList({ server, activeChannelId, compact = true, onSelect 
                       menu.open(event, [
                         {
                           id: 'mark-read',
-                          label: 'Mark as read',
+                          label: t('channel.markRead'),
                           onSelect: () => undefined,
                           disabled: !readStates.isUnread(channel.id),
                         },
                         {
                           id: 'copy-link',
-                          label: 'Copy link',
+                          label: t('channel.copyLink'),
                           onSelect: () => {
                             void navigator.clipboard.writeText(
                               `${window.location.origin}/channels/${server.id}/${channel.id}`,
                             );
-                            toast.success('Channel link copied');
+                            toast.success(t('channel.linkCopied'));
                           },
                         },
                         ...(manageChannels
                           ? [
                               {
                                 id: 'edit',
-                                label: 'Edit channel',
+                                label: t('channel.editChannel'),
                                 separatorBefore: true,
                                 onSelect: () => setSettingsFor(channel),
                               },
                               {
                                 id: 'delete',
-                                label: 'Delete channel',
+                                label: t('channel.deleteChannel'),
                                 tone: 'danger' as const,
                                 onSelect: () => {
                                   deleteChannel.mutate(channel.id, {
@@ -193,6 +195,7 @@ function ChannelRow({
   onSettings,
   onContextMenu,
 }: ChannelRowProps) {
+  const t = useT();
   const notifications = useUpdateChannelNotifications(channel.id);
   const [muted, setMuted] = useState(false);
 
@@ -238,7 +241,7 @@ function ChannelRow({
           {/* Hover-only on desktop; touch users get these from the long-press menu. */}
           <IconButton
             icon={muted ? BellOff : Bell}
-            label={muted ? 'Unmute channel' : 'Mute channel'}
+            label={muted ? t('channel.unmuteChannel') : t('channel.muteChannel')}
             size="sm"
             className="hidden md:inline-flex md:opacity-0 md:focus-visible:opacity-100 md:group-hover/channel:opacity-100"
             onClick={() => {
@@ -251,7 +254,7 @@ function ChannelRow({
           {canManage ? (
             <IconButton
               icon={Settings}
-              label="Edit channel"
+              label={t('channel.editChannel')}
               size="sm"
               className="hidden md:inline-flex md:opacity-0 md:focus-visible:opacity-100 md:group-hover/channel:opacity-100"
               onClick={onSettings}

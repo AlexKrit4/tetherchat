@@ -1,4 +1,5 @@
 import type { ApiErrorBody, AuthResponse } from '@tetherchat/shared';
+import { t } from '@/i18n';
 
 /** Empty base means same-origin, which is how nginx serves production. */
 export const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
@@ -143,8 +144,8 @@ export const api = {
     apiFetch<T>(path, { ...options, method: 'DELETE' }),
 };
 
-export function errorMessage(error: unknown, fallback = 'Something went wrong'): string {
+export function errorMessage(error: unknown, fallback?: string): string {
   if (error instanceof ApiRequestError) return error.message;
   if (error instanceof Error && error.message) return error.message;
-  return fallback;
+  return fallback ?? t('common.error');
 }

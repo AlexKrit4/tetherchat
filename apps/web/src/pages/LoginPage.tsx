@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { errorMessage } from '@/lib/api';
+import { useT } from '@/i18n/useT';
 import { AuthLayout } from './AuthLayout';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -8,6 +9,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { DM_ROUTE } from '@/hooks/useChatTarget';
 
 export function LoginPage() {
+  const t = useT();
   const navigate = useNavigate();
   const location = useLocation();
   const login = useAuthStore((state) => state.login);
@@ -27,7 +29,7 @@ export function LoginPage() {
       await login(identifier.trim(), password);
       navigate(redirectTo, { replace: true });
     } catch (loginError) {
-      setError(errorMessage(loginError, 'Could not sign in'));
+      setError(errorMessage(loginError, t('auth.loginFailed')));
     } finally {
       setBusy(false);
     }
@@ -35,20 +37,20 @@ export function LoginPage() {
 
   return (
     <AuthLayout
-      title="Welcome back"
-      subtitle="We are happy to see you again."
+      title={t('auth.loginTitle')}
+      subtitle={t('auth.loginSubtitle')}
       footer={
         <>
-          Need an account?{' '}
+          {t('auth.needAccount')}{' '}
           <Link to="/register" className="text-text-link hover:underline">
-            Register
+            {t('auth.register')}
           </Link>
         </>
       }
     >
       <form className="flex flex-col gap-4" onSubmit={submit} noValidate>
         <Input
-          label="Email or username"
+          label={t('auth.loginIdentifier')}
           autoComplete="username"
           autoCapitalize="none"
           autoFocus
@@ -58,7 +60,7 @@ export function LoginPage() {
         />
 
         <Input
-          label="Password"
+          label={t('auth.password')}
           type="password"
           autoComplete="current-password"
           required
@@ -68,11 +70,11 @@ export function LoginPage() {
         />
 
         <Link to="/forgot-password" className="-mt-2 self-start text-sm text-text-link hover:underline">
-          Forgot your password?
+          {t('auth.forgotPassword')}
         </Link>
 
         <Button type="submit" size="lg" fullWidth loading={busy}>
-          Log In
+          {t('auth.logIn')}
         </Button>
       </form>
     </AuthLayout>

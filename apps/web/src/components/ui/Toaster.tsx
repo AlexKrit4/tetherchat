@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { AlertTriangle, CheckCircle2, Info, X } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { useT } from '@/i18n/useT';
 import { useToastStore } from '@/stores/toastStore';
 
 const icons = {
@@ -17,6 +18,7 @@ const tones = {
 
 /** Bottom-centre on phones so it clears the composer, bottom-right on desktop. */
 export function Toaster() {
+  const t = useT();
   const toasts = useToastStore((state) => state.toasts);
   const dismiss = useToastStore((state) => state.dismiss);
 
@@ -46,7 +48,7 @@ export function Toaster() {
               <p className="min-w-0 flex-1 text-base text-text">{toast.message}</p>
               <button
                 type="button"
-                aria-label="Dismiss"
+                aria-label={t('common.dismiss')}
                 onClick={() => dismiss(toast.id)}
                 className="shrink-0 text-text-muted transition-colors hover:text-text-heading"
               >

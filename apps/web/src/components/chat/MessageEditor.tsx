@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useT } from '@/i18n/useT';
 import { useAutoResize } from '@/hooks/useAutoResize';
 
 export interface MessageEditorProps {
@@ -9,6 +10,7 @@ export interface MessageEditorProps {
 
 /** Inline editor shown in place of a message body while editing. */
 export function MessageEditor({ initialValue, onSubmit, onCancel }: MessageEditorProps) {
+  const t = useT();
   const [value, setValue] = useState(initialValue);
   const ref = useRef<HTMLTextAreaElement>(null);
   useAutoResize(ref, value, 400);
@@ -19,6 +21,9 @@ export function MessageEditor({ initialValue, onSubmit, onCancel }: MessageEdito
     node.focus();
     node.setSelectionRange(node.value.length, node.value.length);
   }, []);
+
+  const cancelLabel = t('chat.editorCancel');
+  const saveLabel = t('chat.editorSave');
 
   return (
     <div className="mt-1 flex flex-col gap-1.5">
@@ -43,7 +48,7 @@ export function MessageEditor({ initialValue, onSubmit, onCancel }: MessageEdito
       <p className="text-xs text-text-muted">
         escape to{' '}
         <button type="button" onClick={onCancel} className="text-text-link hover:underline">
-          cancel
+          {cancelLabel}
         </button>{' '}
         · enter to{' '}
         <button
@@ -51,7 +56,7 @@ export function MessageEditor({ initialValue, onSubmit, onCancel }: MessageEdito
           onClick={() => value.trim() && onSubmit(value.trim())}
           className="text-text-link hover:underline"
         >
-          save
+          {saveLabel}
         </button>
       </p>
     </div>

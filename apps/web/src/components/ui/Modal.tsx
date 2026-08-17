@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { useT } from '@/i18n/useT';
 import { IconButton } from './IconButton';
 
 export interface ModalProps {
@@ -33,6 +34,7 @@ export function Modal({
   width = 'sm',
   className,
 }: ModalProps) {
+  const t = useT();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -53,7 +55,7 @@ export function Modal({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <motion.button
             type="button"
-            aria-label="Close"
+            aria-label={t('common.close')}
             className="absolute inset-0 bg-surface-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -84,7 +86,7 @@ export function Modal({
                     <p className="mt-1 text-base text-text-muted">{description}</p>
                   ) : null}
                 </div>
-                <IconButton icon={X} label="Close" onClick={onClose} showTooltip={false} />
+                <IconButton icon={X} label={t('common.close')} onClick={onClose} showTooltip={false} />
               </header>
             ) : null}
 

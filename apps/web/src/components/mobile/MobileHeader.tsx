@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { useT } from '@/i18n/useT';
 import { IconButton } from '@/components/ui/IconButton';
 
 export interface MobileHeaderProps {
@@ -13,6 +14,8 @@ export interface MobileHeaderProps {
 
 /** Shared 56px header for every mobile view, with a 44px back target. */
 export function MobileHeader({ title, subtitle, onBack, actions, className }: MobileHeaderProps) {
+  const t = useT();
+
   return (
     <header
       className={cn(
@@ -21,7 +24,13 @@ export function MobileHeader({ title, subtitle, onBack, actions, className }: Mo
       )}
     >
       {onBack ? (
-        <IconButton icon={ArrowLeft} label="Back" size="lg" showTooltip={false} onClick={onBack} />
+        <IconButton
+          icon={ArrowLeft}
+          label={t('common.back')}
+          size="lg"
+          showTooltip={false}
+          onClick={onBack}
+        />
       ) : (
         <span className="w-2" />
       )}

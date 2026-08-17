@@ -17,12 +17,14 @@ import { ServerSettingsDialog } from '@/components/modals/ServerSettingsDialog';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from '@/stores/toastStore';
 import { errorMessage } from '@/lib/api';
+import { useT } from '@/i18n/useT';
 
 /**
  * 240px column between the rail and the chat. Holds the server header, the
  * channel tree (or the DM list) and the pinned user panel.
  */
 export function ChannelSidebar({ className }: { className?: string }) {
+  const t = useT();
   const navigate = useNavigate();
   const { channelId, server, isDm } = useChatTarget();
   const currentUserId = useAuthStore((state) => state.user?.id);
@@ -40,7 +42,7 @@ export function ChannelSidebar({ className }: { className?: string }) {
       {isDm ? (
         <header className="flex h-header shrink-0 items-center px-2 shadow-elevated">
           <div className="flex h-7 w-full items-center rounded bg-surface-tertiary px-2 text-sm text-text-muted">
-            Find or start a conversation
+            {t('nav.findConversation')}
           </div>
         </header>
       ) : (
@@ -51,25 +53,25 @@ export function ChannelSidebar({ className }: { className?: string }) {
             menu.open(event, [
               {
                 id: 'invite',
-                label: 'Invite People',
+                label: t('nav.invitePeople'),
                 onSelect: () => setInviteOpen(true),
                 disabled: !can(server.permissions, Permission.CREATE_INVITE),
               },
               {
                 id: 'settings',
-                label: 'Server Settings',
+                label: t('nav.serverSettings'),
                 onSelect: () => setSettingsOpen(true),
                 disabled: !can(server.permissions, Permission.MANAGE_SERVER),
               },
               {
                 id: 'create-channel',
-                label: 'Create Channel',
+                label: t('nav.createChannel'),
                 onSelect: () => setCreateChannelOpen(true),
                 disabled: !can(server.permissions, Permission.MANAGE_CHANNELS),
               },
               {
                 id: 'leave',
-                label: 'Leave Server',
+                label: t('nav.leaveServer'),
                 tone: 'danger',
                 separatorBefore: true,
                 disabled: isOwner,
@@ -87,7 +89,7 @@ export function ChannelSidebar({ className }: { className?: string }) {
           )}
         >
           <span className="truncate text-base font-semibold text-text-heading">
-            {server?.name ?? 'Loading…'}
+            {server?.name ?? t('common.loading')}
           </span>
           <ChevronDown size={18} strokeWidth={2.2} aria-hidden className="shrink-0 text-text-heading" />
         </button>
