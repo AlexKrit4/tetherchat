@@ -2,16 +2,24 @@ package ru.tetherchat.app.ui
 
 import android.app.Application
 import android.content.ContentResolver
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.media.MediaRecorder
 import android.net.Uri
+import android.os.Build
 import android.provider.OpenableColumns
+import android.provider.Settings
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.viewModelScope
+import java.io.File
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -25,12 +33,10 @@ import ru.tetherchat.app.data.AndroidRelease
 import ru.tetherchat.app.data.ApiException
 import ru.tetherchat.app.data.Ban
 import ru.tetherchat.app.data.Channel
-import android.media.MediaRecorder
 import ru.tetherchat.app.data.DeviceSession
 import ru.tetherchat.app.data.DirectConversation
 import ru.tetherchat.app.data.DraftStore
 import ru.tetherchat.app.data.ReceiptUpdate
-import java.io.File
 import ru.tetherchat.app.data.Invite
 import ru.tetherchat.app.data.InvitePreview
 import ru.tetherchat.app.data.Message
@@ -105,8 +111,24 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     private set
   var availableUpdate by mutableStateOf<AndroidRelease?>(null)
     private set
+  var updateDownloading by mutableStateOf(false)
+    private set
+  var updateProgress by mutableStateOf(0f)
+    private set
+  var updateBytesRead by mutableStateOf(0L)
+    private set
+  var updateBytesTotal by mutableStateOf(-1L)
+    private set
+  var updateFailed by mutableStateOf<String?>(null)
+    private set
+  var pendingInstall by mutableStateOf(false)
+    private set
+  var needsInstallPermission by mutableStateOf(false)
+    private set
   private var dismissedUpdateCode: Int? = null
   private var updateCheckJob: Job? = null
+  private var downloadJob: Job? = null
+  private var downloadedApk: File? = null
 
   var servers by mutableStateOf<List<ServerSummary>>(emptyList())
     private set
@@ -241,7 +263,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   }
 
   fun checkForUpdate() {
-    if (updateCheckJob?.isActive == true) return
+    if (updateCheckJob?.isActive == true || updateDownloading || pendingInstall) return
     updateCheckJob = viewModelScope.launch {
       val release = withContext(Dispatchers.IO) { runCatching { api.androidRelease() }.getOrNull() } ?: return@launch
       if (release.versionCode <= BuildConfig.VERSION_CODE) return@launch
@@ -256,9 +278,114 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     }
   }
 
+  fun startUpdateDownload() {
+    val release = availableUpdate ?: return
+    if (downloadJob?.isActive == true) return
+    updateFailed = null
+    needsInstallPermission = false
+    val dest = updateFile(release.versionCode)
+    if (dest.exists() && dest.length() > 100_000L) {
+      downloadedApk = dest
+      updateProgress = 1f
+      pendingInstall = true
+      installDownloadedUpdate()
+      return
+    }
+    updateDownloading = true
+    updateProgress = 0f
+    updateBytesRead = 0L
+    updateBytesTotal = -1L
+    pendingInstall = false
+    downloadJob = viewModelScope.launch {
+      runCatching {
+        withContext(Dispatchers.IO) {
+          var lastPosted = 0L
+          api.downloadTo(release.url, dest) { read, total ->
+            if (read - lastPosted < 128 * 1024 && total > 0 && read < total) return@downloadTo
+            lastPosted = read
+            updateBytesRead = read
+            updateBytesTotal = total
+            updateProgress = if (total > 0) (read.toFloat() / total.toFloat()).coerceIn(0f, 1f) else 0f
+          }
+        }
+      }.onSuccess {
+        downloadedApk = dest
+        updateBytesRead = dest.length()
+        updateBytesTotal = dest.length()
+        updateProgress = 1f
+        updateDownloading = false
+        pendingInstall = true
+        installDownloadedUpdate()
+      }.onFailure { error ->
+        if (error is CancellationException) return@onFailure
+        updateDownloading = false
+        pendingInstall = false
+        downloadedApk = null
+        dest.delete()
+        updateFailed = error.userMessage()
+      }
+    }
+  }
+
+  fun installDownloadedUpdate() {
+    val file = downloadedApk?.takeIf { it.exists() && it.length() > 0 } ?: return
+    val app = getApplication<Application>()
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !app.packageManager.canRequestPackageInstalls()) {
+      needsInstallPermission = true
+      return
+    }
+    needsInstallPermission = false
+    val uri = FileProvider.getUriForFile(app, "${app.packageName}.fileprovider", file)
+    val intent = Intent(Intent.ACTION_VIEW).apply {
+      setDataAndType(uri, "application/vnd.android.package-archive")
+      addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+      addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+      addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+    }
+    val resolvers = app.packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
+    for (info in resolvers) {
+      app.grantUriPermission(
+        info.activityInfo.packageName,
+        uri,
+        Intent.FLAG_GRANT_READ_URI_PERMISSION,
+      )
+    }
+    runCatching { app.startActivity(intent) }
+      .onFailure { updateFailed = "Не удалось открыть установщик. Разрешите установку из этого приложения." }
+  }
+
+  fun openInstallPermissionSettings() {
+    val app = getApplication<Application>()
+    val intent = Intent(
+      Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+      Uri.parse("package:${app.packageName}"),
+    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    runCatching { app.startActivity(intent) }
+  }
+
+  fun resumePendingInstall() {
+    if (!pendingInstall || updateDownloading || downloadedApk?.exists() != true) return
+    val app = getApplication<Application>()
+    val allowed = Build.VERSION.SDK_INT < Build.VERSION_CODES.O || app.packageManager.canRequestPackageInstalls()
+    if (needsInstallPermission && allowed) {
+      installDownloadedUpdate()
+    }
+  }
+
   fun dismissUpdate() {
+    downloadJob?.cancel()
+    downloadJob = null
+    updateDownloading = false
     dismissedUpdateCode = availableUpdate?.versionCode
     availableUpdate = null
+    updateFailed = null
+    pendingInstall = false
+    needsInstallPermission = false
+    updateProgress = 0f
+  }
+
+  private fun updateFile(versionCode: Int): File {
+    return File(getApplication<Application>().cacheDir, "updates/tetherchat-$versionCode.apk")
   }
 
   private fun authAction(block: () -> ru.tetherchat.app.data.AuthResponse) {

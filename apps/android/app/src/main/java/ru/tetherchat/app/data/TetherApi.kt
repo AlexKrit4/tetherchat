@@ -8,6 +8,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import ru.tetherchat.app.BuildConfig
+import java.io.File
 import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 
@@ -25,6 +26,16 @@ class TetherApi(private val session: SessionStore) {
     .readTimeout(45, TimeUnit.SECONDS)
     .writeTimeout(45, TimeUnit.SECONDS)
     .build()
+
+  private val downloadClient by lazy {
+    OkHttpClient.Builder()
+      .connectTimeout(20, TimeUnit.SECONDS)
+      .readTimeout(10, TimeUnit.MINUTES)
+      .writeTimeout(2, TimeUnit.MINUTES)
+      .followRedirects(true)
+      .followSslRedirects(true)
+      .build()
+  }
 
   private val base = BuildConfig.API_URL.trimEnd('/')
 
@@ -147,6 +158,38 @@ class TetherApi(private val session: SessionStore) {
     val bust = System.currentTimeMillis()
     return runCatching { get<AndroidRelease>("/app/version.json?t=$bust", authed = false) }
       .getOrElse { get("/api/app/android", authed = false) }
+  }
+
+  fun downloadTo(url: String, dest: File, onProgress: (read: Long, total: Long) -> Unit) {
+    dest.parentFile?.mkdirs()
+    val tmp = File(dest.parentFile, "${dest.name}.part")
+    tmp.delete()
+    val request = Request.Builder().url(url).header("Accept", "*/*").get().build()
+    downloadClient.newCall(request).execute().use { response ->
+      if (!response.isSuccessful) {
+        throw ApiException(response.code, "http", "Не удалось скачать обновление (${response.code})")
+      }
+      val body = response.body ?: throw ApiException(0, "http", "Пустой ответ сервера")
+      val total = body.contentLength()
+      tmp.outputStream().use { out ->
+        body.byteStream().use { input ->
+          val buf = ByteArray(32 * 1024)
+          var read = 0L
+          while (true) {
+            val n = input.read(buf)
+            if (n < 0) break
+            out.write(buf, 0, n)
+            read += n
+            onProgress(read, total)
+          }
+        }
+      }
+    }
+    dest.delete()
+    if (!tmp.renameTo(dest)) {
+      tmp.copyTo(dest, overwrite = true)
+      tmp.delete()
+    }
   }
 
   fun messages(channelId: String, before: String? = null, dm: Boolean): MessagePage {
