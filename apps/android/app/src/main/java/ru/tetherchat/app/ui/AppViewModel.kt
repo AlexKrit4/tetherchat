@@ -109,6 +109,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   var error by mutableStateOf<String?>(null)
   var busy by mutableStateOf(false)
     private set
+  var notificationsEnabled by mutableStateOf(session.notificationsEnabled)
+    private set
   var availableUpdate by mutableStateOf<AndroidRelease?>(null)
     private set
   var updateDownloading by mutableStateOf(false)
@@ -256,6 +258,18 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     }
   }
 
+  fun setPushNotifications(enabled: Boolean) {
+    session.notificationsEnabled = enabled
+    notificationsEnabled = enabled
+    viewModelScope.launch(Dispatchers.IO) {
+      if (enabled) PushRegistrar.sync(getApplication())
+      else {
+        runCatching { PushRegistrar.unregister(getApplication()) }
+        NotificationHelper.cancelAll(getApplication())
+      }
+    }
+  }
+
   fun login(login: String, password: String) = authAction { api.login(login.trim(), password) }
 
   fun register(email: String, username: String, password: String) = authAction {
@@ -395,6 +409,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
       val result = runCatching { withContext(Dispatchers.IO) { block(); loadWorkspace() } }
       busy = false
       result.onSuccess {
+        notificationsEnabled = session.notificationsEnabled
         screen = Screen.Home
         connectRealtime()
         PushRegistrar.sync(getApplication())

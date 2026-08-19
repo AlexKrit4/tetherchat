@@ -1,7 +1,10 @@
 package ru.tetherchat.app.ui
 
+import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -58,6 +61,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import ru.tetherchat.app.NotificationHelper
 import ru.tetherchat.app.data.Perm
 import ru.tetherchat.app.data.Role
 import ru.tetherchat.app.data.ServerMember
@@ -171,7 +176,13 @@ fun ProfileSettingsScreen(model: AppViewModel) {
 @Composable
 fun AccountSettingsScreen(model: AppViewModel) {
   val user = model.me ?: return
+  val context = LocalContext.current
   var username by rememberSaveable(user.id) { mutableStateOf(user.username) }
+  val notificationsOn = model.notificationsEnabled && NotificationHelper.areEnabled(context)
+  val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+    if (granted) model.setPushNotifications(true)
+    else model.error = "Разрешите уведомления в настройках системы"
+  }
   Column(
     modifier = Modifier
       .fillMaxSize()
@@ -200,6 +211,33 @@ fun AccountSettingsScreen(model: AppViewModel) {
       )
       TextButton(onClick = model::requestPasswordReset) {
         Text("Отправить ссылку сброса пароля", color = Brand)
+      }
+      Row(
+        Modifier.fillMaxWidth().padding(top = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        Column(Modifier.weight(1f).padding(end = 12.dp)) {
+          Text("Уведомления", color = TextPrimary, fontWeight = FontWeight.Medium)
+          Text(
+            "Сообщения, даже когда приложение закрыто.",
+            color = TextMuted,
+            fontSize = 13.sp,
+          )
+        }
+        Switch(
+          checked = notificationsOn,
+          onCheckedChange = { on ->
+            if (on) {
+              val needPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+                PackageManager.PERMISSION_GRANTED
+              if (needPermission) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+              else model.setPushNotifications(true)
+            } else {
+              model.setPushNotifications(false)
+            }
+          },
+        )
       }
       Spacer(Modifier.height(8.dp))
       Button(

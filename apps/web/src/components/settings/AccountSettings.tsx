@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/Input';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from '@/stores/toastStore';
 import { SessionSettings } from './SessionSettings';
+import { PushToggle } from './NotificationSettings';
 
 export function AccountSettings() {
   const t = useT();
@@ -82,6 +83,10 @@ export function AccountSettings() {
       >
         {t('settings.saveUsername')}
       </Button>
+
+      <div className="h-px bg-divider" />
+
+      <PushToggle />
 
       <div className="h-px bg-divider" />
 

@@ -10,6 +10,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.RemoteInput
 import androidx.core.content.ContextCompat
+import ru.tetherchat.app.data.SessionStore
 
 object NotificationHelper {
   const val CHANNEL_ID = "tetherchat.messages"
@@ -47,6 +48,7 @@ object NotificationHelper {
     chatTitle: String,
     messageId: String,
   ) {
+    if (!SessionStore.get(context).notificationsEnabled) return
     if (!areEnabled(context) || ForegroundState.inForeground) return
     ensureChannels(context)
     val dm = serverId.isNullOrBlank()
@@ -128,5 +130,9 @@ object NotificationHelper {
 
   fun cancel(context: Context, notificationId: Int) {
     NotificationManagerCompat.from(context).cancel(notificationId)
+  }
+
+  fun cancelAll(context: Context) {
+    NotificationManagerCompat.from(context).cancelAll()
   }
 }

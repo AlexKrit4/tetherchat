@@ -6,8 +6,9 @@ import ru.tetherchat.app.data.SessionStore
 
 class TetherFirebaseService : FirebaseMessagingService() {
   override fun onNewToken(token: String) {
-    SessionStore.get(this).fcmToken = token
-    PushRegistrar.sync(this)
+    val session = SessionStore.get(this)
+    session.fcmToken = token
+    if (session.notificationsEnabled) PushRegistrar.sync(this)
   }
 
   override fun onMessageReceived(message: RemoteMessage) {

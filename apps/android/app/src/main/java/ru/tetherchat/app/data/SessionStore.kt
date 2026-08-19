@@ -22,6 +22,10 @@ class SessionStore(context: Context) {
     get() = prefs.getString(KEY_FCM, null)
     set(value) = prefs.edit { putString(KEY_FCM, value) }
 
+  var notificationsEnabled: Boolean
+    get() = prefs.getBoolean(KEY_NOTIFICATIONS, true)
+    set(value) = prefs.edit { putBoolean(KEY_NOTIFICATIONS, value) }
+
   val hasSession: Boolean get() = !refreshToken.isNullOrBlank()
 
   fun save(auth: AuthResponse) {
@@ -31,7 +35,9 @@ class SessionStore(context: Context) {
   }
 
   fun clear() {
+    val keepNotifications = notificationsEnabled
     prefs.edit { clear() }
+    notificationsEnabled = keepNotifications
   }
 
   companion object {
@@ -40,6 +46,7 @@ class SessionStore(context: Context) {
     private const val KEY_REFRESH = "refresh"
     private const val KEY_USER = "user"
     private const val KEY_FCM = "fcm"
+    private const val KEY_NOTIFICATIONS = "notifications"
     private const val LOCK = "session-store"
 
     @Volatile private var instance: SessionStore? = null

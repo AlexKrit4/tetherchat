@@ -378,6 +378,14 @@ export function MessageInput() {
         />
       ) : null}
 
+      {recording ? (
+        <div className="mb-1 flex justify-center" aria-live="polite">
+          <span className="rounded-md bg-surface-floating px-2 py-0.5 text-xs font-semibold tabular-nums text-danger shadow-floating">
+            {formatVoiceClock(recordMs)}
+          </span>
+        </div>
+      ) : null}
+
       <div
         className={cn(
           'flex items-end gap-1 rounded-lg bg-surface-input',
@@ -490,47 +498,37 @@ export function MessageInput() {
               className="text-brand disabled:text-text-faint"
             />
           ) : draft.trim().length === 0 && pending.length === 0 && canAttach ? (
-            <div className="relative">
-              {recording ? (
-                <span
-                  className="absolute bottom-full left-1/2 z-10 mb-1 -translate-x-1/2 rounded-md bg-surface-floating px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-danger shadow-floating"
-                  aria-live="polite"
-                >
-                  {formatVoiceClock(recordMs)}
-                </span>
-              ) : null}
-              <button
-                type="button"
-                aria-label={t('chat.voice')}
-                disabled={!canSend}
-                onPointerDown={(event) => {
-                  event.preventDefault();
-                  holdingMic.current = true;
-                  event.currentTarget.setPointerCapture(event.pointerId);
-                  void startRecording();
-                }}
-                onPointerUp={(event) => {
-                  holdingMic.current = false;
-                  if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-                    event.currentTarget.releasePointerCapture(event.pointerId);
-                  }
-                  stopRecording(true);
-                }}
-                onPointerCancel={() => {
-                  holdingMic.current = false;
-                  stopRecording(true);
-                }}
-                onContextMenu={(event) => event.preventDefault()}
-                style={{ touchAction: 'none' }}
-                className={cn(
-                  'inline-flex shrink-0 items-center justify-center rounded text-text-subheading hover:text-text-heading',
-                  isMobile ? 'h-touch w-touch' : 'mb-1.5 h-8 w-8',
-                  recording && 'text-danger',
-                )}
-              >
-                <Mic size={isMobile ? 22 : 20} strokeWidth={1.75} aria-hidden />
-              </button>
-            </div>
+            <button
+              type="button"
+              aria-label={t('chat.voice')}
+              disabled={!canSend}
+              onPointerDown={(event) => {
+                event.preventDefault();
+                holdingMic.current = true;
+                event.currentTarget.setPointerCapture(event.pointerId);
+                void startRecording();
+              }}
+              onPointerUp={(event) => {
+                holdingMic.current = false;
+                if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                  event.currentTarget.releasePointerCapture(event.pointerId);
+                }
+                stopRecording(true);
+              }}
+              onPointerCancel={() => {
+                holdingMic.current = false;
+                stopRecording(true);
+              }}
+              onContextMenu={(event) => event.preventDefault()}
+              style={{ touchAction: 'none' }}
+              className={cn(
+                'inline-flex shrink-0 items-center justify-center rounded text-text-subheading hover:text-text-heading',
+                isMobile ? 'h-touch w-touch' : 'mb-1.5 h-8 w-8',
+                recording && 'text-danger',
+              )}
+            >
+              <Mic size={isMobile ? 22 : 20} strokeWidth={1.75} aria-hidden />
+            </button>
           ) : isMobile || draft.trim().length > 0 || pending.length > 0 ? (
             <IconButton
               icon={SendHorizonal}

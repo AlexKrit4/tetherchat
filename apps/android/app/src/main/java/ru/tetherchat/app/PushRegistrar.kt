@@ -45,7 +45,7 @@ object PushRegistrar {
       return
     }
     val session = SessionStore.get(appContext)
-    if (!session.hasSession) return
+    if (!session.hasSession || !session.notificationsEnabled) return
     FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
       if (token.isNullOrBlank()) return@addOnSuccessListener
       session.fcmToken = token

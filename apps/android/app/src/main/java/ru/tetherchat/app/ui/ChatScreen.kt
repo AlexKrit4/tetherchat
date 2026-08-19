@@ -7,7 +7,6 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -100,6 +99,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -259,17 +259,28 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
       })
     }
     if (canSend) {
-      Row(
+      Column(
         modifier = Modifier
           .fillMaxWidth()
           .zIndex(1f)
-          .background(SurfacePanel)
-          .padding(
-            start = 8.dp,
-            end = 8.dp,
-            bottom = 8.dp,
-            top = if (model.recording) 22.dp else 8.dp,
-          ),
+          .background(SurfacePanel),
+      ) {
+        if (model.recording) {
+          Text(
+            formatVoiceClock(model.recordElapsedMs),
+            color = Danger,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(top = 8.dp, bottom = 2.dp),
+          )
+        }
+      Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically,
       ) {
         if (canAttach) {
@@ -314,58 +325,40 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
             Icon(Icons.AutoMirrored.Outlined.Send, contentDescription = "Отправить голосовое", tint = Brand)
           }
         } else if (!ready && canAttach && model.editing == null) {
-          Box(
-            modifier = Modifier.size(width = 48.dp, height = 48.dp),
-            contentAlignment = Alignment.BottomCenter,
-          ) {
-            if (model.recording) {
-              Text(
-                formatVoiceClock(model.recordElapsedMs),
-                color = Danger,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier
-                  .align(Alignment.TopCenter)
-                  .offset(y = (-14).dp)
-                  .clip(RoundedCornerShape(8.dp))
-                  .background(SurfaceDeep)
-                  .padding(horizontal = 6.dp, vertical = 2.dp),
-              )
-            }
-            Icon(
-              Icons.Filled.Mic,
-              contentDescription = "Голосовое сообщение",
-              tint = if (model.recording) Danger else Brand,
-              modifier = Modifier
-                .size(44.dp)
-                .pointerInput(chat.channelId) {
-                  awaitEachGesture {
-                    awaitFirstDown()
-                    val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
-                      PackageManager.PERMISSION_GRANTED
-                    if (!granted) {
-                      recordPermission.launch(Manifest.permission.RECORD_AUDIO)
-                      return@awaitEachGesture
+          Icon(
+            Icons.Filled.Mic,
+            contentDescription = "Голосовое сообщение",
+            tint = if (model.recording) Danger else Brand,
+            modifier = Modifier
+              .size(44.dp)
+              .pointerInput(chat.channelId) {
+                awaitEachGesture {
+                  awaitFirstDown()
+                  val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+                    PackageManager.PERMISSION_GRANTED
+                  if (!granted) {
+                    recordPermission.launch(Manifest.permission.RECORD_AUDIO)
+                    return@awaitEachGesture
+                  }
+                  model.startVoiceRecord()
+                  try {
+                    while (true) {
+                      val event = awaitPointerEvent()
+                      if (event.changes.all { it.changedToUpIgnoreConsumed() || !it.pressed }) break
                     }
-                    model.startVoiceRecord()
-                    try {
-                      while (true) {
-                        val event = awaitPointerEvent()
-                        if (event.changes.all { it.changedToUpIgnoreConsumed() || !it.pressed }) break
-                      }
-                    } finally {
-                      if (model.recording) model.finishVoiceRecord()
-                    }
+                  } finally {
+                    if (model.recording) model.finishVoiceRecord()
                   }
                 }
-                .padding(10.dp),
-            )
-          }
+              }
+              .padding(10.dp),
+          )
         } else {
           IconButton(onClick = model::send, enabled = ready && model.pendingUploads.none { it.attachment == null && it.error == null }) {
             Icon(Icons.AutoMirrored.Outlined.Send, contentDescription = "Отправить", tint = Brand)
           }
         }
+      }
       }
     } else {
       Text(

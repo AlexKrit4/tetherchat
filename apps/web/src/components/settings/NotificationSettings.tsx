@@ -9,6 +9,22 @@ import { toast } from '@/stores/toastStore';
 /** Web push opt-in plus the local desktop-notification toggle. */
 export function NotificationSettings() {
   const t = useT();
+  return (
+    <div className="flex flex-col gap-5">
+      <PushToggle />
+      <div className="flex flex-col gap-2">
+        <p className="text-base font-semibold text-text-heading">{t('settings.perChannel')}</p>
+        <p className="text-sm text-text-muted">{t('settings.perChannelHint')}</p>
+        <Button variant="secondary" disabled>
+          {t('settings.managedPerChannel')}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+export function PushToggle() {
+  const t = useT();
   const [state, setState] = useState(() => pushState());
   const [busy, setBusy] = useState(false);
 
@@ -48,7 +64,7 @@ export function NotificationSettings() {
   };
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-2">
       <div className="flex items-start gap-3 rounded-lg bg-surface-secondary p-4">
         {state.subscribed ? (
           <Bell size={20} className="mt-0.5 shrink-0 text-success" aria-hidden />
@@ -69,18 +85,9 @@ export function NotificationSettings() {
           onChange={(next) => void toggle(next)}
         />
       </div>
-
       {state.permission === 'denied' ? (
         <p className="text-sm text-danger">{t('settings.pushSiteBlocked')}</p>
       ) : null}
-
-      <div className="flex flex-col gap-2">
-        <p className="text-base font-semibold text-text-heading">{t('settings.perChannel')}</p>
-        <p className="text-sm text-text-muted">{t('settings.perChannelHint')}</p>
-        <Button variant="secondary" disabled>
-          {t('settings.managedPerChannel')}
-        </Button>
-      </div>
     </div>
   );
 }
