@@ -1,12 +1,10 @@
 import webpush from 'web-push';
-import { cert, getApps, initializeApp } from 'firebase-admin/app';
-import { getMessaging } from 'firebase-admin/messaging';
 import { getConfig } from '../config.js';
 import { prisma } from '../db.js';
 import { shouldDeliverPush } from './pushPolicy.js';
 
 let vapidReady = false;
-let fcmReady = false;
+let fcmMessaging: import('firebase-admin/messaging').Messaging | null = null;
 
 function ensureVapid(): boolean {
   const config = getConfig();
@@ -22,24 +20,31 @@ function ensureVapid(): boolean {
   return true;
 }
 
-function parseServiceAccount(raw: string): Parameters<typeof cert>[0] {
+function parseServiceAccount(raw: string): object {
   const trimmed = raw.trim();
   const json = trimmed.startsWith('{')
     ? trimmed
     : Buffer.from(trimmed, 'base64').toString('utf8');
-  return JSON.parse(json) as Parameters<typeof cert>[0];
+  return JSON.parse(json) as object;
 }
 
-function ensureFcm(): boolean {
+/** Lazy so a missing firebase-admin install cannot take down the API process. */
+async function ensureFcm(): Promise<boolean> {
   const raw = getConfig().FCM_SERVICE_ACCOUNT_JSON;
   if (!raw?.trim()) return false;
-  if (!fcmReady) {
+  if (fcmMessaging) return true;
+  try {
+    const { cert, getApps, initializeApp } = await import('firebase-admin/app');
+    const { getMessaging } = await import('firebase-admin/messaging');
     if (getApps().length === 0) {
       initializeApp({ credential: cert(parseServiceAccount(raw)) });
     }
-    fcmReady = true;
+    fcmMessaging = getMessaging();
+    return true;
+  } catch (error) {
+    console.error('[push] FCM init failed:', error);
+    return false;
   }
-  return true;
 }
 
 export interface PushPayload {
@@ -81,7 +86,7 @@ async function sendFcm(
   subscriptions: Array<{ id: string; endpoint: string }>,
   payload: PushPayload,
 ): Promise<void> {
-  if (subscriptions.length === 0 || !ensureFcm()) return;
+  if (subscriptions.length === 0 || !(await ensureFcm()) || !fcmMessaging) return;
 
   const data: Record<string, string> = {
     title: payload.title,
@@ -93,7 +98,7 @@ async function sendFcm(
     messageId: payload.messageId ?? '',
   };
 
-  const messaging = getMessaging();
+  const messaging = fcmMessaging;
   const BATCH = 500;
   for (let offset = 0; offset < subscriptions.length; offset += BATCH) {
     const chunk = subscriptions.slice(offset, offset + BATCH);

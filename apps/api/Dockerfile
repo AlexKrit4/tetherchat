@@ -10,7 +10,8 @@ COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 # Prisma's postinstall needs the schema present before install runs.
 COPY apps/api/prisma apps/api/prisma
-RUN npm ci --workspace @tetherchat/api --workspace @tetherchat/shared --include-workspace-root
+RUN npm ci --workspace @tetherchat/api --workspace @tetherchat/shared --include-workspace-root \
+  && mkdir -p apps/api/node_modules
 
 FROM deps AS build
 WORKDIR /app
@@ -28,6 +29,8 @@ RUN apk add --no-cache openssl tini \
 
 COPY --from=build /app/package.json /app/package-lock.json ./
 COPY --from=build /app/node_modules ./node_modules
+# npm may nest workspace deps under apps/api/node_modules instead of hoisting.
+COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=build /app/packages/shared/package.json ./packages/shared/package.json
 COPY --from=build /app/packages/shared/dist ./packages/shared/dist
 COPY --from=build /app/apps/api/package.json ./apps/api/package.json
