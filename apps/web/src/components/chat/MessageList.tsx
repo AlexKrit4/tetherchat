@@ -104,7 +104,7 @@ export function MessageList() {
   }, [ack, atBottom, channelId, messages]);
 
   const jumpToBottom = useCallback(() => {
-    virtuoso.current?.scrollToIndex({ index: entries.length - 1, behavior: 'smooth' });
+    virtuoso.current?.scrollToIndex({ index: entries.length - 1, behavior: 'auto' });
   }, [entries.length]);
 
   const jumpToMessage = useCallback(
@@ -129,6 +129,7 @@ export function MessageList() {
   return (
     <div className="relative min-h-0 flex-1">
       <Virtuoso
+        key={channelId}
         ref={virtuoso}
         className="scroller scroller-hover h-full"
         data={entries}
@@ -136,7 +137,7 @@ export function MessageList() {
         initialTopMostItemIndex={entries.length - 1}
         // Short histories rest against the composer instead of floating at the top.
         alignToBottom
-        followOutput={(isAtBottom) => (isAtBottom ? 'smooth' : false)}
+        followOutput={(isAtBottom) => (isAtBottom ? 'auto' : false)}
         atBottomStateChange={setAtBottom}
         atBottomThreshold={80}
         startReached={() => {

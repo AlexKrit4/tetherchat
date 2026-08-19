@@ -37,6 +37,6 @@ Firebase Android app.
 |---------|-------|
 | Package | `ru.tetherchat.app` |
 | minSdk | 26 |
-| version | 1.2.2 |
+| version | 1.2.3 |
 | API | `https://tetherchat.ru` (`BuildConfig.API_URL`) |
 | Debug SHA-1 | `D0:42:F0:3A:D3:5D:43:F4:8C:7C:3A:02:33:86:88:E9:BA:44:F4:98` |

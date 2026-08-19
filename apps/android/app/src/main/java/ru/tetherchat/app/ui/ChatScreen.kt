@@ -31,8 +31,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -103,7 +103,7 @@ private val EmojiGrid = listOf(
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
-  val listState = rememberLazyListState()
+  val listState = remember(chat.channelId) { LazyListState() }
   val context = LocalContext.current
   var selected by remember { mutableStateOf<Message?>(null) }
   var showSettings by remember { mutableStateOf(false) }
@@ -116,20 +116,15 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
   val canManage = !chat.dm && (model.canPerm(Perm.MANAGE_MESSAGES) || model.isOwner())
   val topic = model.serverDetail?.channels?.firstOrNull { it.id == chat.channelId }?.topic
 
-  LaunchedEffect(model.messages.lastOrNull()?.id) {
-    val last = model.messages.lastIndex
-    if (last < 0) return@LaunchedEffect
-    val visible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-    if (visible >= last - 3 || last < 8) {
-      listState.animateScrollToItem(last)
-    }
-  }
-
   LaunchedEffect(listState, chat.channelId) {
-    snapshotFlow { listState.firstVisibleItemIndex }
-      .collect { index ->
-        if (index <= 1 && model.messagesHasMore && !model.busy) model.loadOlder()
-      }
+    snapshotFlow {
+      val info = listState.layoutInfo
+      val lastVisible = info.visibleItemsInfo.maxOfOrNull { it.index } ?: 0
+      val total = info.totalItemsCount
+      total > 0 && lastVisible >= total - 2
+    }.collect { nearOldest ->
+      if (nearOldest && model.messagesHasMore && !model.busy) model.loadOlder()
+    }
   }
 
   Column(
@@ -189,9 +184,10 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
     LazyColumn(
       state = listState,
       modifier = Modifier.weight(1f).fillMaxWidth(),
+      reverseLayout = true,
       contentPadding = PaddingValues(vertical = 12.dp),
     ) {
-      items(model.messages, key = { it.id }) { message ->
+      items(model.messages.asReversed(), key = { it.id }) { message ->
         MessageRow(
           message = message,
           model = model,
