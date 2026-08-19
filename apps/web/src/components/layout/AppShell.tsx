@@ -29,11 +29,11 @@ export function AppShell() {
   }, [channelId, isDm, navigate, server, serverId]);
 
   return (
-    <>
+    <div className="h-full">
       <ConnectionBanner state={connection} />
       {layout === 'mobile' ? <MobileLayout /> : null}
       {layout === 'tablet' ? <TabletLayout /> : null}
       {layout === 'desktop' ? <DesktopLayout /> : null}
-    </>
+    </div>
   );
 }

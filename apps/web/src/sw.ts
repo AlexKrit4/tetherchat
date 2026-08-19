@@ -45,14 +45,19 @@ self.addEventListener('push', (event) => {
   }
 
   event.waitUntil(
-    self.registration.showNotification(payload.title, {
-      body: payload.body,
-      icon: payload.icon ?? '/icons/icon-192.png',
-      badge: '/icons/badge-72.png',
-      // Same tag collapses repeat notifications from one channel.
-      tag: payload.tag,
-      data: { url: payload.url },
-    }),
+    (async () => {
+      const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      if (windows.some((client) => 'focused' in client && client.focused)) {
+        return;
+      }
+      await self.registration.showNotification(payload.title, {
+        body: payload.body,
+        icon: payload.icon ?? '/icons/icon-192.png',
+        badge: '/icons/badge-72.png',
+        tag: payload.tag,
+        data: { url: payload.url },
+      });
+    })(),
   );
 });
 

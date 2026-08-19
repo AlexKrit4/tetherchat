@@ -1,6 +1,7 @@
 import webpush from 'web-push';
 import { getConfig } from '../config.js';
 import { prisma } from '../db.js';
+import { shouldDeliverPush } from './pushPolicy.js';
 
 let configured = false;
 
@@ -57,10 +58,12 @@ export async function sendPushToUsers(userIds: string[], payload: PushPayload): 
 }
 
 /** Recipients that asked not to be notified for this channel are filtered out. */
+export { shouldDeliverPush } from './pushPolicy.js';
+
 export async function filterNotifiableUsers(
   channelId: string,
   userIds: string[],
-  options: { isMention: boolean },
+  options: { mentionedUserIds: string[]; mentionsEveryone: boolean },
 ): Promise<string[]> {
   if (userIds.length === 0) return [];
 
@@ -68,13 +71,10 @@ export async function filterNotifiableUsers(
     where: { channelId, userId: { in: userIds } },
   });
   const byUser = new Map(settings.map((setting) => [setting.userId, setting]));
+  const mentioned = new Set(options.mentionedUserIds);
 
   return userIds.filter((userId) => {
-    const setting = byUser.get(userId);
-    if (!setting) return true;
-    if (setting.muted) return false;
-    if (setting.level === 'nothing') return false;
-    if (setting.level === 'mentions') return options.isMention;
-    return true;
+    const isMention = options.mentionsEveryone || mentioned.has(userId);
+    return shouldDeliverPush(byUser.get(userId), isMention);
   });
 }

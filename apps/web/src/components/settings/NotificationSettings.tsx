@@ -32,6 +32,8 @@ export function NotificationSettings() {
           toast.error(t('settings.pushBlocked'));
         } else if (result === 'unsupported') {
           toast.error(t('settings.pushUnsupportedToast'));
+        } else if (result === 'no-key') {
+          toast.error(t('settings.pushUnsupportedToast'));
         } else {
           toast.success(t('settings.pushOn'));
         }

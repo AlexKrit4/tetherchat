@@ -14,6 +14,7 @@ import android.provider.MediaStore
 import android.view.View
 import android.webkit.CookieManager
 import android.webkit.GeolocationPermissions
+import android.webkit.PermissionRequest
 import android.webkit.URLUtil
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
@@ -63,6 +64,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
         applySystemBarInsets()
 
+        NotificationHelper.ensureChannel(this)
         requestNotificationPermissionIfNeeded()
         setupWebView()
         setupBackPress()
@@ -76,15 +78,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Android WebView reports `env(safe-area-inset-*)` as 0, so CSS padding
-     * alone cannot keep the channel-list header out from under the status bar.
-     * Inset the native root instead: the WebView draws below the status bar
-     * and above the navigation bar, on the same dark surface as the theme.
+     * Edge-to-edge draws under the status bar, so we pad the WebView ourselves.
+     * The IME inset must be included: consuming system-bar insets alone left
+     * the composer sitting under the Android keyboard.
      */
     private fun applySystemBarInsets() {
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+            view.setPadding(bars.left, bars.top, bars.right, maxOf(bars.bottom, ime.bottom))
             WindowInsetsCompat.CONSUMED
         }
     }
@@ -133,6 +135,7 @@ class MainActivity : AppCompatActivity() {
 
         webView.webViewClient = TetherWebViewClient()
         webView.webChromeClient = TetherChromeClient()
+        webView.addJavascriptInterface(TetherChatBridge(this), "TetherChatNative")
         webView.setDownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
             handleDownload(url, userAgent, contentDisposition, mimeType)
         }
@@ -207,6 +210,13 @@ class MainActivity : AppCompatActivity() {
             callback: GeolocationPermissions.Callback?,
         ) {
             callback?.invoke(origin, false, false)
+        }
+
+        override fun onPermissionRequest(request: PermissionRequest?) {
+            if (request == null) {
+                return
+            }
+            request.grant(request.resources)
         }
 
         override fun onCreateWindow(
@@ -318,13 +328,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
-        binding.webView.onPause()
         CookieManager.getInstance().flush()
-    }
-
-    override fun onResume() {
-        super.onResume()
-        binding.webView.onResume()
     }
 
     override fun onDestroy() {

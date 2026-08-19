@@ -229,17 +229,16 @@ async function notifyRecipients(
   const others = target.recipientIds.filter((id) => id !== message.authorId);
   if (others.length === 0) return;
 
-  const mentioned = mentionsEveryone ? others : others.filter((id) => mentionedUserIds.includes(id));
-  const notifyIds =
-    target.kind === 'conversation'
-      ? others
-      : await filterNotifiableUsers(target.id, mentioned, { isMention: true });
+  const notifyIds = await filterNotifiableUsers(target.id, others, {
+    mentionedUserIds,
+    mentionsEveryone,
+  });
 
   if (notifyIds.length === 0) return;
 
   const authorName = message.author.displayName ?? message.author.username;
   const title =
-    target.kind === 'channel' ? `${authorName} in #${target.channelName}` : authorName;
+    target.kind === 'channel' ? `${authorName} в #${target.channelName}` : authorName;
   const url =
     target.kind === 'channel'
       ? `/channels/${target.serverId}/${target.id}`
@@ -250,7 +249,7 @@ async function notifyRecipients(
     userIds: notifyIds,
     payload: {
       title,
-      body: message.content.slice(0, 140) || 'Sent an attachment',
+      body: message.content.slice(0, 140) || 'Вложение',
       icon: message.author.avatarUrl ?? undefined,
       url,
       tag: `channel:${target.id}`,

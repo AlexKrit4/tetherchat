@@ -13,6 +13,7 @@ import { ForgotPasswordPage, ResetPasswordPage } from '@/pages/ForgotPasswordPag
 import { VerifyEmailPage } from '@/pages/VerifyEmailPage';
 import { useAuthStore } from '@/stores/authStore';
 import { useT } from '@/i18n/useT';
+import { ensurePushSubscription } from '@/lib/push';
 
 export function App() {
   const status = useAuthStore((state) => state.status);
@@ -22,33 +23,40 @@ export function App() {
     void bootstrap();
   }, [bootstrap]);
 
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    void ensurePushSubscription();
+  }, [status]);
+
   if (status === 'loading') return <BootSplash />;
 
   return (
     <ErrorBoundary>
-      <Routes>
-        <Route path="/login" element={<AnonymousOnly><LoginPage /></AnonymousOnly>} />
-        <Route path="/register" element={<AnonymousOnly><RegisterPage /></AnonymousOnly>} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
-        <Route path="/verify-email" element={<VerifyEmailPage />} />
-        <Route path="/invite/:code" element={<InvitePage />} />
+      <div className="h-full">
+        <Routes>
+          <Route path="/login" element={<AnonymousOnly><LoginPage /></AnonymousOnly>} />
+          <Route path="/register" element={<AnonymousOnly><RegisterPage /></AnonymousOnly>} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
+          <Route path="/invite/:code" element={<InvitePage />} />
 
-        <Route
-          path="/channels/:serverId/:channelId?"
-          element={
-            <RequireAuth>
-              <AppShell />
-            </RequireAuth>
-          }
-        />
+          <Route
+            path="/channels/:serverId/:channelId?"
+            element={
+              <RequireAuth>
+                <AppShell />
+              </RequireAuth>
+            }
+          />
 
-        <Route path="/" element={<Navigate to={`/channels/${DM_ROUTE}`} replace />} />
-        <Route path="*" element={<Navigate to={`/channels/${DM_ROUTE}`} replace />} />
-      </Routes>
+          <Route path="/" element={<Navigate to={`/channels/${DM_ROUTE}`} replace />} />
+          <Route path="*" element={<Navigate to={`/channels/${DM_ROUTE}`} replace />} />
+        </Routes>
 
-      <Toaster />
-      <UpdatePrompt />
+        <Toaster />
+        <UpdatePrompt />
+      </div>
     </ErrorBoundary>
   );
 }

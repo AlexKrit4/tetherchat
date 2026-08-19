@@ -11,7 +11,7 @@ import { Input, Textarea } from '@/components/ui/Input';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from '@/stores/toastStore';
 import { queryKeys } from '@/lib/queryKeys';
-import { ANDROID_APK_FILENAME, ANDROID_APK_PATH, isNativeAndroidApp } from '@/lib/androidApp';
+import { ANDROID_APK_FILENAME, ANDROID_APK_PATH, isInstalledAndroidApp } from '@/lib/androidApp';
 
 /** Avatar, display name, bio and custom status. Shared by desktop and mobile. */
 export function ProfileSettings() {
@@ -133,7 +133,7 @@ export function ProfileSettings() {
         <div className="min-w-0 flex-1">
           <p className="text-base font-semibold text-text-heading">{t('settings.downloadApp')}</p>
           <p className="mt-1 text-sm text-text-muted">{t('settings.downloadAppHint')}</p>
-          {isNativeAndroidApp() ? (
+          {isInstalledAndroidApp() ? (
             <p className="mt-3 text-sm text-success">{t('settings.downloadAppInstalled')}</p>
           ) : (
             <a

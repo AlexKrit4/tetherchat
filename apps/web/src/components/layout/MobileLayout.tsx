@@ -54,7 +54,7 @@ export function MobileLayout() {
   // `pt-safe` was painted over and the channel-list header sat under the
   // Android status bar.
   return (
-    <div className="relative flex h-screen-dvh w-full flex-col overflow-hidden bg-surface-tertiary">
+    <div className="relative flex h-full w-full flex-col overflow-hidden bg-surface-tertiary">
       <AnimatePresence initial={false} mode="popLayout">
         <motion.div
           key={mobileView}

@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { DirectConversation, Message, PresenceStatus, ReadState, ServerMember } from '@tetherchat/shared';
 import { queryKeys } from '@/lib/queryKeys';
 import { connectSocket, getSocket } from '@/lib/socket';
+import { notifyIncomingMessage } from '@/lib/push';
 import { messageCache } from './useMessages';
 import { useAuthStore } from '@/stores/authStore';
 import { usePresenceStore } from '@/stores/presenceStore';
@@ -35,6 +36,7 @@ export function useRealtime(): ConnectionState {
       messageCache.upsertMessage(client, message.channelId, message);
       if (message.authorId !== currentUserId) {
         markChannelUnread(client, message.channelId, message.mentionedUserIds.includes(currentUserId ?? ''));
+        notifyIncomingMessage(message, currentUserId);
       }
       void client.invalidateQueries({ queryKey: queryKeys.dms, refetchType: 'none' });
     };
