@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "255228613217",
+    "project_id": "tetherchat-a99ee",
+    "storage_bucket": "tetherchat-a99ee.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:255228613217:android:90872b6c01ac7209611020",
+        "android_client_info": {
+          "package_name": "ru.tetherchat.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBPlRNE-25fxg-_4lp_bClrWXKJQhBNTas"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

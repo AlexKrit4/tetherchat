@@ -17,6 +17,7 @@ object PushRegistrar {
     Thread {
       val ready = synchronized(lock) {
         if (FirebaseApp.getApps(app).isNotEmpty()) true
+        else if (runCatching { FirebaseApp.initializeApp(app) }.getOrNull() != null) true
         else {
           val config = runCatching { TetherApi(SessionStore.get(app)).fcmConfig() }.getOrNull()
           if (config == null || !config.ready) false
