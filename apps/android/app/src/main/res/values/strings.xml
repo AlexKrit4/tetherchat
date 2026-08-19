@@ -2,4 +2,6 @@
 <resources>
     <string name="app_name">TetherChat</string>
     <string name="foreground_waiting">Ожидание сообщений</string>
+    <string name="notif_reply">Ответить</string>
+    <string name="notif_mark_read">Прочитано</string>
 </resources>

@@ -30,5 +30,5 @@ After deploy the file is served as https://tetherchat.ru/app/tetherchat.apk.
 |---------|-------|
 | Package | `ru.tetherchat.app` |
 | minSdk | 26 |
-| version | 1.1.0 |
+| version | 1.1.1 |
 | API | `https://tetherchat.ru` (`BuildConfig.API_URL`) |

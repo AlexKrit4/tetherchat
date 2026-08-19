@@ -107,6 +107,42 @@ export async function userRoutes(app: FastifyInstance) {
 
   app.get('/@me/read-states', async (request) => listReadStates(request.userId));
 
+  app.get('/@me/blocks', async (request) => {
+    const rows = await prisma.userBlock.findMany({
+      where: { blockerId: request.userId },
+      include: { blocked: { select: publicUserSelect } },
+      orderBy: { createdAt: 'desc' },
+    });
+    return rows.map((row) => toPublicUser(row.blocked));
+  });
+
+  app.put('/@me/blocks/:userId', async (request) => {
+    const { userId } = z.object({ userId: z.string().min(1) }).parse(request.params);
+    if (userId === request.userId) throw ApiError.badRequest('You cannot block yourself');
+
+    const target = await prisma.user.findUnique({
+      where: { id: userId },
+      select: publicUserSelect,
+    });
+    if (!target) throw ApiError.notFound('User not found');
+
+    await prisma.userBlock.upsert({
+      where: { blockerId_blockedId: { blockerId: request.userId, blockedId: userId } },
+      create: { blockerId: request.userId, blockedId: userId },
+      update: {},
+    });
+
+    return toPublicUser(target);
+  });
+
+  app.delete('/@me/blocks/:userId', async (request, reply) => {
+    const { userId } = z.object({ userId: z.string().min(1) }).parse(request.params);
+    await prisma.userBlock.deleteMany({
+      where: { blockerId: request.userId, blockedId: userId },
+    });
+    reply.status(204).send();
+  });
+
   app.get('/:userId', async (request) => {
     const { userId } = z.object({ userId: z.string().min(1) }).parse(request.params);
     const user = await prisma.user.findUnique({ where: { id: userId }, select: publicUserSelect });

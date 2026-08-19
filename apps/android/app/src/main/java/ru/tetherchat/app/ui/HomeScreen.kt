@@ -22,9 +22,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AlternateEmail
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Tag
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -254,6 +254,7 @@ private fun UserFooter(model: AppViewModel) {
     modifier = Modifier
       .fillMaxWidth()
       .background(SurfaceDeep)
+      .clickable(onClick = model::openSettings)
       .padding(horizontal = 12.dp, vertical = 10.dp),
     verticalAlignment = Alignment.CenterVertically,
   ) {
@@ -261,11 +262,14 @@ private fun UserFooter(model: AppViewModel) {
     Spacer(Modifier.width(10.dp))
     Column(Modifier.weight(1f)) {
       Text(user.label, color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1)
-      Text("@${user.username}", color = TextMuted, fontSize = 12.sp, maxLines = 1)
+      Text(
+        user.customStatus?.takeIf { it.isNotBlank() } ?: "@${user.username}",
+        color = TextMuted,
+        fontSize = 12.sp,
+        maxLines = 1,
+      )
     }
-    IconButton(onClick = model::logout) {
-      Icon(Icons.AutoMirrored.Outlined.Logout, contentDescription = "Выйти", tint = TextMuted)
-    }
+    Icon(Icons.Outlined.Settings, contentDescription = "Настройки", tint = TextMuted)
   }
 }
 

@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { LIMITS, socketRooms } from '@tetherchat/shared';
 import { prisma } from '../db.js';
 import { ApiError } from '../errors.js';
+import { blockedPeerIds, isBlockedEitherWay } from '../lib/blocks.js';
 import { assertConversationMember } from '../lib/permissions.js';
 import { conversationInclude, toConversation } from '../lib/serialize.js';
 import {
@@ -25,7 +26,14 @@ export async function dmRoutes(app: FastifyInstance) {
       // have no messages yet above active ones.
       orderBy: [{ lastMessageAt: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }],
     });
-    return conversations.map(toConversation);
+    const blocked = await blockedPeerIds(request.userId);
+    return conversations
+      .map(toConversation)
+      .filter(
+        (conversation) =>
+          conversation.isGroup ||
+          !conversation.members.some((member) => member.id !== request.userId && blocked.has(member.id)),
+      );
   });
 
   app.post('/', async (request, reply) => {
@@ -46,6 +54,9 @@ export async function dmRoutes(app: FastifyInstance) {
     const isGroup = memberIds.length > 2;
 
     if (!isGroup) {
+      if (await isBlockedEitherWay(request.userId, otherIds[0])) {
+        throw ApiError.forbidden('You cannot message this user');
+      }
       const existing = await findDirectConversation(request.userId, otherIds[0]);
       if (existing) {
         reply.send(toConversation(existing));

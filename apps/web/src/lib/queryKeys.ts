@@ -14,4 +14,5 @@ export const queryKeys = {
   channelNotifications: (channelId: string) => ['channel-notifications', channelId] as const,
   userSearch: (query: string) => ['user-search', query] as const,
   invitePreview: (code: string) => ['invite-preview', code] as const,
+  blocks: ['blocks'] as const,
 };

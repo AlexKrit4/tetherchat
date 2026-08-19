@@ -21,6 +21,7 @@ import { emitToChannel, emitToConversation } from '../ws/realtime.js';
 import { bumpMentionCounts } from './readStateService.js';
 import { filterNotifiableUsers } from './pushService.js';
 import { getConfig } from '../config.js';
+import { blockedPeerIds, isBlockedEitherWay } from '../lib/blocks.js';
 
 export interface CreateMessageInput {
   authorId: string;
@@ -78,13 +79,21 @@ async function resolveTarget(input: CreateMessageInput): Promise<Target> {
       include: { members: { where: { leftAt: null }, select: { userId: true } } },
     });
 
+    const recipientIds = conversation.members.map((member) => member.userId);
+    if (!conversation.isGroup) {
+      const otherId = recipientIds.find((id) => id !== input.authorId);
+      if (otherId && (await isBlockedEitherWay(input.authorId, otherId))) {
+        throw ApiError.forbidden('You cannot message this user');
+      }
+    }
+
     return {
       kind: 'conversation',
       id: input.conversationId,
       serverId: null,
       serverName: null,
       channelName: conversation.name ?? 'Direct Message',
-      recipientIds: conversation.members.map((member) => member.userId),
+      recipientIds,
       canMentionEveryone: false,
     };
   }
@@ -226,7 +235,10 @@ async function notifyRecipients(
   mentionsEveryone: boolean,
   mentionedUserIds: string[],
 ): Promise<void> {
-  const others = target.recipientIds.filter((id) => id !== message.authorId);
+  const blocked = await blockedPeerIds(message.authorId);
+  const others = target.recipientIds.filter(
+    (id) => id !== message.authorId && !blocked.has(id),
+  );
   if (others.length === 0) return;
 
   const notifyIds = await filterNotifiableUsers(target.id, others, {

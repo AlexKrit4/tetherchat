@@ -129,7 +129,8 @@ class MessagePushService : Service() {
     val channelId = message.optString("channelId")
     if (channelId.isBlank()) return
     val serverId = message.optString("serverId").takeIf { it.isNotBlank() && it != "null" }
-    NotificationHelper.showMessage(this, title, body, channelId, serverId, title)
+    val messageId = message.optString("id")
+    NotificationHelper.showMessage(this, title, body, channelId, serverId, title, messageId)
   }
 
   private fun disconnectSocket() {

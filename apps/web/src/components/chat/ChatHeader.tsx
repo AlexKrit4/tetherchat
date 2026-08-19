@@ -7,6 +7,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { IconButton } from '@/components/ui/IconButton';
 import { useUiStore } from '@/stores/uiStore';
 import { useAuthStore } from '@/stores/authStore';
+import { ChatSettingsButton } from './ChatSettingsButton';
 
 /**
  * 48px bar above the message list. On mobile the leading slot becomes a back
@@ -104,6 +105,8 @@ export function ChatHeader() {
           size={isMobile ? 'lg' : 'md'}
           onClick={() => (isMobile ? pushMobileView('search') : setSearchOpen(true))}
         />
+
+        <ChatSettingsButton />
       </div>
     </header>
   );

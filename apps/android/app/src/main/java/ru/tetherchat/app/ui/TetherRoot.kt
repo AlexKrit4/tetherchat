@@ -19,12 +19,12 @@ fun TetherRoot(model: AppViewModel) {
   val snack = remember { SnackbarHostState() }
   LaunchedEffect(model.error) {
     val text = model.error ?: return@LaunchedEffect
-    if (model.screen is Screen.Home || model.screen is Screen.Chat) {
+    if (model.screen is Screen.Home || model.screen is Screen.Chat || model.screen is Screen.Settings || model.screen is Screen.Blacklist) {
       snack.showSnackbar(text)
       model.error = null
     }
   }
-  BackHandler(enabled = model.screen is Screen.Chat || model.screen is Screen.Register) {
+  BackHandler(enabled = model.screen is Screen.Chat || model.screen is Screen.Register || model.screen is Screen.Settings || model.screen is Screen.Blacklist) {
     model.back()
   }
   Box(Modifier.fillMaxSize().background(SurfaceDeep)) {
@@ -33,6 +33,8 @@ fun TetherRoot(model: AppViewModel) {
       Screen.Login -> LoginScreen(model)
       Screen.Register -> RegisterScreen(model)
       Screen.Home -> HomeScreen(model)
+      Screen.Settings -> SettingsScreen(model)
+      Screen.Blacklist -> BlacklistScreen(model)
       is Screen.Chat -> ChatScreen(model, screen)
     }
     SnackbarHost(snack, modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp))

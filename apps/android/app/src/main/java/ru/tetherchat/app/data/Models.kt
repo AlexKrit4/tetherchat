@@ -121,6 +121,28 @@ data class Attachment(
   val url: String = "",
   val filename: String = "",
   val contentType: String = "",
+  val size: Int = 0,
+  val width: Int? = null,
+  val height: Int? = null,
+) {
+  val isImage: Boolean get() = contentType.startsWith("image/")
+}
+
+@Serializable
+data class MessageReference(
+  val id: String,
+  val authorId: String = "",
+  val author: PublicUser? = null,
+  val content: String = "",
+  val deleted: Boolean = false,
+)
+
+@Serializable
+data class Reaction(
+  val emoji: String,
+  val count: Int = 0,
+  val userIds: List<String> = emptyList(),
+  val me: Boolean = false,
 )
 
 @Serializable
@@ -135,7 +157,9 @@ data class Message(
   val editedAt: String? = null,
   val pinned: Boolean = false,
   val system: Boolean = false,
+  val replyTo: MessageReference? = null,
   val attachments: List<Attachment> = emptyList(),
+  val reactions: List<Reaction> = emptyList(),
   val nonce: String? = null,
 )
 
@@ -159,6 +183,8 @@ data class DirectConversation(
     if (isGroup) return name?.takeIf { it.isNotBlank() } ?: members.joinToString { it.label }
     return members.firstOrNull { it.id != meId }?.label ?: "Личные сообщения"
   }
+
+  fun peer(meId: String): PublicUser? = members.firstOrNull { it.id != meId }
 }
 
 @Serializable
@@ -179,7 +205,12 @@ data class RefreshBody(val refreshToken: String)
 data class LogoutBody(val refreshToken: String)
 
 @Serializable
-data class SendMessageBody(val content: String, val nonce: String? = null)
+data class SendMessageBody(
+  val content: String,
+  val nonce: String? = null,
+  val replyToId: String? = null,
+  val attachmentIds: List<String>? = null,
+)
 
 @Serializable
 data class CreateDmBody(val userIds: List<String>)
@@ -192,3 +223,53 @@ data class JoinResult(val serverId: String)
 
 @Serializable
 data class PresenceEvent(val userId: String, val status: String)
+
+@Serializable
+data class PatchProfileBody(
+  val displayName: String?,
+  val customStatus: String?,
+  val bio: String?,
+)
+
+@Serializable
+data class PatchStatusBody(val status: String)
+
+@Serializable
+data class EditMessageBody(val content: String)
+
+@Serializable
+data class ReactBody(val emoji: String)
+
+@Serializable
+data class AckBody(val messageId: String)
+
+@Serializable
+data class MuteBody(val muted: Boolean)
+
+@Serializable
+data class ChannelNotifications(
+  val channelId: String = "",
+  val level: String = "all",
+  val muted: Boolean = false,
+)
+
+@Serializable
+data class MessageDeletedEvent(
+  val messageId: String,
+  val channelId: String,
+)
+
+@Serializable
+data class ReactionUpdatedEvent(
+  val messageId: String,
+  val channelId: String,
+  val reactions: List<Reaction> = emptyList(),
+)
+
+data class PendingUpload(
+  val localId: String,
+  val filename: String,
+  val mime: String,
+  val attachment: Attachment? = null,
+  val error: String? = null,
+)

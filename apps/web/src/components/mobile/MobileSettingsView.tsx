@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bell, ChevronRight, LogOut, Palette, ShieldCheck, User } from 'lucide-react';
+import { Bell, Ban, ChevronRight, LogOut, Palette, ShieldCheck, User } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { useT } from '@/i18n/useT';
@@ -10,10 +10,11 @@ import { ProfileSettings } from '@/components/settings/ProfileSettings';
 import { NotificationSettings } from '@/components/settings/NotificationSettings';
 import { AppearanceSettings } from '@/components/settings/AppearanceSettings';
 import { AccountSettings } from '@/components/settings/AccountSettings';
+import { BlacklistSettings } from '@/components/settings/BlacklistSettings';
 import { useAuthStore } from '@/stores/authStore';
 import { useUiStore } from '@/stores/uiStore';
 
-type Section = 'root' | 'profile' | 'account' | 'notifications' | 'appearance';
+type Section = 'root' | 'profile' | 'account' | 'notifications' | 'appearance' | 'blocked';
 
 /** Full-screen settings with a second level, instead of a desktop modal. */
 export function MobileSettingsView() {
@@ -28,6 +29,7 @@ export function MobileSettingsView() {
     account: t('settings.accountSecurity'),
     notifications: t('settings.notifications'),
     appearance: t('settings.appearance'),
+    blocked: t('settings.blockedUsers'),
   };
 
   if (section !== 'root') {
@@ -39,6 +41,7 @@ export function MobileSettingsView() {
           {section === 'account' ? <AccountSettings /> : null}
           {section === 'notifications' ? <NotificationSettings /> : null}
           {section === 'appearance' ? <AppearanceSettings /> : null}
+          {section === 'blocked' ? <BlacklistSettings /> : null}
         </div>
       </div>
     );
@@ -84,6 +87,11 @@ export function MobileSettingsView() {
             icon={Palette}
             label={t('settings.appearance')}
             onSelect={() => setSection('appearance')}
+          />
+          <SettingsRow
+            icon={Ban}
+            label={t('settings.blockedUsers')}
+            onSelect={() => setSection('blocked')}
           />
         </SettingsGroup>
 

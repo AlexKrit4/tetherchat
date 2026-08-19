@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { MessageSquare } from 'lucide-react';
+import { Ban, MessageSquare } from 'lucide-react';
 import type { PublicUser } from '@tetherchat/shared';
 import { api, errorMessage } from '@/lib/api';
 import { memberSince } from '@/lib/time';
@@ -16,6 +16,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { useAuthStore } from '@/stores/authStore';
 import { useUiStore } from '@/stores/uiStore';
 import { toast } from '@/stores/toastStore';
+import { useBlockUser } from '@/components/settings/BlacklistSettings';
 
 export interface UserProfileDialogProps {
   userId: string;
@@ -33,6 +34,7 @@ export function UserProfileDialog({ userId, open, onClose }: UserProfileDialogPr
   const { serverId, server } = useChatTarget();
   const { data: members } = useMembers(serverId);
   const createConversation = useCreateConversation();
+  const block = useBlockUser();
 
   const { data: user, isLoading } = useQuery({
     queryKey: ['user', userId],
@@ -120,6 +122,7 @@ export function UserProfileDialog({ userId, open, onClose }: UserProfileDialogPr
             <p className="mt-1 text-base text-text">{memberSince(user.createdAt)}</p>
 
             {userId !== currentUserId ? (
+              <>
               <Button
                 fullWidth
                 className="mt-4"
@@ -141,6 +144,27 @@ export function UserProfileDialog({ userId, open, onClose }: UserProfileDialogPr
                 <MessageSquare size={16} aria-hidden />
                 {t('profile.sendDm')}
               </Button>
+              <Button
+                fullWidth
+                variant="danger"
+                className="mt-2"
+                loading={block.isPending}
+                onClick={() => {
+                  if (!window.confirm(t('settings.blockConfirm', { name: user.displayName ?? user.username }))) {
+                    return;
+                  }
+                  block.mutate(userId, {
+                    onSuccess: () => {
+                      navigate(`/channels/${DM_ROUTE}`);
+                      onClose();
+                    },
+                  });
+                }}
+              >
+                <Ban size={16} aria-hidden />
+                {t('settings.blockUser')}
+              </Button>
+              </>
             ) : null}
           </div>
         </div>

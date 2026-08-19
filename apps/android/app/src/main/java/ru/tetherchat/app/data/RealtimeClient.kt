@@ -14,6 +14,10 @@ class RealtimeClient(
 
   fun connect(
     onMessage: (Message) -> Unit,
+    onMessageUpdated: (Message) -> Unit,
+    onMessageDeleted: (MessageDeletedEvent) -> Unit,
+    onReaction: (ReactionUpdatedEvent) -> Unit,
+    onDmCreate: (DirectConversation) -> Unit,
     onPresence: (PresenceEvent) -> Unit,
     onReady: () -> Unit,
   ) {
@@ -30,16 +34,31 @@ class RealtimeClient(
     }
     val next = IO.socket(URI.create(BuildConfig.API_URL), options)
     next.on("message:new") { args ->
-      val raw = args.firstOrNull() as? JSONObject ?: return@on
-      runCatching { json.decodeFromString<Message>(raw.toString()) }.getOrNull()?.let(onMessage)
+      decode<Message>(args)?.let(onMessage)
+    }
+    next.on("message:updated") { args ->
+      decode<Message>(args)?.let(onMessageUpdated)
+    }
+    next.on("message:deleted") { args ->
+      decode<MessageDeletedEvent>(args)?.let(onMessageDeleted)
+    }
+    next.on("reaction:updated") { args ->
+      decode<ReactionUpdatedEvent>(args)?.let(onReaction)
+    }
+    next.on("dm:create") { args ->
+      decode<DirectConversation>(args)?.let(onDmCreate)
     }
     next.on("presence:update") { args ->
-      val raw = args.firstOrNull() as? JSONObject ?: return@on
-      runCatching { json.decodeFromString<PresenceEvent>(raw.toString()) }.getOrNull()?.let(onPresence)
+      decode<PresenceEvent>(args)?.let(onPresence)
     }
     next.on(Socket.EVENT_CONNECT) { onReady() }
     next.connect()
     socket = next
+  }
+
+  private inline fun <reified T> decode(args: Array<Any>): T? {
+    val raw = args.firstOrNull() as? JSONObject ?: return null
+    return runCatching { json.decodeFromString<T>(raw.toString()) }.getOrNull()
   }
 
   fun connected(): Boolean = socket?.connected() == true
