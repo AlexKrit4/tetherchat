@@ -37,6 +37,7 @@ async function ensureDirectConversation(userA: string, userB: string): Promise<D
     where: {
       isGroup: false,
       isSaved: false,
+      isAi: false,
       AND: [
         { members: { some: { userId: userA, leftAt: null } } },
         { members: { some: { userId: userB, leftAt: null } } },
@@ -93,53 +94,58 @@ export async function friendRoutes(app: FastifyInstance) {
       .parse(request.body);
 
     const target = body.userId
-      ? await prisma.user.findUnique({ where: { id: body.userId }, select: publicUserSelect })
+      ? await prisma.user.findUnique({
+          where: { id: body.userId },
+          select: { ...publicUserSelect, isBot: true },
+        })
       : body.username
         ? await prisma.user.findUnique({
             where: { username: body.username.toLowerCase() },
-            select: publicUserSelect,
+            select: { ...publicUserSelect, isBot: true },
           })
         : null;
     if (!target) throw ApiError.notFound('Пользователь не найден');
+    const { isBot, ...publicTarget } = target;
+    if (isBot) throw ApiError.badRequest('Нейросеть уже есть в списке чатов');
 
-    await assertCanRequest(request.userId, target.id);
+    await assertCanRequest(request.userId, publicTarget.id);
 
     const reverse = await prisma.friendRequest.findUnique({
-      where: { fromId_toId: { fromId: target.id, toId: request.userId } },
+      where: { fromId_toId: { fromId: publicTarget.id, toId: request.userId } },
     });
     if (reverse) {
-      await createFriendshipPair(request.userId, target.id);
-      const conversation = await ensureDirectConversation(request.userId, target.id);
-      emitToUser(target.id, 'friend:accepted', { conversation: toConversation(
+      await createFriendshipPair(request.userId, publicTarget.id);
+      const conversation = await ensureDirectConversation(request.userId, publicTarget.id);
+      emitToUser(publicTarget.id, 'friend:accepted', { conversation: toConversation(
         await prisma.directConversation.findUniqueOrThrow({
           where: { id: conversation.id },
           include: conversationInclude,
         }),
-        target.id,
+        publicTarget.id,
       ) });
       emitToUser(request.userId, 'friend:accepted', { conversation });
-      reply.status(201).send({ accepted: true, user: target, conversation });
+      reply.status(201).send({ accepted: true, user: toPublicUser(publicTarget), conversation });
       return;
     }
 
     const existing = await prisma.friendRequest.findUnique({
-      where: { fromId_toId: { fromId: request.userId, toId: target.id } },
+      where: { fromId_toId: { fromId: request.userId, toId: publicTarget.id } },
     });
     if (existing) {
-      reply.send({ accepted: false, user: target, request: toFriendRequest({
+      reply.send({ accepted: false, user: toPublicUser(publicTarget), request: toFriendRequest({
         ...existing,
         from: (await prisma.user.findUniqueOrThrow({ where: { id: request.userId }, select: publicUserSelect })),
-        to: target,
+        to: publicTarget,
       }) });
       return;
     }
 
     const created = await prisma.friendRequest.create({
-      data: { fromId: request.userId, toId: target.id },
+      data: { fromId: request.userId, toId: publicTarget.id },
       include: requestInclude,
     });
-    emitToUser(target.id, 'friend:incoming', { count: await incomingRequestCount(target.id) });
-    reply.status(201).send({ accepted: false, user: target, request: toFriendRequest(created) });
+    emitToUser(publicTarget.id, 'friend:incoming', { count: await incomingRequestCount(publicTarget.id) });
+    reply.status(201).send({ accepted: false, user: toPublicUser(publicTarget), request: toFriendRequest(created) });
   });
 
   app.post('/requests/:id/accept', async (request) => {

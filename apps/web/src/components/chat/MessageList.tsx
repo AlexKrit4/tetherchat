@@ -160,7 +160,7 @@ export function MessageList() {
   if (isLoading) return <MessageSkeletonList />;
 
   if (entries.length === 0) {
-    return <ChannelIntro name={title} isDm={isDm} />;
+    return <ChannelIntro name={title} isDm={isDm} isAi={Boolean(conversation?.isAi)} />;
   }
 
   return (
@@ -194,7 +194,7 @@ export function MessageList() {
               ) : hasNextPage ? (
                 <div className="h-4" />
               ) : (
-                <ChannelIntro name={title} isDm={isDm} compact />
+                <ChannelIntro name={title} isDm={isDm} isAi={Boolean(conversation?.isAi)} compact />
               )}
             </div>
           ),
@@ -204,7 +204,7 @@ export function MessageList() {
           const { message } = entry;
           const mine = message.authorId === currentUser?.id;
           const showReceipts =
-            Boolean(mine && isDm && conversation && !conversation.isGroup && !conversation.isSaved);
+            Boolean(mine && isDm && conversation && !conversation.isGroup && !conversation.isSaved && !conversation.isAi);
           const read =
             showReceipts &&
             Boolean(
@@ -351,10 +351,12 @@ function UnreadDivider() {
 function ChannelIntro({
   name,
   isDm,
+  isAi,
   compact,
 }: {
   name: string;
   isDm: boolean;
+  isAi?: boolean;
   compact?: boolean;
 }) {
   const t = useT();
@@ -369,7 +371,7 @@ function ChannelIntro({
         {isDm ? name : t('chat.welcomeChannel', { name })}
       </h2>
       <p className="mt-1 text-base text-text-muted">
-        {isDm ? t('chat.startDm') : t('chat.startChannel', { name })}
+        {isAi ? t('chat.startAi') : isDm ? t('chat.startDm') : t('chat.startChannel', { name })}
       </p>
     </div>
   );

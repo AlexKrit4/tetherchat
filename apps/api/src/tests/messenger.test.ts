@@ -24,6 +24,57 @@ describe('saved messages', () => {
 
     const list = await app.inject({ method: 'GET', url: '/api/dms', headers: user.auth });
     expect(list.json<DirectConversation[]>()[0].isSaved).toBe(true);
+    expect(list.json<DirectConversation[]>().some((row) => row.isAi)).toBe(true);
+  });
+});
+
+describe('ai chat', () => {
+  it('lists the built-in AI conversation and replies without an API key', async () => {
+    const user = await createUser();
+    created.push(user);
+    const app = await testApp();
+
+    const list = await app.inject({ method: 'GET', url: '/api/dms', headers: user.auth });
+    expect(list.statusCode).toBe(200);
+    const conversations = list.json<DirectConversation[]>();
+    expect(conversations[0]?.isSaved).toBe(true);
+    const ai = conversations.find((row) => row.isAi);
+    expect(ai).toBeTruthy();
+    expect(ai!.members).toHaveLength(2);
+
+    const sent = await app.inject({
+      method: 'POST',
+      url: `/api/dms/${ai!.id}/messages`,
+      headers: user.auth,
+      payload: { content: 'привет' },
+    });
+    expect(sent.statusCode).toBe(201);
+
+    const history = await app.inject({
+      method: 'GET',
+      url: `/api/dms/${ai!.id}/messages`,
+      headers: user.auth,
+    });
+    const items = history.json<{ items: Message[] }>().items;
+    expect(items).toHaveLength(2);
+    expect(items[0]!.content).toBe('привет');
+    expect(items[0]!.authorId).toBe(user.id);
+    expect(items[1]!.content).toBe('Это тестовый ответ нейросети.');
+    expect(items[1]!.authorId).not.toBe(user.id);
+  });
+
+  it('rejects registering the reserved AI username', async () => {
+    const app = await testApp();
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/auth/register',
+      payload: {
+        email: `tetherai-${Date.now()}@example.test`,
+        username: 'tetherai',
+        password: 'sup3r-secret-pass',
+      },
+    });
+    expect(response.statusCode).toBe(409);
   });
 });
 

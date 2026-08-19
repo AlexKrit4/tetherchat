@@ -17,6 +17,7 @@ import {
   verifyTotp,
 } from '../lib/totp.js';
 import { assertPlatformAdmin, activeSiteBan, banLoginMessage, syncPlatformAdminFlag } from '../lib/platformAdmin.js';
+import { isReservedUsername } from '../lib/aiBot.js';
 import { redis } from '../redis.js';
 import {
   REFRESH_COOKIE,
@@ -62,6 +63,9 @@ export async function authRoutes(app: FastifyInstance) {
     const body = credentialsSchema.parse(request.body);
     const email = body.email.toLowerCase();
     const username = body.username.toLowerCase();
+    if (isReservedUsername(username)) {
+      throw ApiError.conflict('That username is taken');
+    }
 
     const clash = await prisma.user.findFirst({
       where: { OR: [{ email }, { username }] },
@@ -105,11 +109,11 @@ export async function authRoutes(app: FastifyInstance) {
 
     const user = await prisma.user.findFirst({
       where: { OR: [{ email: identifier }, { username: identifier }] },
-      select: { ...selfSelect, passwordHash: true },
+      select: { ...selfSelect, passwordHash: true, isBot: true },
     });
 
     const valid = user ? await verifyPassword(body.password, user.passwordHash) : false;
-    if (!user || !valid) throw ApiError.unauthorized('Неверный логин или пароль');
+    if (!user || !valid || user.isBot) throw ApiError.unauthorized('Неверный логин или пароль');
 
     const ban = await activeSiteBan(user.id);
     if (ban) throw ApiError.banned(banLoginMessage(ban));

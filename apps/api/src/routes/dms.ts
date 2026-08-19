@@ -7,6 +7,7 @@ import { blockedPeerIds, isBlockedEitherWay } from '../lib/blocks.js';
 import { areFriends } from '../lib/friends.js';
 import { assertConversationMember } from '../lib/permissions.js';
 import { conversationInclude, toConversation } from '../lib/serialize.js';
+import { ensureAiConversation, getAiBotUserId } from '../lib/aiBot.js';
 import {
   createMessage,
   listMessages,
@@ -32,11 +33,13 @@ export async function dmRoutes(app: FastifyInstance) {
 
   app.get('/', async (request) => {
     await ensureSavedConversation(request.userId);
+    await ensureAiConversation(request.userId);
     const conversations = await prisma.directConversation.findMany({
       where: { members: { some: { userId: request.userId, leftAt: null } } },
       include: conversationInclude,
       orderBy: [
         { isSaved: 'desc' },
+        { isAi: 'desc' },
         { lastMessageAt: { sort: 'desc', nulls: 'last' } },
         { createdAt: 'desc' },
       ],
@@ -47,11 +50,13 @@ export async function dmRoutes(app: FastifyInstance) {
       .filter(
         (conversation) =>
           conversation.isSaved ||
+          conversation.isAi ||
           conversation.isGroup ||
           !conversation.members.some((member) => member.id !== request.userId && blocked.has(member.id)),
       )
       .sort((a, b) => {
         if (a.isSaved !== b.isSaved) return a.isSaved ? -1 : 1;
+        if (Boolean(a.isAi) !== Boolean(b.isAi)) return a.isAi ? -1 : 1;
         if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
         const aTime = a.lastMessageAt ?? '';
         const bTime = b.lastMessageAt ?? '';
@@ -79,6 +84,14 @@ export async function dmRoutes(app: FastifyInstance) {
 
     const otherIds = Array.from(new Set(body.userIds.filter((id) => id !== request.userId)));
     if (otherIds.length === 0) throw ApiError.badRequest('Pick at least one other person');
+
+    const botId = await getAiBotUserId();
+    if (otherIds.includes(botId)) {
+      if (otherIds.length > 1) throw ApiError.badRequest('Нельзя добавить нейросеть в группу');
+      const conversation = await ensureAiConversation(request.userId);
+      reply.send(toConversation(conversation, request.userId));
+      return;
+    }
 
     const known = await prisma.user.count({ where: { id: { in: otherIds } } });
     if (known !== otherIds.length) throw ApiError.badRequest('One or more users do not exist');
@@ -275,6 +288,7 @@ async function findDirectConversation(userA: string, userB: string) {
     where: {
       isGroup: false,
       isSaved: false,
+      isAi: false,
       AND: [
         { members: { some: { userId: userA, leftAt: null } } },
         { members: { some: { userId: userB, leftAt: null } } },

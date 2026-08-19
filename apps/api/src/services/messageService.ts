@@ -20,8 +20,9 @@ import { consumeRateLimit } from '../redis.js';
 import { emitToChannel, emitToConversation } from '../ws/realtime.js';
 import { bumpMentionCounts } from './readStateService.js';
 import { filterNotifiableUsers } from './pushService.js';
-import { getConfig } from '../config.js';
+import { getConfig, isTest } from '../config.js';
 import { blockedPeerIds, isBlockedEitherWay } from '../lib/blocks.js';
+import { getAiBotUserId } from '../lib/aiBot.js';
 
 export interface CreateMessageInput {
   authorId: string;
@@ -38,6 +39,10 @@ export interface CreateMessageInput {
    * its optimistic row instead of rendering the message twice.
    */
   nonce?: string;
+  /** Internal: skip the per-user send throttle (bot replies). */
+  skipRateLimit?: boolean;
+  /** Internal: do not enqueue another AI reply (the bot's own messages). */
+  skipAiReply?: boolean;
 }
 
 interface Target {
@@ -48,6 +53,7 @@ interface Target {
   channelName: string;
   recipientIds: string[];
   canMentionEveryone: boolean;
+  isAi?: boolean;
 }
 
 async function resolveTarget(input: CreateMessageInput): Promise<Target> {
@@ -83,7 +89,7 @@ async function resolveTarget(input: CreateMessageInput): Promise<Target> {
     });
 
     const recipientIds = conversation.members.map((member) => member.userId);
-    if (!conversation.isGroup) {
+    if (!conversation.isGroup && !conversation.isAi) {
       const otherId = recipientIds.find((id) => id !== input.authorId);
       if (otherId && (await isBlockedEitherWay(input.authorId, otherId))) {
         throw ApiError.forbidden('You cannot message this user');
@@ -98,6 +104,7 @@ async function resolveTarget(input: CreateMessageInput): Promise<Target> {
       channelName: conversation.name ?? 'Direct Message',
       recipientIds,
       canMentionEveryone: false,
+      isAi: conversation.isAi,
     };
   }
 
@@ -125,7 +132,7 @@ async function assertSendRate(userId: string): Promise<void> {
 }
 
 export async function createMessage(input: CreateMessageInput): Promise<Message> {
-  await assertSendRate(input.authorId);
+  if (!input.skipRateLimit) await assertSendRate(input.authorId);
 
   const target = await resolveTarget(input);
   const forwarded = input.forwardMessageId
@@ -262,6 +269,16 @@ export async function createMessage(input: CreateMessageInput): Promise<Message>
     await enqueue({ type: 'link-preview', messageId: payload.id, urls });
   }
 
+  if (target.kind === 'conversation' && target.isAi && !input.skipAiReply) {
+    const botId = await getAiBotUserId();
+    if (input.authorId !== botId) {
+      const { replyAsAi } = await import('./aiReplyService.js');
+      const pending = replyAsAi(target.id, input.authorId);
+      if (isTest()) await pending;
+      else void pending;
+    }
+  }
+
   return payload;
 }
 
@@ -305,9 +322,13 @@ async function notifyRecipients(
   mentionedUserIds: string[],
 ): Promise<void> {
   const blocked = await blockedPeerIds(message.authorId);
-  const others = target.recipientIds.filter(
+  let others = target.recipientIds.filter(
     (id) => id !== message.authorId && !blocked.has(id),
   );
+  if (target.isAi) {
+    const botId = await getAiBotUserId();
+    others = others.filter((id) => id !== botId);
+  }
   if (others.length === 0) return;
 
   const notifyIds = await filterNotifiableUsers(target.id, others, {

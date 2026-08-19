@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Ban, Bookmark, Pin, Plus, Users, X } from 'lucide-react';
+import { Ban, Bookmark, Pin, Plus, Sparkles, Users, X } from 'lucide-react';
 import type { DirectConversation } from '@tetherchat/shared';
 import { cn } from '@/lib/cn';
 import { DM_ROUTE } from '@/hooks/useChatTarget';
@@ -38,10 +38,11 @@ export function DirectMessageList({
   const menu = useContextMenu();
 
   const openMenu = (event: { clientX: number; clientY: number }, conversation: DirectConversation) => {
-    const title = conversationTitle(conversation, currentUserId, t('dm.savedMessages'));
+    const title = conversationTitle(conversation, currentUserId, t('dm.savedMessages'), t('dm.aiChat'));
     const peer = conversation.members.find((member) => member.id !== currentUserId);
+    const locked = Boolean(conversation.isSaved || conversation.isAi);
     const items: MenuItem[] = [];
-    if (!conversation.isSaved) {
+    if (!locked) {
       items.push({
         id: 'pin',
         label: conversation.pinned ? t('chat.unpinChat') : t('chat.pinChat'),
@@ -57,7 +58,7 @@ export function DirectMessageList({
         tone: 'danger',
         onSelect: () => leave.mutate(conversation.id),
       });
-    } else if (peer && !conversation.isSaved) {
+    } else if (peer && !locked) {
       items.push({
         id: 'block',
         label: t('settings.blockUser'),
@@ -126,10 +127,11 @@ function DmRow({
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const others = conversation.members.filter((member) => member.id !== currentUserId);
-  const title = conversationTitle(conversation, currentUserId, t('dm.savedMessages'));
+  const title = conversationTitle(conversation, currentUserId, t('dm.savedMessages'), t('dm.aiChat'));
+  const locked = Boolean(conversation.isSaved || conversation.isAi);
   const longPress = useLongPress(
     () => onOpenMenu({ clientX: 24, clientY: 120 }, conversation),
-    { enabled: isMobile && !conversation.isSaved },
+    { enabled: isMobile && !locked },
   );
 
   return (
@@ -157,6 +159,10 @@ function DmRow({
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-white">
             <Bookmark size={16} aria-hidden />
           </span>
+        ) : conversation.isAi ? (
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#9b6bff] text-white">
+            <Sparkles size={16} aria-hidden />
+          </span>
         ) : conversation.isGroup ? (
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-tertiary text-text-subheading">
             <Users size={16} aria-hidden />
@@ -177,7 +183,7 @@ function DmRow({
             </span>
           ) : null}
         </span>
-        {conversation.pinned && !conversation.isSaved ? (
+        {conversation.pinned && !conversation.isSaved && !conversation.isAi ? (
           <Pin size={12} className="shrink-0 text-text-faint" aria-hidden />
         ) : null}
       </button>

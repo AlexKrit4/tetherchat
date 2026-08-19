@@ -1,4 +1,4 @@
-import { ArrowLeft, AtSign, Bell, Hash, Image as ImageIcon, Pin, Search, Users } from 'lucide-react';
+import { ArrowLeft, AtSign, Bell, Bookmark, Hash, Image as ImageIcon, Pin, Search, Sparkles, Users } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { useT } from '@/i18n/useT';
 import { useChatTarget } from '@/hooks/useChatTarget';
@@ -52,7 +52,11 @@ export function ChatHeader() {
 
       <div className="flex min-w-0 flex-1 items-center gap-2">
         {isDm ? (
-          dmPeer ? (
+          conversation?.isSaved ? (
+            <Bookmark size={20} className="shrink-0 text-brand" aria-hidden />
+          ) : conversation?.isAi ? (
+            <Sparkles size={20} className="shrink-0 text-[#9b6bff]" aria-hidden />
+          ) : dmPeer ? (
             <Avatar user={dmPeer} size={24} showStatus />
           ) : (
             <AtSign size={20} className="shrink-0 text-text-faint" aria-hidden />

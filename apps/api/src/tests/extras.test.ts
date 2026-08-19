@@ -170,7 +170,7 @@ describe('pinned conversations', () => {
     const list = await app.inject({ method: 'GET', url: '/api/dms', headers: alice.auth });
     const ids = list
       .json<DirectConversation[]>()
-      .filter((row) => !row.isSaved)
+      .filter((row) => !row.isSaved && !row.isAi)
       .map((row) => row.id);
     expect(ids[0]).toBe(withCarol.id);
     expect(ids).toContain(withBob.id);

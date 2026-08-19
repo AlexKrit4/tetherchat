@@ -64,6 +64,14 @@ const schema = z.object({
   RATE_LIMIT_WINDOW: z.string().default('1 minute'),
   MESSAGE_RATE_PER_10S: z.coerce.number().int().positive().default(30),
 
+  /**
+   * Free Groq OpenAI-compatible key for the built-in «Нейросеть» DM.
+   * Create one at https://console.groq.com/keys — no card required.
+   */
+  GROQ_API_KEY: z.string().optional(),
+  LLM_BASE_URL: z.string().default('https://api.groq.com/openai/v1'),
+  LLM_MODEL: z.string().default('llama-3.1-8b-instant'),
+
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 });
 

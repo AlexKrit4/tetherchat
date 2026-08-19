@@ -21,6 +21,7 @@ import android.media.MediaPlayer
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.automirrored.outlined.Forward
 import androidx.compose.runtime.DisposableEffect
@@ -341,7 +342,16 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
             value = model.draft,
             onValueChange = model::updateDraft,
             modifier = Modifier.weight(1f),
-            placeholder = { Text(if (model.editing != null) "Изменить сообщение" else "Написать сообщение", color = TextMuted) },
+            placeholder = {
+              Text(
+                when {
+                  model.editing != null -> "Изменить сообщение"
+                  model.currentConversation?.isAi == true -> "Спросите нейросеть…"
+                  else -> "Написать сообщение"
+                },
+                color = TextMuted,
+              )
+            },
             maxLines = 4,
             shape = RoundedCornerShape(20.dp),
             keyboardOptions = KeyboardOptions(imeAction = if (model.me?.enterToSend == true) ImeAction.Send else ImeAction.Default),
@@ -1150,6 +1160,9 @@ private fun ForwardPickerSheet(model: AppViewModel, onDismiss: () -> Unit) {
       ) {
         if (target.subtitle == "Сохранённые") {
           Icon(Icons.Outlined.Bookmark, contentDescription = null, tint = Brand)
+          Spacer(Modifier.width(10.dp))
+        } else if (target.subtitle == "Нейросеть") {
+          Icon(Icons.Outlined.AutoAwesome, contentDescription = null, tint = AiAccent)
           Spacer(Modifier.width(10.dp))
         }
         Column {

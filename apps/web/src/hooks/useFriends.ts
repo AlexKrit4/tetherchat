@@ -5,6 +5,7 @@ import { queryKeys } from '@/lib/queryKeys';
 import { toast } from '@/stores/toastStore';
 import { errorMessage } from '@/lib/api';
 import { t } from '@/i18n';
+import { sortDirectConversations } from './useDms';
 
 export function useIncomingFriendRequests() {
   return useQuery({
@@ -74,11 +75,7 @@ export function usePinConversation() {
       client.setQueryData<DirectConversation[]>(queryKeys.dms, (current) => {
         if (!current) return current;
         return [...current.map((row) => (row.id === conversation.id ? conversation : row))].sort(
-          (a, b) => {
-            if (a.isSaved !== b.isSaved) return a.isSaved ? -1 : 1;
-            if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
-            return (b.lastMessageAt ?? '').localeCompare(a.lastMessageAt ?? '');
-          },
+          sortDirectConversations,
         );
       });
     },

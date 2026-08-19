@@ -6,6 +6,7 @@ import { connectSocket, getSocket } from '@/lib/socket';
 import { isSessionParked } from '@/lib/appForeground';
 import { notifyIncomingMessage } from '@/lib/push';
 import { messageCache } from './useMessages';
+import { sortDirectConversations } from './useDms';
 import { useAuthStore } from '@/stores/authStore';
 import { usePresenceStore } from '@/stores/presenceStore';
 import { useTypingStore } from '@/stores/typingStore';
@@ -137,11 +138,9 @@ export function useRealtime(): ConnectionState {
     const onDmUpdate = (conversation: DirectConversation) => {
       client.setQueryData<DirectConversation[]>(queryKeys.dms, (current) => {
         if (!current) return current;
-        return [...current.map((row) => (row.id === conversation.id ? conversation : row))].sort((a, b) => {
-          if (a.isSaved !== b.isSaved) return a.isSaved ? -1 : 1;
-          if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
-          return (b.lastMessageAt ?? '').localeCompare(a.lastMessageAt ?? '');
-        });
+        return [...current.map((row) => (row.id === conversation.id ? conversation : row))].sort(
+          sortDirectConversations,
+        );
       });
     };
 

@@ -208,6 +208,7 @@ data class DirectConversation(
   val id: String,
   val isGroup: Boolean = false,
   val isSaved: Boolean = false,
+  val isAi: Boolean = false,
   val name: String? = null,
   val iconUrl: String? = null,
   val ownerId: String? = null,
@@ -219,13 +220,15 @@ data class DirectConversation(
 ) {
   fun title(meId: String): String {
     if (isSaved) return "Избранное"
+    if (isAi) return "Нейросеть"
     if (isGroup) return name?.takeIf { it.isNotBlank() } ?: members.joinToString { it.label }
     return members.firstOrNull { it.id != meId }?.label ?: "Личные сообщения"
   }
 
   fun peer(meId: String): PublicUser? = members.firstOrNull { it.id != meId }
 
-  val showsReceipts: Boolean get() = !isGroup && !isSaved
+  val showsReceipts: Boolean get() = !isGroup && !isSaved && !isAi
+  val lockedInList: Boolean get() = isSaved || isAi
 }
 
 @Serializable

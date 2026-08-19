@@ -51,7 +51,10 @@ export async function ackConversation(
   });
 
   const isOneToOne =
-    !conversation.isGroup && !conversation.isSaved && conversation.members.length === 2;
+    !conversation.isGroup &&
+    !conversation.isSaved &&
+    !conversation.isAi &&
+    conversation.members.length === 2;
   if (isOneToOne) {
     emitToConversation(conversationId, 'receipt:update', {
       conversationId,

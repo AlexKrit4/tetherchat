@@ -1,4 +1,4 @@
-import { Hash, Bookmark } from 'lucide-react';
+import { Hash, Bookmark, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Message, ServerDetail } from '@tetherchat/shared';
@@ -56,13 +56,16 @@ export function ForwardDialog({
     const dms = (conversations ?? []).map((conversation) => ({
       id: conversation.id,
       dm: true,
-      title: conversationTitle(conversation, currentUserId, t('dm.savedMessages')),
+      title: conversationTitle(conversation, currentUserId, t('dm.savedMessages'), t('dm.aiChat')),
       hint: conversation.isSaved
         ? t('dm.savedHint')
-        : conversation.isGroup
-          ? t('server.membersCount', { count: conversation.members.length })
-          : t('dm.conversation'),
+        : conversation.isAi
+          ? t('dm.aiHint')
+          : conversation.isGroup
+            ? t('server.membersCount', { count: conversation.members.length })
+            : t('dm.conversation'),
       saved: Boolean(conversation.isSaved),
+      ai: Boolean(conversation.isAi),
     }));
     const channels = details.flatMap((server) =>
       server.channels
@@ -73,11 +76,12 @@ export function ForwardDialog({
           title: `#${channel.name}`,
           hint: server.name,
           saved: false,
+          ai: false,
         })),
     );
     return [...dms, ...channels]
       .filter((target) => !term || `${target.title} ${target.hint}`.toLowerCase().includes(term))
-      .sort((a, b) => Number(b.saved) - Number(a.saved));
+      .sort((a, b) => Number(b.saved) - Number(a.saved) || Number(b.ai) - Number(a.ai));
   }, [conversations, currentUserId, details, query, t]);
 
   const sendTo = async (target: { id: string; dm: boolean }) => {
@@ -117,7 +121,13 @@ export function ForwardDialog({
                 className="flex min-h-11 w-full items-center gap-3 rounded px-2 text-left hover:bg-surface-hover disabled:opacity-50"
               >
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-tertiary text-text-muted">
-                  {target.saved ? <Bookmark size={16} /> : target.dm ? null : <Hash size={16} />}
+                  {target.saved ? (
+                    <Bookmark size={16} />
+                  ) : target.ai ? (
+                    <Sparkles size={16} />
+                  ) : target.dm ? null : (
+                    <Hash size={16} />
+                  )}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-base text-text-heading">{target.title}</span>

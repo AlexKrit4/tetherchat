@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 val Brand = Color(0xFF5865F2)
+val AiAccent = Color(0xFF9B6BFF)
 val SurfaceDeep = Color(0xFF1E1F22)
 val SurfacePanel = Color(0xFF2B2D31)
 val SurfaceRaised = Color(0xFF313338)

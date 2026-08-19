@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AlternateEmail
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.PersonAdd
@@ -396,7 +397,7 @@ private fun DmRow(
     Row(
       modifier = Modifier
         .fillMaxWidth()
-        .combinedClickable(onClick = onClick, onLongClick = { if (!conversation.isSaved) menu = true })
+        .combinedClickable(onClick = onClick, onLongClick = { if (!conversation.lockedInList) menu = true })
         .padding(horizontal = 12.dp, vertical = 8.dp),
       verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -406,6 +407,13 @@ private fun DmRow(
           contentAlignment = Alignment.Center,
         ) {
           Icon(Icons.Outlined.Bookmark, contentDescription = null, tint = Color.White)
+        }
+      } else if (conversation.isAi) {
+        Box(
+          Modifier.size(40.dp).clip(CircleShape).background(AiAccent),
+          contentAlignment = Alignment.Center,
+        ) {
+          Icon(Icons.Outlined.AutoAwesome, contentDescription = null, tint = Color.White)
         }
       } else if (conversation.isGroup) {
         Box(Modifier.size(40.dp).clip(CircleShape).background(Brand), contentAlignment = Alignment.Center) {
@@ -426,7 +434,7 @@ private fun DmRow(
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier.weight(1f),
       )
-      if (conversation.pinned && !conversation.isSaved) {
+      if (conversation.pinned && !conversation.lockedInList) {
         Icon(Icons.Outlined.PushPin, contentDescription = null, tint = TextMuted, modifier = Modifier.size(14.dp))
         Spacer(Modifier.width(8.dp))
       }
@@ -443,7 +451,7 @@ private fun DmRow(
         },
         leadingIcon = { Icon(Icons.Outlined.PushPin, contentDescription = null) },
       )
-      if (!conversation.isGroup && other != null) {
+      if (!conversation.isGroup && other != null && !conversation.isAi) {
         DropdownMenuItem(
           text = { Text("Заблокировать", color = Danger) },
           onClick = {

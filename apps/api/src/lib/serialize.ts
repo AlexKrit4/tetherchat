@@ -245,7 +245,8 @@ export type ConversationRow = Prisma.DirectConversationGetPayload<{
 export function toConversation(row: ConversationRow, currentUserId?: string): DirectConversation {
   const active = row.members.filter((member) => !member.leftAt);
   const isSaved = row.isSaved;
-  const isOneToOne = !row.isGroup && !isSaved && active.length === 2;
+  const isAi = row.isAi;
+  const isOneToOne = !row.isGroup && !isSaved && !isAi && active.length === 2;
   const peer =
     currentUserId && isOneToOne ? active.find((member) => member.userId !== currentUserId) : undefined;
   const selfMember = currentUserId ? row.members.find((member) => member.userId === currentUserId) : undefined;
@@ -254,6 +255,7 @@ export function toConversation(row: ConversationRow, currentUserId?: string): Di
     id: row.id,
     isGroup: row.isGroup,
     isSaved,
+    isAi,
     name: row.name,
     iconUrl: row.iconUrl,
     ownerId: row.ownerId,

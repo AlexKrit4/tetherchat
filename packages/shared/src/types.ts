@@ -141,6 +141,8 @@ export interface DirectConversation {
   isGroup: boolean;
   /** Telegram-style Saved Messages: a private self-chat, pinned at the top of the DM list. */
   isSaved?: boolean;
+  /** Built-in LLM assistant DM, listed under Saved Messages. */
+  isAi?: boolean;
   name: string | null;
   iconUrl: string | null;
   ownerId: string | null;

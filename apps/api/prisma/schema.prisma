@@ -37,6 +37,8 @@ model User {
   totpEnabled      Boolean        @default(false)
   totpSecretEnc    String?
   isPlatformAdmin  Boolean        @default(false)
+  /** Reserved system accounts such as the built-in AI assistant. */
+  isBot            Boolean        @default(false)
   lastSeenAt       DateTime       @default(now())
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
@@ -338,6 +340,8 @@ model DirectConversation {
   isGroup        Boolean   @default(false)
   isSaved        Boolean   @default(false)
   savedForUserId String?   @unique
+  isAi           Boolean   @default(false)
+  aiForUserId    String?   @unique
   name           String?
   iconUrl        String?
   ownerId        String?

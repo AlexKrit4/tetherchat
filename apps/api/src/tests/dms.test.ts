@@ -175,7 +175,7 @@ describe('direct messages', () => {
     const list = await app.inject({ method: 'GET', url: '/api/dms', headers: alice.auth });
     const ids = list
       .json<DirectConversation[]>()
-      .filter((conversation) => !conversation.isSaved)
+      .filter((conversation) => !conversation.isSaved && !conversation.isAi)
       .map((conversation) => conversation.id);
     expect(ids[0]).toBe(withCarol.id);
   });

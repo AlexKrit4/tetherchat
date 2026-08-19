@@ -32,7 +32,7 @@ const TYPING_THROTTLE_MS = 3_000;
 export function MessageInput() {
   const t = useT();
   const isMobile = useIsMobile();
-  const { channelId, isDm, server, title, serverId } = useChatTarget();
+  const { channelId, isDm, server, title, serverId, conversation } = useChatTarget();
   const user = useAuthStore((state) => state.user);
   const { data: members } = useMembers(serverId);
 
@@ -326,7 +326,9 @@ export function MessageInput() {
 
   const placeholder = channelId
     ? isDm
-      ? t('chat.messageUser', { name: title })
+      ? conversation?.isAi
+        ? t('chat.messageAi')
+        : t('chat.messageUser', { name: title })
       : t('chat.messageChannel', { name: title })
     : t('chat.selectChannel');
 

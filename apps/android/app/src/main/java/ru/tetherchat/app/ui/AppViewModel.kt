@@ -1746,6 +1746,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     val merged = rest + conversation
     dms = merged.sortedWith(
       compareByDescending<DirectConversation> { it.isSaved }
+        .thenByDescending { it.isAi }
         .thenByDescending { it.pinned }
         .thenByDescending { it.lastMessageAt.orEmpty() },
     )
@@ -1776,7 +1777,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
         withContext(Dispatchers.IO) {
           val meId = me?.id.orEmpty()
           val dmTargets = dms.map {
-            ForwardTarget(it.id, it.title(meId), if (it.isSaved) "Сохранённые" else "Личные сообщения", true)
+            ForwardTarget(
+              it.id,
+              it.title(meId),
+              when {
+                it.isSaved -> "Сохранённые"
+                it.isAi -> "Нейросеть"
+                else -> "Личные сообщения"
+              },
+              true,
+            )
           }
           val channelTargets = servers.flatMap { summary ->
             val detail = if (serverDetail?.id == summary.id) serverDetail!! else api.server(summary.id)

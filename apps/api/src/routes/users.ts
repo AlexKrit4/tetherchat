@@ -7,6 +7,7 @@ import { normalizeAvatar } from '../lib/images.js';
 import { publicUserSelect, toPublicUser, toSelfUser } from '../lib/serialize.js';
 import { storage } from '../lib/storage.js';
 import { dropFriendship } from '../lib/friends.js';
+import { isReservedUsername } from '../lib/aiBot.js';
 import { listReadStates } from '../services/readStateService.js';
 import { broadcastPresence } from '../ws/presence.js';
 import { readMultipartFile } from '../lib/multipart.js';
@@ -54,8 +55,10 @@ export async function userRoutes(app: FastifyInstance) {
     const body = patchSchema.parse(request.body);
 
     if (body.username) {
+      const username = body.username.toLowerCase();
+      if (isReservedUsername(username)) throw ApiError.conflict('That username is taken');
       const taken = await prisma.user.findFirst({
-        where: { username: body.username.toLowerCase(), NOT: { id: request.userId } },
+        where: { username, NOT: { id: request.userId } },
         select: { id: true },
       });
       if (taken) throw ApiError.conflict('That username is taken');
@@ -162,6 +165,7 @@ export async function userRoutes(app: FastifyInstance) {
 
     const users = await prisma.user.findMany({
       where: {
+        isBot: false,
         OR: [
           { username: { contains: q.toLowerCase(), mode: 'insensitive' } },
           { displayName: { contains: q, mode: 'insensitive' } },
