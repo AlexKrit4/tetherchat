@@ -2,8 +2,21 @@ package ru.tetherchat.app.ui
 
 import android.Manifest
 import android.content.pm.PackageManager
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.core.content.ContextCompat
 import android.media.MediaPlayer
 import androidx.compose.material.icons.filled.Done
@@ -33,11 +46,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -87,6 +97,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -117,6 +128,9 @@ private val EmojiGrid = listOf(
 fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
   val listState = remember(chat.channelId) { LazyListState() }
   val context = LocalContext.current
+  val density = LocalDensity.current
+  val imeBottom = WindowInsets.ime.getBottom(density)
+  var pinnedToLatest by remember(chat.channelId) { mutableStateOf(true) }
   var selected by remember { mutableStateOf<Message?>(null) }
   var showSettings by remember { mutableStateOf(false) }
   var preview by remember { mutableStateOf<Attachment?>(null) }
@@ -142,13 +156,27 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
     }
   }
 
+  LaunchedEffect(listState, chat.channelId) {
+    snapshotFlow {
+      listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset < 160
+    }.collect { pinnedToLatest = it }
+  }
+
+  val newest = model.messages.lastOrNull()
+  LaunchedEffect(newest?.id, imeBottom, chat.channelId) {
+    if (newest == null) return@LaunchedEffect
+    val mine = newest.authorId == model.me?.id
+    if (mine || pinnedToLatest) {
+      pinnedToLatest = true
+      listState.scrollToItem(0)
+    }
+  }
+
   Column(
     modifier = Modifier
       .fillMaxSize()
       .background(SurfaceRaised)
-      .statusBarsPadding()
-      .imePadding()
-      .navigationBarsPadding(),
+      .safeDrawingPadding(),
   ) {
     if (!model.connected) {
       Text(
@@ -234,8 +262,14 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
       Row(
         modifier = Modifier
           .fillMaxWidth()
+          .zIndex(1f)
           .background(SurfacePanel)
-          .padding(8.dp),
+          .padding(
+            start = 8.dp,
+            end = 8.dp,
+            bottom = 8.dp,
+            top = if (model.recording) 22.dp else 8.dp,
+          ),
         verticalAlignment = Alignment.CenterVertically,
       ) {
         if (canAttach) {
@@ -246,58 +280,87 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
         IconButton(onClick = { model.showEmojiPicker = !model.showEmojiPicker }) {
           Icon(Icons.Outlined.EmojiEmotions, contentDescription = "Эмодзи", tint = TextMuted)
         }
-        OutlinedTextField(
-          value = model.draft,
-          onValueChange = model::updateDraft,
-          modifier = Modifier.weight(1f),
-          placeholder = { Text(if (model.editing != null) "Изменить сообщение" else "Написать сообщение", color = TextMuted) },
-          maxLines = 4,
-          shape = RoundedCornerShape(20.dp),
-          keyboardOptions = KeyboardOptions(imeAction = if (model.me?.enterToSend == true) ImeAction.Send else ImeAction.Default),
-          keyboardActions = KeyboardActions(onSend = { model.send() }),
-          colors = OutlinedTextFieldDefaults.colors(
-            focusedTextColor = TextPrimary,
-            unfocusedTextColor = TextPrimary,
-            focusedContainerColor = SurfaceDeep,
-            unfocusedContainerColor = SurfaceDeep,
-            focusedBorderColor = SurfaceDeep,
-            unfocusedBorderColor = SurfaceDeep,
-            cursorColor = Brand,
-          ),
-        )
-        val ready = model.draft.isNotBlank() || model.pendingUploads.any { it.attachment != null }
-        if (model.recording) {
-          Text(
-            "Запись ${maxOf(1, (model.recordElapsedMs / 1000).toInt())}с — отпустите",
-            color = Danger,
-            fontSize = 13.sp,
-            modifier = Modifier.padding(end = 8.dp),
+        val voiceDraft = model.voiceDraft
+        if (voiceDraft != null) {
+          VoiceDraftPreview(
+            draft = voiceDraft,
+            modifier = Modifier.weight(1f),
+            onDiscard = model::discardVoiceDraft,
+          )
+        } else {
+          OutlinedTextField(
+            value = model.draft,
+            onValueChange = model::updateDraft,
+            modifier = Modifier.weight(1f),
+            placeholder = { Text(if (model.editing != null) "Изменить сообщение" else "Написать сообщение", color = TextMuted) },
+            maxLines = 4,
+            shape = RoundedCornerShape(20.dp),
+            keyboardOptions = KeyboardOptions(imeAction = if (model.me?.enterToSend == true) ImeAction.Send else ImeAction.Default),
+            keyboardActions = KeyboardActions(onSend = { model.send() }),
+            colors = OutlinedTextFieldDefaults.colors(
+              focusedTextColor = TextPrimary,
+              unfocusedTextColor = TextPrimary,
+              focusedContainerColor = SurfaceDeep,
+              unfocusedContainerColor = SurfaceDeep,
+              focusedBorderColor = SurfaceDeep,
+              unfocusedBorderColor = SurfaceDeep,
+              cursorColor = Brand,
+            ),
           )
         }
-        if (!ready && canAttach && model.editing == null) {
-          Icon(
-            Icons.Filled.Mic,
-            contentDescription = "Голосовое сообщение",
-            tint = if (model.recording) Danger else Brand,
-            modifier = Modifier
-              .size(44.dp)
-              .pointerInput(chat.channelId) {
-                detectTapGestures(
-                  onPress = {
+        val ready = model.draft.isNotBlank() || model.pendingUploads.any { it.attachment != null }
+        if (voiceDraft != null) {
+          IconButton(onClick = model::sendVoiceDraft) {
+            Icon(Icons.AutoMirrored.Outlined.Send, contentDescription = "Отправить голосовое", tint = Brand)
+          }
+        } else if (!ready && canAttach && model.editing == null) {
+          Box(
+            modifier = Modifier.size(width = 48.dp, height = 48.dp),
+            contentAlignment = Alignment.BottomCenter,
+          ) {
+            if (model.recording) {
+              Text(
+                formatVoiceClock(model.recordElapsedMs),
+                color = Danger,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier
+                  .align(Alignment.TopCenter)
+                  .offset(y = (-14).dp)
+                  .clip(RoundedCornerShape(8.dp))
+                  .background(SurfaceDeep)
+                  .padding(horizontal = 6.dp, vertical = 2.dp),
+              )
+            }
+            Icon(
+              Icons.Filled.Mic,
+              contentDescription = "Голосовое сообщение",
+              tint = if (model.recording) Danger else Brand,
+              modifier = Modifier
+                .size(44.dp)
+                .pointerInput(chat.channelId) {
+                  awaitEachGesture {
+                    awaitFirstDown()
                     val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
                       PackageManager.PERMISSION_GRANTED
                     if (!granted) {
                       recordPermission.launch(Manifest.permission.RECORD_AUDIO)
-                      return@detectTapGestures
+                      return@awaitEachGesture
                     }
                     model.startVoiceRecord()
-                    val released = tryAwaitRelease()
-                    model.stopVoiceRecord(send = released)
-                  },
-                )
-              }
-              .padding(10.dp),
-          )
+                    try {
+                      while (true) {
+                        val event = awaitPointerEvent()
+                        if (event.changes.all { it.changedToUpIgnoreConsumed() || !it.pressed }) break
+                      }
+                    } finally {
+                      if (model.recording) model.finishVoiceRecord()
+                    }
+                  }
+                }
+                .padding(10.dp),
+            )
+          }
         } else {
           IconButton(onClick = model::send, enabled = ready && model.pendingUploads.none { it.attachment == null && it.error == null }) {
             Icon(Icons.AutoMirrored.Outlined.Send, contentDescription = "Отправить", tint = Brand)
@@ -874,6 +937,107 @@ private val timeFmt = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.syste
 
 private fun formatTime(iso: String): String {
   return runCatching { timeFmt.format(Instant.parse(iso)) }.getOrElse { "" }
+}
+
+private fun formatVoiceClock(ms: Long): String {
+  val total = (ms / 1000).coerceAtLeast(0)
+  val minutes = total / 60
+  val seconds = total % 60
+  return "$minutes:${seconds.toString().padStart(2, '0')}"
+}
+
+@Composable
+private fun VoiceWaveform(samples: List<Float>, modifier: Modifier = Modifier) {
+  val bars = remember(samples) { downsampleWaveform(samples, 36) }
+  Canvas(modifier = modifier.height(28.dp).fillMaxWidth()) {
+    if (bars.isEmpty()) return@Canvas
+    val gap = 2.dp.toPx()
+    val barWidth = ((size.width - gap * (bars.size - 1)) / bars.size).coerceAtLeast(2.dp.toPx())
+    bars.forEachIndexed { index, amplitude ->
+      val barHeight = (size.height * amplitude.coerceIn(0.12f, 1f)).coerceAtLeast(4.dp.toPx())
+      val x = index * (barWidth + gap)
+      val y = (size.height - barHeight) / 2f
+      drawRoundRect(
+        color = Brand,
+        topLeft = Offset(x, y),
+        size = Size(barWidth, barHeight),
+        cornerRadius = CornerRadius(barWidth / 2f, barWidth / 2f),
+      )
+    }
+  }
+}
+
+private fun downsampleWaveform(samples: List<Float>, bars: Int): List<Float> {
+  if (samples.isEmpty()) return List(bars) { 0.2f }
+  if (samples.size <= bars) return samples
+  val bucket = samples.size.toFloat() / bars
+  return List(bars) { index ->
+    val start = (index * bucket).toInt()
+    val end = (((index + 1) * bucket).toInt()).coerceAtMost(samples.size)
+    var peak = 0.12f
+    for (i in start until end.coerceAtLeast(start + 1)) {
+      peak = maxOf(peak, samples[i])
+    }
+    peak
+  }
+}
+
+@Composable
+private fun VoiceDraftPreview(
+  draft: VoiceDraft,
+  onDiscard: () -> Unit,
+  modifier: Modifier = Modifier,
+) {
+  var playing by remember(draft.file) { mutableStateOf(false) }
+  val player = remember(draft.file) { MediaPlayer() }
+  DisposableEffect(draft.file) {
+    runCatching {
+      player.setDataSource(draft.file.absolutePath)
+      player.prepare()
+    }
+    player.setOnCompletionListener { playing = false }
+    onDispose {
+      runCatching { player.stop() }
+      player.release()
+      playing = false
+    }
+  }
+  Row(
+    modifier = modifier
+      .clip(RoundedCornerShape(20.dp))
+      .background(SurfaceDeep)
+      .padding(horizontal = 6.dp, vertical = 6.dp),
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    IconButton(onClick = {
+      if (playing) {
+        runCatching { player.pause() }
+        playing = false
+      } else {
+        runCatching { player.start() }
+        playing = true
+      }
+    }) {
+      Icon(
+        if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+        contentDescription = if (playing) "Пауза" else "Прослушать",
+        tint = Brand,
+      )
+    }
+    VoiceWaveform(draft.samples, Modifier.weight(1f))
+    Text(
+      formatVoiceClock(draft.durationMs.toLong()),
+      color = TextMuted,
+      fontSize = 12.sp,
+      modifier = Modifier.padding(horizontal = 6.dp),
+    )
+    IconButton(onClick = {
+      runCatching { player.stop() }
+      onDiscard()
+    }) {
+      Icon(Icons.Outlined.Delete, contentDescription = "Удалить голосовое", tint = Danger)
+    }
+  }
 }
 
 @Composable

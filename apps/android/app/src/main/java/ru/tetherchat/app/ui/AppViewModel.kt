@@ -84,6 +84,12 @@ data class ForwardTarget(
   val dm: Boolean,
 )
 
+data class VoiceDraft(
+  val file: File,
+  val durationMs: Int,
+  val samples: List<Float>,
+)
+
 class AppViewModel(application: Application) : AndroidViewModel(application), DefaultLifecycleObserver {
   private val session = SessionStore.get(application)
   private val drafts = DraftStore.get(application)
@@ -122,6 +128,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     private set
   var recordElapsedMs by mutableStateOf(0L)
     private set
+  var voiceDraft by mutableStateOf<VoiceDraft?>(null)
+    private set
   var forwarding by mutableStateOf<Message?>(null)
   var forwardTargets by mutableStateOf<List<ForwardTarget>>(emptyList())
     private set
@@ -131,6 +139,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   private var recordFile: File? = null
   private var recordStartedAt = 0L
   private var recordTicker: Job? = null
+  private val recordSamples = mutableListOf<Float>()
   var searchQuery by mutableStateOf("")
   var searchResults by mutableStateOf<List<PublicUser>>(emptyList())
     private set
@@ -421,7 +430,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     when (screen) {
       is Screen.Chat -> {
         saveCurrentDraft()
-        stopVoiceRecord(send = false)
+        cancelVoiceRecord()
         subscribedChannel?.let { realtime.unsubscribe(it) }
         subscribedChannel = null
         messages = emptyList()
@@ -480,7 +489,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
 
   fun openChat(channelId: String, serverId: String?, title: String, dm: Boolean) {
     saveCurrentDraft()
-    stopVoiceRecord(send = false)
+    cancelVoiceRecord()
     subscribedChannel?.let { realtime.unsubscribe(it) }
     val chat = Screen.Chat(channelId, serverId, title, dm)
     lastChat = chat
@@ -1387,8 +1396,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   }
 
   fun startVoiceRecord(): Boolean {
-    val chat = screen as? Screen.Chat ?: return false
+    if (screen !is Screen.Chat) return false
     if (recording) return true
+    discardVoiceDraft()
     val file = File(getApplication<Application>().cacheDir, "voice-${System.currentTimeMillis()}.m4a")
     return runCatching {
       @Suppress("DEPRECATION")
@@ -1405,13 +1415,17 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
       recorder = next
       recordFile = file
       recordStartedAt = System.currentTimeMillis()
+      recordSamples.clear()
       recording = true
       recordElapsedMs = 0
       recordTicker?.cancel()
       recordTicker = viewModelScope.launch {
         while (recording) {
-          delay(200)
+          delay(80)
           recordElapsedMs = System.currentTimeMillis() - recordStartedAt
+          val amplitude = runCatching { recorder?.maxAmplitude ?: 0 }.getOrDefault(0)
+          val sample = (amplitude / 32767f).coerceIn(0.05f, 1f)
+          if (recordSamples.size < 400) recordSamples.add(sample)
         }
       }
       true
@@ -1422,10 +1436,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     }
   }
 
-  fun stopVoiceRecord(send: Boolean) {
+  fun finishVoiceRecord() {
     if (!recording && recorder == null) return
     val file = recordFile
     val duration = (System.currentTimeMillis() - recordStartedAt).toInt()
+    val samples = recordSamples.toList()
     runCatching { recorder?.stop() }
     runCatching { recorder?.release() }
     recorder = null
@@ -1433,34 +1448,68 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     recordTicker?.cancel()
     recordElapsedMs = 0
     recordFile = null
-    if (!send || file == null || duration < 400) {
+    recordSamples.clear()
+    if (file == null || duration < 400) {
       file?.delete()
       return
     }
+    voiceDraft = VoiceDraft(
+      file = file,
+      durationMs = duration,
+      samples = samples.ifEmpty { listOf(0.2f, 0.35f, 0.25f, 0.4f, 0.3f) },
+    )
+  }
+
+  fun cancelVoiceRecord() {
+    if (recording || recorder != null) {
+      runCatching { recorder?.stop() }
+      runCatching { recorder?.release() }
+      recorder = null
+      recording = false
+      recordTicker?.cancel()
+      recordElapsedMs = 0
+      recordFile?.delete()
+      recordFile = null
+      recordSamples.clear()
+    }
+    discardVoiceDraft()
+  }
+
+  fun discardVoiceDraft() {
+    voiceDraft?.file?.delete()
+    voiceDraft = null
+  }
+
+  fun sendVoiceDraft() {
+    val clip = voiceDraft ?: return
     val chat = screen as? Screen.Chat ?: return
+    voiceDraft = null
     viewModelScope.launch {
       runCatching {
         withContext(Dispatchers.IO) {
-          val bytes = file.readBytes()
-          val attachment = api.uploadFile(bytes, "voice.m4a", "audio/mp4", duration)
+          val bytes = clip.file.readBytes()
+          val attachment = api.uploadFile(bytes, "voice.m4a", "audio/mp4", clip.durationMs)
           api.send(
             chat.channelId,
             "",
             chat.dm,
             UUID.randomUUID().toString(),
             attachmentIds = listOf(attachment.id),
-            attachmentDurations = mapOf(attachment.id to duration),
+            attachmentDurations = mapOf(attachment.id to clip.durationMs),
           )
         }
       }.onSuccess { message ->
+        clip.file.delete()
         if (messages.none { it.id == message.id }) messages = messages + message
-      }.onFailure { error = it.userMessage() }
-      file.delete()
+      }.onFailure {
+        voiceDraft = clip
+        error = it.userMessage()
+      }
     }
   }
 
   override fun onCleared() {
-    stopVoiceRecord(send = false)
+    cancelVoiceRecord()
     realtime.disconnect()
     super.onCleared()
   }

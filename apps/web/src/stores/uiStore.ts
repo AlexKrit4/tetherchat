@@ -24,6 +24,7 @@ interface UiState {
   replyDrafts: Record<string, Message | undefined>;
   editingMessageId: string | null;
   drafts: Record<string, string>;
+  scrollBottomNonce: number;
 
   setMobileView: (view: MobileView) => void;
   pushMobileView: (view: MobileView) => void;
@@ -38,6 +39,7 @@ interface UiState {
   setReplyDraft: (channelId: string, message: Message | null) => void;
   setEditingMessage: (messageId: string | null) => void;
   setDraft: (channelId: string, value: string) => void;
+  nudgeScrollBottom: () => void;
 }
 
 export const useUiStore = create<UiState>()(
@@ -53,6 +55,7 @@ export const useUiStore = create<UiState>()(
   replyDrafts: {},
   editingMessageId: null,
   drafts: {},
+  scrollBottomNonce: 0,
 
   setMobileView: (view) => set({ mobileView: view, mobileHistory: [] }),
 
@@ -97,6 +100,8 @@ export const useUiStore = create<UiState>()(
 
   setDraft: (channelId, value) =>
     set((state) => ({ drafts: { ...state.drafts, [channelId]: value } })),
+
+  nudgeScrollBottom: () => set((state) => ({ scrollBottomNonce: state.scrollBottomNonce + 1 })),
     }),
     {
       name: 'tetherchat-ui',

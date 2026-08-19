@@ -9,6 +9,7 @@ import { dayLabel } from '@/lib/time';
 import { errorMessage } from '@/lib/api';
 import { useChatTarget } from '@/hooks/useChatTarget';
 import { useIsMobile } from '@/hooks/useMediaQuery';
+import { useMobileKeyboard } from '@/hooks/useMobileKeyboard';
 import { useMembers } from '@/hooks/useServers';
 import {
   useDeleteMessage,
@@ -38,6 +39,7 @@ const VIRTUOSO_START_INDEX = 1_000_000;
 export function MessageList() {
   const t = useT();
   const isMobile = useIsMobile();
+  const { offset: keyboardOffset } = useMobileKeyboard();
   const { channelId, isDm, server, serverId, title, conversation } = useChatTarget();
   const currentUser = useAuthStore((state) => state.user);
   const { data: members } = useMembers(serverId);
@@ -49,7 +51,9 @@ export function MessageList() {
   const setReplyDraft = useUiStore((state) => state.setReplyDraft);
 
   const virtuoso = useRef<VirtuosoHandle>(null);
+  const atBottomRef = useRef(true);
   const [atBottom, setAtBottom] = useState(true);
+  const scrollBottomNonce = useUiStore((state) => state.scrollBottomNonce);
   const [actionSheetFor, setActionSheetFor] = useState<Message | null>(null);
   const [forwardFor, setForwardFor] = useState<Message | null>(null);
   const [emojiFor, setEmojiFor] = useState<Message | null>(null);
@@ -106,8 +110,37 @@ export function MessageList() {
   }, [ack, atBottom, channelId, isDm, messages]);
 
   const jumpToBottom = useCallback(() => {
-    virtuoso.current?.scrollToIndex({ index: entries.length - 1, behavior: 'auto' });
+    const last = Math.max(0, entries.length - 1);
+    virtuoso.current?.scrollToIndex({ index: last, align: 'end', behavior: 'auto' });
   }, [entries.length]);
+
+  useEffect(() => {
+    atBottomRef.current = true;
+    setAtBottom(true);
+  }, [channelId]);
+
+  useEffect(() => {
+    if (!atBottomRef.current) return;
+    jumpToBottom();
+  }, [keyboardOffset, jumpToBottom]);
+
+  useEffect(() => {
+    if (scrollBottomNonce === 0) return;
+    atBottomRef.current = true;
+    setAtBottom(true);
+    jumpToBottom();
+  }, [scrollBottomNonce, jumpToBottom]);
+
+  const newestId = messages[messages.length - 1]?.id;
+  const newestMine = messages[messages.length - 1]?.authorId === currentUser?.id;
+  useEffect(() => {
+    if (!newestId) return;
+    if (newestMine || atBottomRef.current) {
+      atBottomRef.current = true;
+      setAtBottom(true);
+      jumpToBottom();
+    }
+  }, [newestId, newestMine, jumpToBottom]);
 
   const jumpToMessage = useCallback(
     (messageId: string) => {
@@ -139,9 +172,12 @@ export function MessageList() {
         initialTopMostItemIndex={entries.length - 1}
         // Short histories rest against the composer instead of floating at the top.
         alignToBottom
-        followOutput={(isAtBottom) => (isAtBottom ? 'auto' : false)}
-        atBottomStateChange={setAtBottom}
-        atBottomThreshold={80}
+        followOutput={() => (atBottomRef.current ? 'auto' : false)}
+        atBottomStateChange={(bottom) => {
+          atBottomRef.current = bottom;
+          setAtBottom(bottom);
+        }}
+        atBottomThreshold={Math.max(140, keyboardOffset + 120)}
         startReached={() => {
           if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
         }}
