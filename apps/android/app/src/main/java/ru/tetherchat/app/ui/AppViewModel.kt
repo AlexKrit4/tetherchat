@@ -13,30 +13,53 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import ru.tetherchat.app.ForegroundState
+import ru.tetherchat.app.NotificationHelper
 import ru.tetherchat.app.data.ApiException
+import ru.tetherchat.app.data.Ban
 import ru.tetherchat.app.data.Channel
 import ru.tetherchat.app.data.DirectConversation
+import ru.tetherchat.app.data.Invite
+import ru.tetherchat.app.data.InvitePreview
 import ru.tetherchat.app.data.Message
+import ru.tetherchat.app.data.PatchMemberBody
+import ru.tetherchat.app.data.PatchRoleBody
 import ru.tetherchat.app.data.PendingUpload
 import ru.tetherchat.app.data.PublicUser
+import ru.tetherchat.app.data.ReadState
 import ru.tetherchat.app.data.RealtimeClient
+import ru.tetherchat.app.data.RealtimeHandlers
+import ru.tetherchat.app.data.Role
 import ru.tetherchat.app.data.SelfUser
 import ru.tetherchat.app.data.ServerDetail
 import ru.tetherchat.app.data.ServerMember
 import ru.tetherchat.app.data.ServerSummary
 import ru.tetherchat.app.data.SessionStore
 import ru.tetherchat.app.data.TetherApi
+import ru.tetherchat.app.data.can
 import java.util.UUID
 
 sealed class Screen {
   data object Boot : Screen()
   data object Login : Screen()
   data object Register : Screen()
+  data object ForgotPassword : Screen()
+  data class ResetPassword(val token: String) : Screen()
+  data class VerifyEmail(val token: String) : Screen()
+  data class Invite(val code: String) : Screen()
   data object Home : Screen()
   data object Settings : Screen()
+  data object ProfileSettings : Screen()
+  data object AccountSettings : Screen()
+  data object AppearanceSettings : Screen()
   data object Blacklist : Screen()
+  data object ServerSettings : Screen()
+  data object Members : Screen()
+  data class UserProfile(val userId: String) : Screen()
   data class Chat(
     val channelId: String,
     val serverId: String?,
@@ -93,6 +116,40 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     private set
   var blockedUsers by mutableStateOf<List<PublicUser>>(emptyList())
     private set
+  var readStates = mutableStateMapOf<String, ReadState>()
+  var connected by mutableStateOf(true)
+  var typingLabel by mutableStateOf<String?>(null)
+    private set
+  var pins by mutableStateOf<List<Message>>(emptyList())
+    private set
+  var messageHits by mutableStateOf<List<Message>>(emptyList())
+    private set
+  var messageSearch by mutableStateOf("")
+  var invitePreview by mutableStateOf<InvitePreview?>(null)
+  var profileUser by mutableStateOf<PublicUser?>(null)
+  var bans by mutableStateOf<List<Ban>>(emptyList())
+    private set
+  var invites by mutableStateOf<List<Invite>>(emptyList())
+    private set
+  var editingRole by mutableStateOf<Role?>(null)
+  var collapsedCategories = mutableStateMapOf<String, Boolean>()
+  var selectedDmUsers by mutableStateOf<List<PublicUser>>(emptyList())
+  var groupName by mutableStateOf("")
+  var showServerMenu by mutableStateOf(false)
+  var showCreateChannel by mutableStateOf(false)
+  var showCreateCategory by mutableStateOf(false)
+  var showChannelSettings by mutableStateOf(false)
+  var channelForSettings by mutableStateOf<Channel?>(null)
+  var showPins by mutableStateOf(false)
+  var showSearch by mutableStateOf(false)
+  var showEmojiPicker by mutableStateOf(false)
+  var pendingInviteCode by mutableStateOf<String?>(null)
+  private var typingJob: Job? = null
+  private var subscribedChannel: String? = null
+  private var lastChat: Screen.Chat? = null
+  private var pendingDeepLinkPath: String? = null
+  private var pendingDeepLinkToken: String? = null
+  private val channelServerIds = mutableMapOf<String, String>()
 
   init {
     bootstrap()
@@ -102,16 +159,19 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     viewModelScope.launch {
       if (!session.hasSession) {
         screen = Screen.Login
+        consumePendingDeepLink()
         return@launch
       }
       runCatching { withContext(Dispatchers.IO) { loadWorkspace() } }
         .onSuccess {
           screen = Screen.Home
           connectRealtime()
+          consumePendingDeepLink()
         }
         .onFailure {
           session.clear()
           screen = Screen.Login
+          consumePendingDeepLink()
         }
     }
   }
@@ -120,10 +180,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     me = api.me()
     servers = api.servers()
     dms = api.dms()
+    api.readStates().forEach { readStates[it.channelId] = it }
     val current = selectedServerId
     if (current != null) {
       serverDetail = api.server(current)
       members = api.members(current)
+      rememberChannels(serverDetail)
     }
   }
 
@@ -142,6 +204,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
       result.onSuccess {
         screen = Screen.Home
         connectRealtime()
+        consumePendingDeepLink()
+        pendingInviteCode?.let { code ->
+          dialogText = code
+          joinServer()
+        }
       }.onFailure { error = it.userMessage() }
     }
   }
@@ -159,10 +226,97 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     }
   }
 
+  fun goHome() { screen = Screen.Home }
+
   fun goRegister() { error = null; screen = Screen.Register }
   fun goLogin() { error = null; screen = Screen.Login }
+  fun goForgot() { error = null; screen = Screen.ForgotPassword }
 
   fun openSettings() { screen = Screen.Settings }
+  fun openProfileSettings() { screen = Screen.ProfileSettings }
+  fun openAccountSettings() { screen = Screen.AccountSettings }
+  fun openAppearanceSettings() { screen = Screen.AppearanceSettings }
+  fun openServerSettings() {
+    val id = selectedServerId ?: return
+    screen = Screen.ServerSettings
+    viewModelScope.launch {
+      runCatching {
+        withContext(Dispatchers.IO) {
+          bans = runCatching { api.bans(id) }.getOrDefault(emptyList())
+          invites = runCatching { api.invites(id) }.getOrDefault(emptyList())
+        }
+      }
+    }
+  }
+
+  fun openMembers() { screen = Screen.Members }
+
+  fun openProfile(userId: String) {
+    screen = Screen.UserProfile(userId)
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.user(userId) } }
+        .onSuccess { profileUser = it }
+        .onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun openDeepLink(path: String, queryToken: String?) {
+    if (screen == Screen.Boot) {
+      pendingDeepLinkPath = path
+      pendingDeepLinkToken = queryToken
+      return
+    }
+    applyDeepLink(path, queryToken)
+  }
+
+  private fun consumePendingDeepLink() {
+    val path = pendingDeepLinkPath ?: return
+    pendingDeepLinkPath = null
+    val token = pendingDeepLinkToken
+    pendingDeepLinkToken = null
+    applyDeepLink(path, token)
+  }
+
+  private fun applyDeepLink(path: String, queryToken: String?) {
+    val parts = path.trim('/').split('/')
+    when {
+      parts.getOrNull(0) == "invite" && !parts.getOrNull(1).isNullOrBlank() -> openInvite(parts[1])
+      parts.getOrNull(0) == "forgot-password" -> goForgot()
+      parts.getOrNull(0) == "reset-password" && !queryToken.isNullOrBlank() -> {
+        error = null; screen = Screen.ResetPassword(queryToken)
+      }
+      parts.getOrNull(0) == "verify-email" && !queryToken.isNullOrBlank() -> {
+        error = null; screen = Screen.VerifyEmail(queryToken)
+      }
+    }
+  }
+
+  fun openInvite(code: String) {
+    if (!session.hasSession) pendingInviteCode = code
+    screen = Screen.Invite(code)
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.invitePreview(code) } }
+        .onSuccess { invitePreview = it }
+        .onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun continueInviteLogin() {
+    val code = (screen as? Screen.Invite)?.code ?: return
+    pendingInviteCode = code
+    goLogin()
+  }
+
+  fun acceptInvite() {
+    val screenInvite = screen as? Screen.Invite ?: return
+    if (!session.hasSession) {
+      pendingInviteCode = screenInvite.code
+      goLogin()
+      return
+    }
+    dialogText = screenInvite.code
+    joinServer()
+  }
 
   fun openBlacklist() {
     screen = Screen.Blacklist
@@ -176,17 +330,27 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   fun back() {
     when (screen) {
       is Screen.Chat -> {
+        subscribedChannel?.let { realtime.unsubscribe(it) }
+        subscribedChannel = null
         messages = emptyList()
         currentConversation = null
         pendingUploads = emptyList()
         replyTo = null
         editing = null
         draft = ""
+        typingLabel = null
+        showPins = false
+        showSearch = false
         screen = Screen.Home
       }
       Screen.Blacklist -> screen = Screen.Settings
-      Screen.Settings -> screen = Screen.Home
-      Screen.Register -> screen = Screen.Login
+      Screen.ProfileSettings, Screen.AccountSettings, Screen.AppearanceSettings -> screen = Screen.Settings
+      Screen.Settings, Screen.ServerSettings -> screen = Screen.Home
+      Screen.Members -> screen = lastChat ?: Screen.Home
+      is Screen.UserProfile -> screen = lastChat ?: Screen.Home
+      is Screen.Invite -> screen = if (session.hasSession) Screen.Home else Screen.Login
+      Screen.Register, Screen.ForgotPassword, is Screen.ResetPassword, is Screen.VerifyEmail ->
+        screen = Screen.Login
       else -> Unit
     }
   }
@@ -204,6 +368,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
         withContext(Dispatchers.IO) {
           serverDetail = api.server(id)
           members = api.members(id)
+          rememberChannels(serverDetail)
         }
       }.onFailure { error = it.userMessage() }
     }
@@ -220,12 +385,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   }
 
   fun openChat(channelId: String, serverId: String?, title: String, dm: Boolean) {
-    screen = Screen.Chat(channelId, serverId, title, dm)
+    subscribedChannel?.let { realtime.unsubscribe(it) }
+    val chat = Screen.Chat(channelId, serverId, title, dm)
+    lastChat = chat
+    screen = chat
     messages = emptyList()
     pendingUploads = emptyList()
     replyTo = null
     editing = null
     draft = ""
+    typingLabel = null
     viewModelScope.launch {
       runCatching {
         withContext(Dispatchers.IO) {
@@ -237,6 +406,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
               selectedServerId = serverId
               serverDetail = api.server(serverId)
               members = api.members(serverId)
+              rememberChannels(serverDetail)
             }
             channelMuted = runCatching { api.notifications(channelId).muted }.getOrDefault(false)
           }
@@ -244,6 +414,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
           messages = page.items
           messagesHasMore = page.hasMore
         }
+      }.onSuccess {
+        realtime.subscribe(channelId)
+        subscribedChannel = channelId
+        ackVisible()
       }.onFailure { error = it.userMessage() }
     }
   }
@@ -383,8 +557,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
         .onSuccess { joined ->
           showJoinServer = false
           dialogText = ""
+          pendingInviteCode = null
           withContext(Dispatchers.IO) { servers = api.servers() }
           selectServer(joined)
+          screen = Screen.Home
         }
         .onFailure { error = it.userMessage() }
     }
@@ -568,43 +744,464 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     editing = null
   }
 
+  fun canPerm(flag: Int): Boolean = serverDetail?.permissions?.can(flag) == true
+
+  fun isOwner(): Boolean = serverDetail?.ownerId == me?.id
+
   fun statusOf(userId: String, fallback: String): String = presence[userId] ?: fallback
 
   fun isOnline(status: String?): Boolean = status == "online" || status == "idle" || status == "dnd"
 
+  fun unread(channelId: String): Boolean = readStates[channelId]?.unread == true
+
+  fun mentions(channelId: String): Int = readStates[channelId]?.mentionCount ?: 0
+
+  fun serverUnread(serverId: String): Boolean =
+    readStates.any { (channelId, state) ->
+      channelServerIds[channelId] == serverId && (state.unread || state.mentionCount > 0)
+    }
+
+  fun serverMentions(serverId: String): Int =
+    readStates.entries.filter { channelServerIds[it.key] == serverId }.sumOf { it.value.mentionCount }
+
+  fun toggleCollapsed(categoryId: String) {
+    collapsedCategories[categoryId] = !(collapsedCategories[categoryId] ?: false)
+  }
+
+  fun openChannelSettings(channel: Channel) {
+    channelForSettings = channel
+    dialogText = channel.name
+    showChannelSettings = true
+  }
+
+  fun openDmFromProfile() {
+    val user = profileUser ?: return
+    startDm(user)
+  }
+
+  fun updateDraft(text: String) {
+    draft = text
+    val chat = screen as? Screen.Chat ?: return
+    if (text.isBlank()) {
+      realtime.typingStop(chat.channelId)
+      typingJob?.cancel()
+      return
+    }
+    realtime.typingStart(chat.channelId)
+    typingJob?.cancel()
+    typingJob = viewModelScope.launch {
+      delay(8_000)
+      realtime.typingStop(chat.channelId)
+    }
+  }
+
+  fun ackVisible() {
+    val chat = screen as? Screen.Chat ?: return
+    val last = messages.lastOrNull() ?: return
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.ack(chat.channelId, last.id, chat.dm) } }
+        .onSuccess {
+          readStates[chat.channelId] = ReadState(chat.channelId, last.id, unread = false, mentionCount = 0)
+        }
+    }
+  }
+
+  fun searchInChat(query: String) {
+    messageSearch = query
+    val chat = screen as? Screen.Chat ?: return
+    if (query.trim().length < 2) {
+      messageHits = emptyList()
+      return
+    }
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.searchMessages(chat.channelId, query.trim(), chat.dm) } }
+        .onSuccess { messageHits = it }
+        .onFailure { messageHits = emptyList() }
+    }
+  }
+
+  fun loadPins() {
+    val chat = screen as? Screen.Chat ?: return
+    if (chat.dm) return
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.pins(chat.channelId) } }
+        .onSuccess { pins = it }
+    }
+  }
+
+  fun forgot(email: String) {
+    viewModelScope.launch {
+      busy = true
+      runCatching { withContext(Dispatchers.IO) { api.forgotPassword(email.trim()) } }
+        .onSuccess { error = "Если этот адрес есть в системе, письмо уже в пути." }
+        .onFailure { error = it.userMessage() }
+      busy = false
+    }
+  }
+
+  fun resetPassword(token: String, password: String) {
+    viewModelScope.launch {
+      busy = true
+      runCatching { withContext(Dispatchers.IO) { api.resetPassword(token, password) } }
+        .onSuccess { error = null; screen = Screen.Login }
+        .onFailure { error = it.userMessage() }
+      busy = false
+    }
+  }
+
+  fun verifyEmailToken(token: String) {
+    viewModelScope.launch {
+      busy = true
+      runCatching { withContext(Dispatchers.IO) { api.verifyEmail(token) } }
+        .onSuccess { error = null; if (session.hasSession) bootstrap() else screen = Screen.Login }
+        .onFailure { error = it.userMessage() }
+      busy = false
+    }
+  }
+
+  fun saveUsername(username: String) {
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.patchUsername(username.trim().lowercase()) } }
+        .onSuccess { me = it }
+        .onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun setEnterToSend(value: Boolean) {
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.patchEnterToSend(value) } }
+        .onSuccess { me = it }
+        .onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun requestPasswordReset() {
+    val email = me?.email ?: return
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.forgotPassword(email) } }
+        .onSuccess { error = "Ссылка сброса отправлена на почту" }
+        .onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun createChannel() {
+    val serverId = selectedServerId ?: return
+    val name = dialogText.trim()
+    if (name.isEmpty()) return
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.createChannel(serverId, name, null, null); api.server(serverId) } }
+        .onSuccess {
+          showCreateChannel = false
+          dialogText = ""
+          serverDetail = it
+        }
+        .onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun createCategory() {
+    val serverId = selectedServerId ?: return
+    val name = dialogText.trim()
+    if (name.isEmpty()) return
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.createCategory(serverId, name); api.server(serverId) } }
+        .onSuccess {
+          showCreateCategory = false
+          dialogText = ""
+          serverDetail = it
+        }
+        .onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun saveChannel(name: String, topic: String) {
+    val channel = channelForSettings ?: return
+    viewModelScope.launch {
+      runCatching {
+        withContext(Dispatchers.IO) {
+          api.patchChannel(channel.id, name.trim(), topic.trim().ifBlank { null })
+          api.server(channel.serverId)
+        }
+      }.onSuccess {
+        serverDetail = it
+        showChannelSettings = false
+      }.onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun deleteChannel() {
+    val channel = channelForSettings ?: return
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.deleteChannel(channel.id); api.server(channel.serverId) } }
+        .onSuccess {
+          serverDetail = it
+          showChannelSettings = false
+          if ((screen as? Screen.Chat)?.channelId == channel.id) screen = Screen.Home
+        }
+        .onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun leaveServer() {
+    val id = selectedServerId ?: return
+    if (isOwner()) return
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.leaveServer(id); api.servers() } }
+        .onSuccess {
+          servers = it
+          selectDms()
+          screen = Screen.Home
+        }
+        .onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun saveServer(name: String, description: String) {
+    val id = selectedServerId ?: return
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.patchServer(id, name.trim(), description.trim().ifBlank { null }); api.server(id) } }
+        .onSuccess { serverDetail = it; refreshServers() }
+        .onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun uploadServerIcon(uri: Uri) {
+    val id = selectedServerId ?: return
+    val resolver = getApplication<Application>().contentResolver
+    viewModelScope.launch {
+      runCatching {
+        withContext(Dispatchers.IO) {
+          val bytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: error("file")
+          api.uploadServerIcon(id, bytes, queryName(resolver, uri), resolver.getType(uri) ?: "image/jpeg")
+          api.server(id)
+        }
+      }.onSuccess { serverDetail = it; refreshServers() }
+        .onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun deleteCurrentServer() {
+    val id = selectedServerId ?: return
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.deleteServer(id); api.servers() } }
+        .onSuccess {
+          servers = it
+          selectDms()
+          screen = Screen.Home
+        }
+        .onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun createInviteLink() {
+    val id = selectedServerId ?: return
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.createInvite(id) } }
+        .onSuccess { created ->
+          invites = listOf(created) + invites
+          error = "https://tetherchat.ru/invite/${created.code}"
+        }
+        .onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun createRole(name: String) {
+    val id = selectedServerId ?: return
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.createRole(id, name); api.server(id) } }
+        .onSuccess { serverDetail = it }
+        .onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun saveRole(role: Role, name: String, permissions: Int, hoist: Boolean, color: String) {
+    val id = selectedServerId ?: return
+    viewModelScope.launch {
+      runCatching {
+        withContext(Dispatchers.IO) {
+          api.patchRole(id, role.id, PatchRoleBody(name = name, permissions = permissions, hoist = hoist, color = color))
+          api.server(id)
+        }
+      }.onSuccess { serverDetail = it; editingRole = null }
+        .onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun deleteRole(role: Role) {
+    val id = selectedServerId ?: return
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.deleteRole(id, role.id); api.server(id) } }
+        .onSuccess { serverDetail = it }
+        .onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun kick(userId: String) {
+    val id = selectedServerId ?: return
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.kickMember(id, userId); api.members(id) } }
+        .onSuccess { members = it }
+        .onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun ban(userId: String) {
+    val id = selectedServerId ?: return
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.banMember(id, userId, null); api.members(id) to api.bans(id) } }
+        .onSuccess { (m, b) -> members = m; bans = b }
+        .onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun unban(userId: String) {
+    val id = selectedServerId ?: return
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.unbanMember(id, userId); api.bans(id) } }
+        .onSuccess { bans = it }
+        .onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun setMemberRoles(userId: String, roleIds: List<String>) {
+    val id = selectedServerId ?: return
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.patchMember(id, userId, PatchMemberBody(roleIds = roleIds)); api.members(id) } }
+        .onSuccess { members = it }
+        .onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun toggleDmUser(user: PublicUser) {
+    selectedDmUsers = if (selectedDmUsers.any { it.id == user.id }) selectedDmUsers.filterNot { it.id == user.id }
+    else selectedDmUsers + user
+  }
+
+  fun startGroupOrDm() {
+    val ids = selectedDmUsers.map { it.id }
+    if (ids.isEmpty()) return
+    viewModelScope.launch {
+      runCatching {
+        withContext(Dispatchers.IO) {
+          if (ids.size == 1) api.openDm(ids.first())
+          else api.openGroup(ids, groupName.trim().ifBlank { null })
+        }
+      }.onSuccess { conversation ->
+        showNewDm = false
+        searchQuery = ""
+        searchResults = emptyList()
+        selectedDmUsers = emptyList()
+        groupName = ""
+        prependDm(conversation)
+        selectDms()
+        openDm(conversation)
+      }.onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun copyInvite(code: String): String = "https://tetherchat.ru/invite/$code"
+
+  private fun refreshServers() {
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.servers() } }.onSuccess { servers = it }
+    }
+  }
+
+  private fun refreshSelectedServer() {
+    val id = selectedServerId ?: return
+    viewModelScope.launch {
+      runCatching {
+        withContext(Dispatchers.IO) {
+          serverDetail = api.server(id)
+          members = api.members(id)
+          rememberChannels(serverDetail)
+        }
+      }
+    }
+  }
+
+  private fun rememberChannels(detail: ServerDetail?) {
+    detail?.channels?.forEach { channelServerIds[it.id] = detail.id }
+  }
+
   override fun onStart(owner: LifecycleOwner) {
-    if (session.hasSession && screen !is Screen.Login && screen !is Screen.Register && screen !is Screen.Boot) {
-      connectRealtime()
+    if (session.hasSession && screen !is Screen.Login && screen !is Screen.Register && screen !is Screen.Boot &&
+      screen !is Screen.ForgotPassword
+    ) {
+      if (!realtime.connected()) connectRealtime()
     }
   }
 
   override fun onStop(owner: LifecycleOwner) {
-    realtime.disconnect()
+    val chat = screen as? Screen.Chat
+    if (chat != null) realtime.typingStop(chat.channelId)
   }
 
   private fun connectRealtime() {
+    realtime.onConnection = { connected = it }
     realtime.connect(
-      onMessage = { message ->
-        viewModelScope.launch {
-          val chat = screen as? Screen.Chat
-          if (chat?.channelId == message.channelId && messages.none { it.id == message.id || (message.nonce != null && it.nonce == message.nonce) }) {
-            messages = messages + message
+      RealtimeHandlers(
+        onMessage = { message ->
+          viewModelScope.launch {
+            val chat = screen as? Screen.Chat
+            if (chat?.channelId == message.channelId && messages.none { it.id == message.id || (message.nonce != null && it.nonce == message.nonce) }) {
+              messages = messages + message
+              if (ForegroundState.inForeground) ackVisible()
+            } else if (message.authorId != me?.id) {
+              val state = readStates[message.channelId]
+              readStates[message.channelId] = ReadState(
+                channelId = message.channelId,
+                lastReadMessageId = state?.lastReadMessageId,
+                mentionCount = (state?.mentionCount ?: 0) + if (message.content.contains("@${me?.username}")) 1 else 0,
+                unread = true,
+              )
+            }
+            message.serverId?.let { channelServerIds[message.channelId] = it }
+            if (message.serverId == null) ensureDm(message.channelId)
+            if (!ForegroundState.inForeground && message.authorId != me?.id) {
+              val title = message.author.label
+              val body = message.content.ifBlank { if (message.attachments.isNotEmpty()) "Вложение" else "Новое сообщение" }
+              NotificationHelper.showMessage(
+                getApplication(),
+                title,
+                body,
+                message.channelId,
+                message.serverId,
+                title,
+                message.id,
+              )
+            }
           }
-          if (message.serverId == null) ensureDm(message.channelId)
-        }
-      },
-      onMessageUpdated = { updated -> viewModelScope.launch { replaceMessage(updated) } },
-      onMessageDeleted = { event ->
-        viewModelScope.launch { messages = messages.filterNot { it.id == event.messageId } }
-      },
-      onReaction = { event ->
-        viewModelScope.launch {
-          messages = messages.map { if (it.id == event.messageId) it.copy(reactions = event.reactions) else it }
-        }
-      },
-      onDmCreate = { conversation -> viewModelScope.launch { prependDm(conversation) } },
-      onPresence = { event -> viewModelScope.launch { presence[event.userId] = event.status } },
-      onReady = {},
+        },
+        onMessageUpdated = { updated -> viewModelScope.launch { replaceMessage(updated) } },
+        onMessageDeleted = { event ->
+          viewModelScope.launch { messages = messages.filterNot { it.id == event.messageId } }
+        },
+        onReaction = { event ->
+          viewModelScope.launch {
+            messages = messages.map { if (it.id == event.messageId) it.copy(reactions = event.reactions) else it }
+          }
+        },
+        onDmCreate = { conversation -> viewModelScope.launch { prependDm(conversation) } },
+        onPresence = { event -> viewModelScope.launch { presence[event.userId] = event.status } },
+        onTyping = { event ->
+          viewModelScope.launch {
+            val chat = screen as? Screen.Chat
+            if (chat?.channelId != event.channelId) return@launch
+            val others = event.users.filter { it.id != me?.id }
+            typingLabel = when {
+              others.isEmpty() -> null
+              others.size == 1 -> "${others.first().username} печатает…"
+              else -> "${others.joinToString { it.username }} печатают…"
+            }
+          }
+        },
+        onServerChanged = { refreshSelectedServer() },
+        onServersChanged = { refreshServers() },
+        onReady = {
+          (screen as? Screen.Chat)?.let { realtime.subscribe(it.channelId) }
+        },
+      ),
     )
   }
 

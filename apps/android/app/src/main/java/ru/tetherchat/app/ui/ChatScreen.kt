@@ -28,21 +28,29 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.Reply
 import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.EmojiEmotions
+import androidx.compose.material.icons.outlined.People
 import androidx.compose.material.icons.outlined.PersonOff
 import androidx.compose.material.icons.outlined.PushPin
-import androidx.compose.material.icons.automirrored.outlined.Reply
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -60,6 +68,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -67,6 +76,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -74,13 +84,21 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import ru.tetherchat.app.data.Attachment
+import ru.tetherchat.app.data.LinkPreview
 import ru.tetherchat.app.data.Message
+import ru.tetherchat.app.data.Perm
 import ru.tetherchat.app.data.PublicUser
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 private val QuickReactions = listOf("👍", "❤️", "😂", "🎉", "👀", "🔥")
+private val EmojiGrid = listOf(
+  "😀", "😂", "😍", "🥰", "😎", "🤔", "😢", "😭", "😤", "🤗",
+  "👍", "👎", "❤️", "🔥", "🎉", "👀", "💯", "✨", "⭐", "🙏",
+  "👋", "✅", "❌", "💜", "💙", "💚", "🧡", "🤣", "💀", "🫡",
+  "🤝", "💪", "⚡", "🌟", "📌", "📷", "🎵", "🎮", "🧠", "😴",
+)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -93,9 +111,25 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
   val pickFiles = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
     if (uris.isNotEmpty()) model.attachUris(uris)
   }
+  val canSend = chat.dm || model.canPerm(Perm.SEND_MESSAGES) || model.isOwner()
+  val canAttach = chat.dm || model.canPerm(Perm.ATTACH_FILES) || model.isOwner()
+  val canManage = !chat.dm && (model.canPerm(Perm.MANAGE_MESSAGES) || model.isOwner())
+  val topic = model.serverDetail?.channels?.firstOrNull { it.id == chat.channelId }?.topic
 
   LaunchedEffect(model.messages.lastOrNull()?.id) {
-    if (model.messages.isNotEmpty()) listState.animateScrollToItem(model.messages.lastIndex)
+    val last = model.messages.lastIndex
+    if (last < 0) return@LaunchedEffect
+    val visible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+    if (visible >= last - 3 || last < 8) {
+      listState.animateScrollToItem(last)
+    }
+  }
+
+  LaunchedEffect(listState, chat.channelId) {
+    snapshotFlow { listState.firstVisibleItemIndex }
+      .collect { index ->
+        if (index <= 1 && model.messagesHasMore && !model.busy) model.loadOlder()
+      }
   }
 
   Column(
@@ -106,6 +140,14 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
       .imePadding()
       .navigationBarsPadding(),
   ) {
+    if (!model.connected) {
+      Text(
+        "Нет соединения",
+        color = Color.White,
+        fontSize = 13.sp,
+        modifier = Modifier.fillMaxWidth().background(Danger).padding(8.dp),
+      )
+    }
     Row(
       modifier = Modifier
         .fillMaxWidth()
@@ -116,15 +158,30 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
       IconButton(onClick = model::back) {
         Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Назад", tint = TextPrimary)
       }
-      Text(
-        chat.title,
-        color = TextPrimary,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 16.sp,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        modifier = Modifier.weight(1f),
-      )
+      Column(Modifier.weight(1f)) {
+        Text(
+          chat.title,
+          color = TextPrimary,
+          fontWeight = FontWeight.SemiBold,
+          fontSize = 16.sp,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
+        )
+        if (!topic.isNullOrBlank()) {
+          Text(topic, color = TextMuted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+      }
+      IconButton(onClick = { model.showSearch = true }) {
+        Icon(Icons.Outlined.Search, contentDescription = "Поиск", tint = TextMuted)
+      }
+      if (!chat.dm) {
+        IconButton(onClick = { model.loadPins(); model.showPins = true }) {
+          Icon(Icons.Outlined.PushPin, contentDescription = "Закреплённые", tint = TextMuted)
+        }
+        IconButton(onClick = model::openMembers) {
+          Icon(Icons.Outlined.People, contentDescription = "Участники", tint = TextMuted)
+        }
+      }
       IconButton(onClick = { showSettings = true }) {
         Icon(Icons.Outlined.Settings, contentDescription = "Настройки чата", tint = TextMuted)
       }
@@ -139,6 +196,7 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
           message = message,
           model = model,
           onLongPress = { selected = message },
+          onOpenProfile = { model.openProfile(message.authorId) },
           onOpenAttachment = { attachment ->
             if (attachment.isImage) preview = attachment
             else {
@@ -150,38 +208,63 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
         )
       }
     }
+    model.typingLabel?.let { label ->
+      Text(label, color = TextMuted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+    }
+    MentionSuggestions(model, chat)
     ComposerExtras(model)
-    Row(
-      modifier = Modifier
-        .fillMaxWidth()
-        .background(SurfacePanel)
-        .padding(8.dp),
-      verticalAlignment = Alignment.CenterVertically,
-    ) {
-      IconButton(onClick = { pickFiles.launch(arrayOf("*/*")) }) {
-        Icon(Icons.Outlined.Add, contentDescription = "Прикрепить файл", tint = TextMuted)
+    if (model.showEmojiPicker) {
+      EmojiPickerSheet(onPick = { emoji ->
+        model.updateDraft(model.draft + emoji)
+        model.showEmojiPicker = false
+      })
+    }
+    if (canSend) {
+      Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .background(SurfacePanel)
+          .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        if (canAttach) {
+          IconButton(onClick = { pickFiles.launch(arrayOf("*/*")) }) {
+            Icon(Icons.Outlined.Add, contentDescription = "Прикрепить файл", tint = TextMuted)
+          }
+        }
+        IconButton(onClick = { model.showEmojiPicker = !model.showEmojiPicker }) {
+          Icon(Icons.Outlined.EmojiEmotions, contentDescription = "Эмодзи", tint = TextMuted)
+        }
+        OutlinedTextField(
+          value = model.draft,
+          onValueChange = model::updateDraft,
+          modifier = Modifier.weight(1f),
+          placeholder = { Text(if (model.editing != null) "Изменить сообщение" else "Написать сообщение", color = TextMuted) },
+          maxLines = 4,
+          shape = RoundedCornerShape(20.dp),
+          keyboardOptions = KeyboardOptions(imeAction = if (model.me?.enterToSend == true) ImeAction.Send else ImeAction.Default),
+          keyboardActions = KeyboardActions(onSend = { model.send() }),
+          colors = OutlinedTextFieldDefaults.colors(
+            focusedTextColor = TextPrimary,
+            unfocusedTextColor = TextPrimary,
+            focusedContainerColor = SurfaceDeep,
+            unfocusedContainerColor = SurfaceDeep,
+            focusedBorderColor = SurfaceDeep,
+            unfocusedBorderColor = SurfaceDeep,
+            cursorColor = Brand,
+          ),
+        )
+        val ready = model.draft.isNotBlank() || model.pendingUploads.any { it.attachment != null }
+        IconButton(onClick = model::send, enabled = ready && model.pendingUploads.none { it.attachment == null && it.error == null }) {
+          Icon(Icons.AutoMirrored.Outlined.Send, contentDescription = "Отправить", tint = Brand)
+        }
       }
-      OutlinedTextField(
-        value = model.draft,
-        onValueChange = { model.draft = it },
-        modifier = Modifier.weight(1f),
-        placeholder = { Text(if (model.editing != null) "Изменить сообщение" else "Написать сообщение", color = TextMuted) },
-        maxLines = 4,
-        shape = RoundedCornerShape(20.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-          focusedTextColor = TextPrimary,
-          unfocusedTextColor = TextPrimary,
-          focusedContainerColor = SurfaceDeep,
-          unfocusedContainerColor = SurfaceDeep,
-          focusedBorderColor = SurfaceDeep,
-          unfocusedBorderColor = SurfaceDeep,
-          cursorColor = Brand,
-        ),
+    } else {
+      Text(
+        "Нет права писать в этот канал",
+        color = TextMuted,
+        modifier = Modifier.fillMaxWidth().background(SurfacePanel).padding(16.dp),
       )
-      val canSend = model.draft.isNotBlank() || model.pendingUploads.any { it.attachment != null }
-      IconButton(onClick = model::send, enabled = canSend && model.pendingUploads.none { it.attachment == null && it.error == null }) {
-        Icon(Icons.AutoMirrored.Outlined.Send, contentDescription = "Отправить", tint = Brand)
-      }
     }
   }
 
@@ -191,6 +274,7 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
       message = selectedMessage,
       meId = model.me?.id,
       dm = chat.dm,
+      canManage = canManage,
       onDismiss = { selected = null },
       onReply = { model.startReply(selectedMessage); selected = null },
       onCopy = {
@@ -212,6 +296,12 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
   if (showSettings) {
     ChatSettingsSheet(model, chat, onDismiss = { showSettings = false })
   }
+  if (model.showSearch) {
+    SearchSheet(model, chat) { model.showSearch = false }
+  }
+  if (model.showPins) {
+    PinsSheet(model) { model.showPins = false }
+  }
 
   val lightbox = preview
   if (lightbox != null) {
@@ -230,6 +320,83 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
           contentScale = ContentScale.Fit,
         )
       }
+    }
+  }
+}
+
+@Composable
+private fun MentionSuggestions(model: AppViewModel, chat: Screen.Chat) {
+  val draft = model.draft
+  val at = draft.lastIndexOf('@')
+  val hash = draft.lastIndexOf('#')
+  val trigger = maxOf(at, hash)
+  if (trigger < 0) return
+  if (trigger > 0 && !draft[trigger - 1].isWhitespace()) return
+  val term = draft.substring(trigger + 1)
+  if (term.contains(' ') || term.length > 32) return
+  if (draft[trigger] == '@') {
+    val matches = model.members.filter {
+      it.label.contains(term, true) || it.user.username.contains(term, true)
+    }.take(6)
+    if (matches.isEmpty() && term.isNotEmpty()) return
+    Column(Modifier.fillMaxWidth().background(SurfacePanel).padding(horizontal = 12.dp)) {
+      if ("everyone".startsWith(term) && term.isNotEmpty() && model.canPerm(Perm.MENTION_EVERYONE)) {
+        Text(
+          "@everyone",
+          color = Brand,
+          modifier = Modifier.fillMaxWidth().clickable {
+            model.updateDraft(draft.substring(0, trigger) + "@everyone ")
+          }.padding(vertical = 8.dp),
+        )
+      }
+      matches.forEach { member ->
+        Row(
+          Modifier.fillMaxWidth().clickable {
+            model.updateDraft(draft.substring(0, trigger) + "<@${member.user.id}> ")
+          }.padding(vertical = 6.dp),
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
+          UserAvatar(member.user, 24.dp)
+          Spacer(Modifier.width(8.dp))
+          Text(member.label, color = TextPrimary, fontSize = 14.sp)
+        }
+      }
+    }
+  } else if (!chat.dm) {
+    val matches = model.serverDetail?.channels.orEmpty()
+      .filter { it.name.contains(term, true) }
+      .take(6)
+    if (matches.isEmpty()) return
+    Column(Modifier.fillMaxWidth().background(SurfacePanel).padding(horizontal = 12.dp)) {
+      matches.forEach { channel ->
+        Text(
+          "#${channel.name}",
+          color = Brand,
+          modifier = Modifier.fillMaxWidth().clickable {
+            model.updateDraft(draft.substring(0, trigger) + "<#${channel.id}> ")
+          }.padding(vertical = 8.dp),
+        )
+      }
+    }
+  }
+}
+
+@Composable
+private fun EmojiPickerSheet(onPick: (String) -> Unit) {
+  LazyVerticalGrid(
+    columns = GridCells.Adaptive(44.dp),
+    modifier = Modifier
+      .fillMaxWidth()
+      .height(180.dp)
+      .background(SurfacePanel)
+      .padding(8.dp),
+  ) {
+    items(EmojiGrid) { emoji ->
+      Text(
+        emoji,
+        fontSize = 22.sp,
+        modifier = Modifier.padding(6.dp).clickable { onPick(emoji) },
+      )
     }
   }
 }
@@ -297,6 +464,7 @@ private fun MessageRow(
   message: Message,
   model: AppViewModel,
   onLongPress: () -> Unit,
+  onOpenProfile: () -> Unit,
   onOpenAttachment: (Attachment) -> Unit,
 ) {
   Row(
@@ -306,15 +474,27 @@ private fun MessageRow(
       .padding(horizontal = 12.dp, vertical = 6.dp),
     horizontalArrangement = Arrangement.spacedBy(10.dp),
   ) {
-    UserAvatar(message.author, 40.dp, model.statusOf(message.authorId, message.author.status))
+    Box(Modifier.clickable(onClick = onOpenProfile)) {
+      UserAvatar(message.author, 40.dp, model.statusOf(message.authorId, message.author.status))
+    }
     Column(Modifier.weight(1f)) {
       Row(verticalAlignment = Alignment.Bottom) {
-        Text(message.author.label, color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+        Text(
+          message.author.label,
+          color = TextPrimary,
+          fontWeight = FontWeight.SemiBold,
+          fontSize = 15.sp,
+          modifier = Modifier.clickable(onClick = onOpenProfile),
+        )
         Spacer(Modifier.width(8.dp))
         Text(formatTime(message.createdAt), color = TextMuted, fontSize = 12.sp)
         if (message.editedAt != null) {
           Spacer(Modifier.width(6.dp))
           Text("изменено", color = TextMuted, fontSize = 11.sp)
+        }
+        if (message.pinned) {
+          Spacer(Modifier.width(6.dp))
+          Icon(Icons.Outlined.PushPin, contentDescription = null, tint = TextMuted, modifier = Modifier.size(12.dp))
         }
       }
       val reply = message.replyTo
@@ -329,30 +509,50 @@ private fun MessageRow(
         )
       }
       if (message.content.isNotBlank()) {
-        Text(message.content, color = TextPrimary, fontSize = 15.sp)
+        Text(markdownAnnotated(message.content), color = TextPrimary, fontSize = 15.sp)
       }
       message.attachments.forEach { attachment ->
-        if (attachment.isImage && attachment.url.isNotBlank()) {
-          AsyncImage(
-            model = attachment.url,
-            contentDescription = attachment.filename,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-              .padding(top = 6.dp)
-              .fillMaxWidth()
-              .heightIn(min = 120.dp, max = 280.dp)
-              .clip(RoundedCornerShape(8.dp))
-              .clickable { onOpenAttachment(attachment) },
-          )
-        } else {
-          Text(
-            attachment.filename.ifBlank { "Вложение" },
-            color = Brand,
-            fontSize = 13.sp,
-            modifier = Modifier.padding(top = 4.dp).clickable { onOpenAttachment(attachment) },
-          )
+        when {
+          attachment.isImage && attachment.url.isNotBlank() -> {
+            AsyncImage(
+              model = attachment.url,
+              contentDescription = attachment.filename,
+              contentScale = ContentScale.Crop,
+              modifier = Modifier
+                .padding(top = 6.dp)
+                .fillMaxWidth()
+                .heightIn(min = 120.dp, max = 280.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .clickable { onOpenAttachment(attachment) },
+            )
+          }
+          attachment.isVideo -> {
+            Text(
+              "Видео: ${attachment.filename.ifBlank { "файл" }}",
+              color = Brand,
+              fontSize = 13.sp,
+              modifier = Modifier.padding(top = 4.dp).clickable { onOpenAttachment(attachment) },
+            )
+          }
+          attachment.isAudio -> {
+            Text(
+              "Аудио: ${attachment.filename.ifBlank { "файл" }}",
+              color = Brand,
+              fontSize = 13.sp,
+              modifier = Modifier.padding(top = 4.dp).clickable { onOpenAttachment(attachment) },
+            )
+          }
+          else -> {
+            Text(
+              attachment.filename.ifBlank { "Вложение" },
+              color = Brand,
+              fontSize = 13.sp,
+              modifier = Modifier.padding(top = 4.dp).clickable { onOpenAttachment(attachment) },
+            )
+          }
         }
       }
+      message.previews.forEach { card -> PreviewCard(card) }
       if (message.reactions.isNotEmpty()) {
         Row(
           modifier = Modifier.padding(top = 4.dp),
@@ -376,12 +576,42 @@ private fun MessageRow(
   }
 }
 
+@Composable
+private fun PreviewCard(preview: LinkPreview) {
+  val context = LocalContext.current
+  Column(
+    modifier = Modifier
+      .padding(top = 8.dp)
+      .clip(RoundedCornerShape(8.dp))
+      .background(SurfaceDeep)
+      .clickable {
+        if (preview.url.isNotBlank()) {
+          runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(preview.url))) }
+        }
+      }
+      .padding(10.dp),
+  ) {
+    preview.siteName?.let { Text(it, color = TextMuted, fontSize = 11.sp) }
+    preview.title?.let { Text(it, color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 14.sp) }
+    preview.description?.let { Text(it, color = TextMuted, fontSize = 13.sp, maxLines = 3, overflow = TextOverflow.Ellipsis) }
+    if (!preview.imageUrl.isNullOrBlank()) {
+      AsyncImage(
+        model = preview.imageUrl,
+        contentDescription = null,
+        modifier = Modifier.padding(top = 6.dp).fillMaxWidth().heightIn(max = 160.dp).clip(RoundedCornerShape(6.dp)),
+        contentScale = ContentScale.Crop,
+      )
+    }
+  }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MessageActionSheet(
   message: Message,
   meId: String?,
   dm: Boolean,
+  canManage: Boolean,
   onDismiss: () -> Unit,
   onReply: () -> Unit,
   onCopy: () -> Unit,
@@ -418,7 +648,7 @@ private fun MessageActionSheet(
     if (message.content.isNotBlank()) SheetRow(Icons.Outlined.ContentCopy, "Копировать текст", onCopy)
     if (own) SheetRow(Icons.Outlined.Edit, "Изменить сообщение", onEdit)
     if (!dm) SheetRow(Icons.Outlined.PushPin, if (message.pinned) "Открепить сообщение" else "Закрепить сообщение", onPin)
-    if (own) SheetRow(Icons.Outlined.Delete, "Удалить сообщение", onDelete, danger = true)
+    if (own || canManage) SheetRow(Icons.Outlined.Delete, "Удалить сообщение", onDelete, danger = true)
     if (!own && dm) SheetRow(Icons.Outlined.PersonOff, "Заблокировать", onBlock, danger = true)
     Spacer(Modifier.height(16.dp))
   }
@@ -447,9 +677,12 @@ private fun ChatSettingsSheet(model: AppViewModel, chat: Screen.Chat, onDismiss:
       modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
     )
     Text("Участники", color = TextMuted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
-    people.take(12).forEach { user ->
+    people.take(20).forEach { user ->
       Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
+        modifier = Modifier
+          .fillMaxWidth()
+          .clickable { model.openProfile(user.id); onDismiss() }
+          .padding(horizontal = 20.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
       ) {
         UserAvatar(user, 32.dp, model.statusOf(user.id, user.status))
@@ -473,6 +706,80 @@ private fun ChatSettingsSheet(model: AppViewModel, chat: Screen.Chat, onDismiss:
       }
     }
     Spacer(Modifier.height(20.dp))
+  }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SearchSheet(model: AppViewModel, chat: Screen.Chat, onDismiss: () -> Unit) {
+  ModalBottomSheet(
+    onDismissRequest = onDismiss,
+    sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    containerColor = SurfacePanel,
+  ) {
+    Text(
+      if (chat.dm) "Поиск: ${chat.title}" else "Поиск ${chat.title}",
+      color = TextPrimary,
+      fontWeight = FontWeight.SemiBold,
+      modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+    )
+    OutlinedTextField(
+      value = model.messageSearch,
+      onValueChange = model::searchInChat,
+      modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+      placeholder = { Text("Поиск сообщений…", color = TextMuted) },
+      singleLine = true,
+      colors = OutlinedTextFieldDefaults.colors(
+        focusedTextColor = TextPrimary,
+        unfocusedTextColor = TextPrimary,
+        cursorColor = Brand,
+      ),
+    )
+    if (model.messageSearch.trim().length < 2) {
+      Text("Введите хотя бы два символа.", color = TextMuted, modifier = Modifier.padding(20.dp))
+    } else if (model.messageHits.isEmpty()) {
+      Text("Ничего не найдено.", color = TextMuted, modifier = Modifier.padding(20.dp))
+    } else {
+      Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        model.messageHits.take(30).forEach { message ->
+          Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+            Text("${message.author.label} · ${formatTime(message.createdAt)}", color = TextMuted, fontSize = 12.sp)
+            Text(message.content.ifBlank { "Вложение" }, color = TextPrimary, maxLines = 3, overflow = TextOverflow.Ellipsis)
+          }
+        }
+      }
+    }
+    Spacer(Modifier.height(24.dp))
+  }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PinsSheet(model: AppViewModel, onDismiss: () -> Unit) {
+  ModalBottomSheet(
+    onDismissRequest = onDismiss,
+    sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    containerColor = SurfacePanel,
+  ) {
+    Text(
+      "Закреплённые сообщения",
+      color = TextPrimary,
+      fontWeight = FontWeight.SemiBold,
+      modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+    )
+    if (model.pins.isEmpty()) {
+      Text("Пока ничего не закреплено.", color = TextMuted, modifier = Modifier.padding(20.dp))
+    } else {
+      Column(Modifier.padding(horizontal = 16.dp)) {
+        model.pins.forEach { message ->
+          Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+            Text(message.author.label, color = TextPrimary, fontWeight = FontWeight.SemiBold)
+            Text(message.content.ifBlank { "Вложение" }, color = TextMuted, maxLines = 4)
+          }
+        }
+      }
+    }
+    Spacer(Modifier.height(24.dp))
   }
 }
 

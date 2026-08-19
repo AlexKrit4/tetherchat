@@ -102,6 +102,20 @@ data class ServerDetail(
   val memberCount: Int = 0,
   val categories: List<Category> = emptyList(),
   val channels: List<Channel> = emptyList(),
+  val roles: List<Role> = emptyList(),
+  val permissions: Int = 0,
+)
+
+@Serializable
+data class Role(
+  val id: String,
+  val serverId: String = "",
+  val name: String,
+  val color: String? = null,
+  val permissions: Int = 0,
+  val position: Int = 0,
+  val isDefault: Boolean = false,
+  val hoist: Boolean = false,
 )
 
 @Serializable
@@ -110,6 +124,7 @@ data class ServerMember(
   val serverId: String = "",
   val nickname: String? = null,
   val joinedAt: String = "",
+  val roleIds: List<String> = emptyList(),
   val user: PublicUser,
 ) {
   val label: String get() = nickname?.takeIf { it.isNotBlank() } ?: user.label
@@ -126,6 +141,8 @@ data class Attachment(
   val height: Int? = null,
 ) {
   val isImage: Boolean get() = contentType.startsWith("image/")
+  val isVideo: Boolean get() = contentType.startsWith("video/")
+  val isAudio: Boolean get() = contentType.startsWith("audio/")
 }
 
 @Serializable
@@ -146,6 +163,15 @@ data class Reaction(
 )
 
 @Serializable
+data class LinkPreview(
+  val url: String = "",
+  val title: String? = null,
+  val description: String? = null,
+  val imageUrl: String? = null,
+  val siteName: String? = null,
+)
+
+@Serializable
 data class Message(
   val id: String,
   val channelId: String,
@@ -160,6 +186,7 @@ data class Message(
   val replyTo: MessageReference? = null,
   val attachments: List<Attachment> = emptyList(),
   val reactions: List<Reaction> = emptyList(),
+  val previews: List<LinkPreview> = emptyList(),
   val nonce: String? = null,
 )
 
@@ -273,3 +300,110 @@ data class PendingUpload(
   val attachment: Attachment? = null,
   val error: String? = null,
 )
+
+@Serializable
+data class TypingEvent(
+  val channelId: String = "",
+  val users: List<TypingUser> = emptyList(),
+)
+
+@Serializable
+data class TypingUser(
+  val id: String = "",
+  val username: String = "",
+)
+
+@Serializable
+data class ReadState(
+  val channelId: String,
+  val lastReadMessageId: String? = null,
+  val lastReadAt: String? = null,
+  val mentionCount: Int = 0,
+  val unread: Boolean = false,
+)
+
+@Serializable
+data class Invite(
+  val code: String,
+  val serverId: String = "",
+  val uses: Int = 0,
+  val maxUses: Int? = null,
+  val expiresAt: String? = null,
+)
+
+@Serializable
+data class InvitePreview(
+  val code: String,
+  val server: ServerSummary,
+  val inviter: PublicUser,
+  val alreadyMember: Boolean = false,
+)
+
+@Serializable
+data class Ban(
+  val userId: String,
+  val serverId: String = "",
+  val reason: String? = null,
+  val createdAt: String = "",
+  val user: PublicUser,
+)
+
+@Serializable
+data class EmailBody(val email: String)
+
+@Serializable
+data class ResetPasswordBody(val token: String, val password: String)
+
+@Serializable
+data class VerifyEmailBody(val token: String)
+
+@Serializable
+data class PatchUsernameBody(val username: String)
+
+@Serializable
+data class PatchEnterToSendBody(val enterToSend: Boolean)
+
+@Serializable
+data class PatchServerBody(val name: String? = null, val description: String? = null)
+
+@Serializable
+data class CreateChannelBody(
+  val name: String,
+  val topic: String? = null,
+  val categoryId: String? = null,
+)
+
+@Serializable
+data class CreateCategoryBody(val name: String)
+
+@Serializable
+data class PatchChannelBody(val name: String? = null, val topic: String? = null)
+
+@Serializable
+data class CreateInviteBody(val maxUses: Int? = null, val expiresInHours: Int? = null)
+
+@Serializable
+data class CreateRoleBody(val name: String)
+
+@Serializable
+data class PatchRoleBody(
+  val name: String? = null,
+  val permissions: Int? = null,
+  val hoist: Boolean? = null,
+  val color: String? = null,
+)
+
+@Serializable
+data class PatchMemberBody(
+  val nickname: String? = null,
+  val roleIds: List<String>? = null,
+)
+
+@Serializable
+data class BanBody(val reason: String? = null)
+
+@Serializable
+data class CreateGroupDmBody(val userIds: List<String>, val name: String? = null)
+
+@Serializable
+data class NotificationLevelBody(val muted: Boolean? = null, val level: String? = null)

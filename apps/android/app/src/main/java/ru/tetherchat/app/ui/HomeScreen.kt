@@ -1,7 +1,11 @@
 package ru.tetherchat.app.ui
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,20 +28,29 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AlternateEmail
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Tag
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -45,47 +58,43 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import ru.tetherchat.app.data.Channel
 import ru.tetherchat.app.data.DirectConversation
+import ru.tetherchat.app.data.Perm
 
 @Composable
 fun HomeScreen(model: AppViewModel) {
-  Row(
-    modifier = Modifier
-      .fillMaxSize()
-      .background(SurfaceDeep)
-      .statusBarsPadding()
-      .navigationBarsPadding(),
-  ) {
-    ServerRail(model)
-    Column(
+  Column(Modifier.fillMaxSize().background(SurfaceDeep)) {
+    if (!model.connected) {
+      Text(
+        "Нет соединения — переподключаемся…",
+        color = Color.White,
+        fontSize = 13.sp,
+        modifier = Modifier
+          .fillMaxWidth()
+          .background(Danger)
+          .statusBarsPadding()
+          .padding(8.dp),
+      )
+    }
+    Row(
       modifier = Modifier
         .weight(1f)
-        .fillMaxHeight()
-        .background(SurfacePanel),
+        .fillMaxWidth()
+        .then(if (model.connected) Modifier.statusBarsPadding() else Modifier)
+        .navigationBarsPadding(),
     ) {
-      val title = if (model.selectedServerId == null) "Личные сообщения" else model.serverDetail?.name ?: "Сервер"
-      Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
+      ServerRail(model)
+      Column(
+        modifier = Modifier
+          .weight(1f)
+          .fillMaxHeight()
+          .background(SurfacePanel),
       ) {
-        Text(
-          title,
-          color = TextPrimary,
-          fontWeight = FontWeight.SemiBold,
-          fontSize = 16.sp,
-          maxLines = 1,
-          overflow = TextOverflow.Ellipsis,
-          modifier = Modifier.weight(1f),
-        )
-        if (model.selectedServerId == null) {
-          IconButton(onClick = { model.showNewDm = true; model.dialogText = ""; model.searchQuery = "" }) {
-            Icon(Icons.Outlined.Add, contentDescription = "Новый диалог", tint = TextMuted)
-          }
+        ServerHeader(model)
+        Box(Modifier.weight(1f)) {
+          if (model.selectedServerId == null) DmList(model) else ChannelList(model)
         }
+        UserFooter(model)
       }
-      Box(Modifier.weight(1f)) {
-        if (model.selectedServerId == null) DmList(model) else ChannelList(model)
-      }
-      UserFooter(model)
     }
   }
 
@@ -99,7 +108,85 @@ fun HomeScreen(model: AppViewModel) {
       model.showJoinServer = false
     }
   }
+  if (model.showCreateChannel) {
+    TextPromptDialog("Новый канал", "Название", model, confirm = "Создать", onConfirm = model::createChannel) {
+      model.showCreateChannel = false
+    }
+  }
+  if (model.showCreateCategory) {
+    TextPromptDialog("Новая категория", "Название", model, confirm = "Создать", onConfirm = model::createCategory) {
+      model.showCreateCategory = false
+    }
+  }
+  if (model.showChannelSettings) {
+    ChannelSettingsDialog(model)
+  }
   if (model.showNewDm) NewDmDialog(model)
+}
+
+@Composable
+private fun ServerHeader(model: AppViewModel) {
+  var menu by remember { mutableStateOf(false) }
+  val title = if (model.selectedServerId == null) "Личные сообщения" else model.serverDetail?.name ?: "Сервер"
+  Row(
+    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    Text(
+      title,
+      color = TextPrimary,
+      fontWeight = FontWeight.SemiBold,
+      fontSize = 16.sp,
+      maxLines = 1,
+      overflow = TextOverflow.Ellipsis,
+      modifier = Modifier.weight(1f).clickable(enabled = model.selectedServerId != null) { menu = true },
+    )
+    if (model.selectedServerId == null) {
+      IconButton(onClick = { model.showNewDm = true; model.dialogText = ""; model.searchQuery = ""; model.selectedDmUsers = emptyList() }) {
+        Icon(Icons.Outlined.Add, contentDescription = "Новый диалог", tint = TextMuted)
+      }
+    } else {
+      IconButton(onClick = { menu = true }) {
+        Icon(Icons.Outlined.ExpandMore, contentDescription = "Меню сервера", tint = TextMuted)
+      }
+      DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+        if (model.canPerm(Perm.CREATE_INVITE) || model.canPerm(Perm.MANAGE_SERVER) || model.isOwner()) {
+          DropdownMenuItem(text = { Text("Пригласить людей") }, onClick = {
+            menu = false
+            model.createInviteLink()
+          })
+        }
+        if (model.canPerm(Perm.MANAGE_CHANNELS) || model.isOwner()) {
+          DropdownMenuItem(text = { Text("Создать канал") }, onClick = {
+            menu = false
+            model.dialogText = ""
+            model.showCreateChannel = true
+          })
+          DropdownMenuItem(text = { Text("Создать категорию") }, onClick = {
+            menu = false
+            model.dialogText = ""
+            model.showCreateCategory = true
+          })
+        }
+        if (model.canPerm(Perm.MANAGE_SERVER) || model.isOwner()) {
+          DropdownMenuItem(text = { Text("Настройки сервера") }, onClick = {
+            menu = false
+            model.openServerSettings()
+          })
+        }
+        DropdownMenuItem(text = { Text("Участники") }, onClick = {
+          menu = false
+          model.openMembers()
+        })
+        if (!model.isOwner()) {
+          DropdownMenuItem(text = { Text("Покинуть сервер", color = Danger) }, onClick = {
+            menu = false
+            model.leaveServer()
+          })
+        }
+      }
+    }
+  }
 }
 
 @Composable
@@ -113,9 +200,11 @@ private fun ServerRail(model: AppViewModel) {
     horizontalAlignment = Alignment.CenterHorizontally,
     verticalArrangement = Arrangement.spacedBy(8.dp),
   ) {
+    val dmUnread = model.dms.any { model.unread(it.id) || model.mentions(it.id) > 0 }
     ServerIcon(
       selected = model.selectedServerId == null,
       onClick = model::selectDms,
+      unread = dmUnread,
     ) {
       Icon(Icons.Outlined.AlternateEmail, contentDescription = "ЛС", tint = Color.White, modifier = Modifier.size(22.dp))
     }
@@ -132,6 +221,8 @@ private fun ServerRail(model: AppViewModel) {
           onClick = { model.selectServer(server.id) },
           label = server.name,
           iconUrl = server.iconUrl,
+          unread = model.serverUnread(server.id),
+          mentions = model.serverMentions(server.id),
         )
       }
     }
@@ -150,68 +241,129 @@ private fun ServerIcon(
   onClick: () -> Unit,
   label: String? = null,
   iconUrl: String? = null,
+  unread: Boolean = false,
+  mentions: Int = 0,
   content: (@Composable () -> Unit)? = null,
 ) {
   val shape = if (selected) RoundedCornerShape(16.dp) else CircleShape
-  Box(
-    modifier = Modifier
-      .size(48.dp)
-      .clip(shape)
-      .background(if (selected) Brand else SurfaceRaised)
-      .clickable(onClick = onClick),
-    contentAlignment = Alignment.Center,
-  ) {
-    when {
-      content != null -> content()
-      !iconUrl.isNullOrBlank() -> AsyncImage(iconUrl, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-      else -> Text(label?.take(1)?.uppercase() ?: "?", color = Color.White, fontWeight = FontWeight.SemiBold)
+  Box(contentAlignment = Alignment.Center) {
+    Box(
+      modifier = Modifier
+        .size(48.dp)
+        .clip(shape)
+        .background(if (selected) Brand else SurfaceRaised)
+        .clickable(onClick = onClick),
+      contentAlignment = Alignment.Center,
+    ) {
+      when {
+        content != null -> content()
+        !iconUrl.isNullOrBlank() -> AsyncImage(iconUrl, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        else -> Text(label?.take(1)?.uppercase() ?: "?", color = Color.White, fontWeight = FontWeight.SemiBold)
+      }
+    }
+    if (mentions > 0) {
+      Box(
+        modifier = Modifier
+          .align(Alignment.BottomEnd)
+          .size(18.dp)
+          .clip(CircleShape)
+          .background(Danger),
+        contentAlignment = Alignment.Center,
+      ) {
+        Text(if (mentions > 9) "9+" else mentions.toString(), color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+      }
+    } else if (unread && !selected) {
+      Box(
+        modifier = Modifier
+          .align(Alignment.CenterStart)
+          .width(4.dp)
+          .height(8.dp)
+          .clip(RoundedCornerShape(2.dp))
+          .background(Color.White),
+      )
     }
   }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ChannelList(model: AppViewModel) {
   val detail = model.serverDetail ?: return
   val grouped = detail.categories.sortedBy { it.position }.map { category ->
-    category.name to detail.channels.filter { it.categoryId == category.id }.sortedBy { it.position }
+    Triple(category.id, category.name, detail.channels.filter { it.categoryId == category.id }.sortedBy { it.position })
   } + listOf(
-    "" to detail.channels.filter { it.categoryId == null }.sortedBy { it.position },
+    Triple("uncat", "", detail.channels.filter { it.categoryId == null }.sortedBy { it.position }),
   )
   LazyColumn(contentPadding = PaddingValues(bottom = 12.dp)) {
-    grouped.forEach { (name, channels) ->
-      if (channels.isEmpty()) return@forEach
+    grouped.forEach { (id, name, channels) ->
+      if (channels.isEmpty() && name.isBlank()) return@forEach
+      val collapsed = model.collapsedCategories[id] == true
       if (name.isNotBlank()) {
-        item(key = "cat-$name") {
+        item(key = "cat-$id") {
           Text(
-            name.uppercase(),
+            (if (collapsed) "▸ " else "▾ ") + name.uppercase(),
             color = TextMuted,
             fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier = Modifier
+              .fillMaxWidth()
+              .clickable { model.toggleCollapsed(id) }
+              .padding(horizontal = 16.dp, vertical = 8.dp),
           )
         }
       }
-      items(channels, key = { it.id }) { channel ->
-        ChannelRow(channel) { model.openChannel(channel) }
+      if (!collapsed) {
+        items(channels, key = { it.id }) { channel ->
+          ChannelRow(
+            channel = channel,
+            unread = model.unread(channel.id),
+            mentions = model.mentions(channel.id),
+            onClick = { model.openChannel(channel) },
+            onLongClick = { model.openChannelSettings(channel) },
+          )
+        }
       }
     }
   }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ChannelRow(channel: Channel, onClick: () -> Unit) {
+private fun ChannelRow(
+  channel: Channel,
+  unread: Boolean,
+  mentions: Int,
+  onClick: () -> Unit,
+  onLongClick: () -> Unit,
+) {
   Row(
     modifier = Modifier
       .fillMaxWidth()
-      .clickable(onClick = onClick)
+      .combinedClickable(onClick = onClick, onLongClick = onLongClick)
       .padding(horizontal = 8.dp, vertical = 4.dp)
       .clip(RoundedCornerShape(8.dp))
       .padding(horizontal = 8.dp, vertical = 10.dp),
     verticalAlignment = Alignment.CenterVertically,
   ) {
-    Icon(Icons.Outlined.Tag, contentDescription = null, tint = TextMuted, modifier = Modifier.size(18.dp))
+    Icon(Icons.Outlined.Tag, contentDescription = null, tint = if (unread) TextPrimary else TextMuted, modifier = Modifier.size(18.dp))
     Spacer(Modifier.width(8.dp))
-    Text(channel.name, color = TextPrimary, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    Text(
+      channel.name,
+      color = if (unread) TextPrimary else TextMuted,
+      fontSize = 16.sp,
+      fontWeight = if (unread) FontWeight.SemiBold else FontWeight.Normal,
+      maxLines = 1,
+      overflow = TextOverflow.Ellipsis,
+      modifier = Modifier.weight(1f),
+    )
+    if (mentions > 0) {
+      Box(
+        Modifier.size(18.dp).clip(CircleShape).background(Danger),
+        contentAlignment = Alignment.Center,
+      ) {
+        Text(mentions.toString(), color = Color.White, fontSize = 10.sp)
+      }
+    }
   }
 }
 
@@ -233,6 +385,7 @@ private fun DmRow(
   onClick: () -> Unit,
 ) {
   val other = conversation.members.firstOrNull { it.id != meId } ?: conversation.members.firstOrNull()
+  val unread = model.unread(conversation.id) || model.mentions(conversation.id) > 0
   Row(
     modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 8.dp),
     verticalAlignment = Alignment.CenterVertically,
@@ -243,7 +396,18 @@ private fun DmRow(
       Box(Modifier.size(40.dp).clip(CircleShape).background(Brand))
     }
     Spacer(Modifier.width(12.dp))
-    Text(conversation.title(meId), color = TextPrimary, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    Text(
+      conversation.title(meId),
+      color = TextPrimary,
+      fontSize = 16.sp,
+      fontWeight = if (unread) FontWeight.SemiBold else FontWeight.Normal,
+      maxLines = 1,
+      overflow = TextOverflow.Ellipsis,
+      modifier = Modifier.weight(1f),
+    )
+    if (unread) {
+      Box(Modifier.size(8.dp).clip(CircleShape).background(Brand))
+    }
   }
 }
 
@@ -294,12 +458,62 @@ private fun TextPromptDialog(
 }
 
 @Composable
+private fun ChannelSettingsDialog(model: AppViewModel) {
+  val channel = model.channelForSettings ?: return
+  var name by remember(channel.id) { mutableStateOf(channel.name) }
+  var topic by remember(channel.id) { mutableStateOf(channel.topic.orEmpty()) }
+  val context = LocalContext.current
+  val canManage = model.canPerm(Perm.MANAGE_CHANNELS) || model.isOwner()
+  AlertDialog(
+    onDismissRequest = { model.showChannelSettings = false },
+    title = { Text("#${channel.name}") },
+    text = {
+      Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (canManage) {
+          OutlinedTextField(name, { name = it }, label = { Text("Название") })
+          OutlinedTextField(topic, { topic = it }, label = { Text("Тема") })
+        } else {
+          Text(channel.topic ?: "Без темы", color = TextMuted)
+        }
+        TextButton(onClick = {
+          context.getSystemService(ClipboardManager::class.java)
+            ?.setPrimaryClip(ClipData.newPlainText("link", "https://tetherchat.ru/channels/${channel.serverId}/${channel.id}"))
+          model.showChannelSettings = false
+        }) { Text("Копировать ссылку", color = Brand) }
+      }
+    },
+    confirmButton = {
+      if (canManage) {
+        TextButton(onClick = { model.saveChannel(name, topic) }) { Text("Сохранить", color = Brand) }
+      }
+    },
+    dismissButton = {
+      Row {
+        if (canManage) {
+          TextButton(onClick = { model.deleteChannel() }) { Text("Удалить", color = Danger) }
+        }
+        TextButton(onClick = { model.showChannelSettings = false }) { Text("Закрыть") }
+      }
+    },
+  )
+}
+
+@Composable
 private fun NewDmDialog(model: AppViewModel) {
   AlertDialog(
-    onDismissRequest = { model.showNewDm = false },
-    title = { Text("Новый диалог") },
+    onDismissRequest = { model.showNewDm = false; model.selectedDmUsers = emptyList() },
+    title = { Text("Новый чат") },
     text = {
       Column {
+        if (model.selectedDmUsers.size > 1) {
+          OutlinedTextField(
+            value = model.groupName,
+            onValueChange = { model.groupName = it },
+            label = { Text("Название группы") },
+            singleLine = true,
+          )
+          Spacer(Modifier.height(8.dp))
+        }
         OutlinedTextField(
           value = model.searchQuery,
           onValueChange = model::searchPeople,
@@ -308,10 +522,12 @@ private fun NewDmDialog(model: AppViewModel) {
         )
         Spacer(Modifier.height(8.dp))
         model.searchResults.forEach { user ->
+          val selected = model.selectedDmUsers.any { it.id == user.id }
           Row(
-            modifier = Modifier.fillMaxWidth().clickable { model.startDm(user) }.padding(vertical = 8.dp),
+            modifier = Modifier.fillMaxWidth().clickable { model.toggleDmUser(user) }.padding(vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
           ) {
+            Checkbox(checked = selected, onCheckedChange = { model.toggleDmUser(user) })
             UserAvatar(user, 32.dp, model.statusOf(user.id, user.status))
             Spacer(Modifier.width(10.dp))
             Text(user.label, color = TextPrimary)
@@ -319,7 +535,16 @@ private fun NewDmDialog(model: AppViewModel) {
         }
       }
     },
-    confirmButton = {},
-    dismissButton = { TextButton(onClick = { model.showNewDm = false }) { Text("Закрыть") } },
+    confirmButton = {
+      TextButton(
+        onClick = { model.startGroupOrDm() },
+        enabled = model.selectedDmUsers.isNotEmpty(),
+      ) {
+        Text(if (model.selectedDmUsers.size > 1) "Создать группу" else "Написать", color = Brand)
+      }
+    },
+    dismissButton = {
+      TextButton(onClick = { model.showNewDm = false; model.selectedDmUsers = emptyList() }) { Text("Закрыть") }
+    },
   )
 }

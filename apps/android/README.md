@@ -20,15 +20,17 @@ After deploy the file is served as https://tetherchat.ru/app/tetherchat.apk.
 
 ## What it includes
 
-- Login / register against `/api/auth`
-- Server rail, channels, DMs, message list and composer
-- Realtime messages and presence over Socket.IO
-- System notifications via a silent foreground service while the app is in the background
+- Login, register, forgot/reset password, email verification, invite links
+- Server rail with unread badges, channels, categories, DMs and group chats
+- Server settings: overview, roles, members, bans, invites
+- Chat: replies, edit/delete, reactions, pins, search, typing, markdown, attachments
+- Profile, account, appearance (Enter to send), blacklist
+- Message notifications when the app is in the background (no persistent “waiting” shade notification)
 - Session stored on device (`refreshToken` from the auth JSON)
 
 | Setting | Value |
 |---------|-------|
 | Package | `ru.tetherchat.app` |
 | minSdk | 26 |
-| version | 1.1.1 |
+| version | 1.2.0 |
 | API | `https://tetherchat.ru` (`BuildConfig.API_URL`) |

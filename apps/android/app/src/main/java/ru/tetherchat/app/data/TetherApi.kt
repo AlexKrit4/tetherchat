@@ -56,16 +56,64 @@ class TetherApi(private val session: SessionStore) {
   }
 
   fun me(): SelfUser = get("/api/users/@me")
+  fun user(id: String): PublicUser = get("/api/users/$id")
   fun patchMe(body: PatchProfileBody): SelfUser = patch("/api/users/@me", body)
+  fun patchUsername(username: String): SelfUser = patch("/api/users/@me", PatchUsernameBody(username))
+  fun patchEnterToSend(value: Boolean): SelfUser = patch("/api/users/@me", PatchEnterToSendBody(value))
   fun patchStatus(status: String): SelfUser = patch("/api/users/@me", PatchStatusBody(status))
   fun uploadAvatar(bytes: ByteArray, filename: String, mime: String): SelfUser =
     upload("/api/users/@me/avatar", bytes, filename, mime)
   fun deleteAvatar() = delete("/api/users/@me/avatar")
+  fun readStates(): List<ReadState> = get("/api/users/@me/read-states")
+
+  fun forgotPassword(email: String) {
+    post<EmailBody, Unit>("/api/auth/forgot-password", EmailBody(email), authed = false)
+  }
+
+  fun resetPassword(token: String, password: String) {
+    post<ResetPasswordBody, Unit>("/api/auth/reset-password", ResetPasswordBody(token, password), authed = false)
+  }
+
+  fun verifyEmail(token: String) {
+    post<VerifyEmailBody, Unit>("/api/auth/verify-email", VerifyEmailBody(token), authed = false)
+  }
 
   fun servers(): List<ServerSummary> = get("/api/servers")
   fun server(id: String): ServerDetail = get("/api/servers/$id")
   fun members(serverId: String): List<ServerMember> = get("/api/servers/$serverId/members")
   fun createServer(name: String): ServerDetail = post("/api/servers", CreateServerBody(name))
+  fun patchServer(id: String, name: String?, description: String?): ServerSummary =
+    patch("/api/servers/$id", PatchServerBody(name, description))
+  fun uploadServerIcon(id: String, bytes: ByteArray, filename: String, mime: String): ServerSummary =
+    upload("/api/servers/$id/icon", bytes, filename, mime)
+  fun deleteServer(id: String) = delete("/api/servers/$id")
+  fun leaveServer(id: String) = postRaw<Unit>("/api/servers/$id/leave", "{}")
+  fun createChannel(serverId: String, name: String, topic: String?, categoryId: String?): Channel =
+    post("/api/servers/$serverId/channels", CreateChannelBody(name, topic, categoryId))
+  fun createCategory(serverId: String, name: String): Category =
+    post("/api/servers/$serverId/categories", CreateCategoryBody(name))
+  fun patchChannel(id: String, name: String?, topic: String?): Channel =
+    patch("/api/channels/$id", PatchChannelBody(name, topic))
+  fun deleteChannel(id: String) = delete("/api/channels/$id")
+
+  fun roles(serverId: String): List<Role> = get("/api/servers/$serverId/roles")
+  fun createRole(serverId: String, name: String): Role =
+    post("/api/servers/$serverId/roles", CreateRoleBody(name))
+  fun patchRole(serverId: String, roleId: String, body: PatchRoleBody): Role =
+    patch("/api/servers/$serverId/roles/$roleId", body)
+  fun deleteRole(serverId: String, roleId: String) = delete("/api/servers/$serverId/roles/$roleId")
+
+  fun patchMember(serverId: String, userId: String, body: PatchMemberBody): ServerMember =
+    patch("/api/servers/$serverId/members/$userId", body)
+  fun kickMember(serverId: String, userId: String) = delete("/api/servers/$serverId/members/$userId")
+  fun bans(serverId: String): List<Ban> = get("/api/servers/$serverId/bans")
+  fun banMember(serverId: String, userId: String, reason: String?): Ban =
+    put("/api/servers/$serverId/bans/$userId", BanBody(reason))
+  fun unbanMember(serverId: String, userId: String) = delete("/api/servers/$serverId/bans/$userId")
+
+  fun invites(serverId: String): List<Invite> = get("/api/servers/$serverId/invites")
+  fun createInvite(serverId: String): Invite = post("/api/servers/$serverId/invite", CreateInviteBody())
+  fun invitePreview(code: String): InvitePreview = get("/api/invite/$code", authed = false)
   fun joinInvite(code: String): String {
     val result: JoinResult = postRaw("/api/invite/$code/join", "{}")
     return result.serverId
@@ -74,6 +122,8 @@ class TetherApi(private val session: SessionStore) {
   fun dms(): List<DirectConversation> = get("/api/dms")
   fun conversation(id: String): DirectConversation = get("/api/dms/$id")
   fun openDm(userId: String): DirectConversation = post("/api/dms", CreateDmBody(listOf(userId)))
+  fun openGroup(userIds: List<String>, name: String?): DirectConversation =
+    post("/api/dms", CreateGroupDmBody(userIds, name))
   fun leaveGroup(id: String) = postRaw<Unit>("/api/dms/$id/leave", "{}")
   fun searchUsers(q: String): List<PublicUser> =
     get("/api/users?q=${URLEncoder.encode(q, "UTF-8")}")
@@ -87,6 +137,13 @@ class TetherApi(private val session: SessionStore) {
     val query = if (before.isNullOrBlank()) "" else "?before=$before"
     return get("$path$query")
   }
+
+  fun searchMessages(channelId: String, q: String, dm: Boolean): List<Message> {
+    val path = if (dm) "/api/dms/$channelId/messages/search" else "/api/channels/$channelId/messages/search"
+    return get("$path?q=${URLEncoder.encode(q, "UTF-8")}")
+  }
+
+  fun pins(channelId: String): List<Message> = get("/api/channels/$channelId/pins")
 
   fun send(
     channelId: String,
@@ -120,14 +177,17 @@ class TetherApi(private val session: SessionStore) {
 
   fun notifications(channelId: String): ChannelNotifications = get("/api/channels/$channelId/notifications")
   fun muteChannel(channelId: String, muted: Boolean): ChannelNotifications =
-    put("/api/channels/$channelId/notifications", MuteBody(muted))
+    put("/api/channels/$channelId/notifications", NotificationLevelBody(muted = muted))
+  fun setNotificationLevel(channelId: String, level: String): ChannelNotifications =
+    put("/api/channels/$channelId/notifications", NotificationLevelBody(level = level))
 
   fun uploadFile(bytes: ByteArray, filename: String, mime: String): Attachment =
     upload("/api/upload", bytes, filename, mime)
 
   fun ensureAccessToken(): String = session.accessToken ?: refresh().accessToken
 
-  private inline fun <reified T> get(path: String): T = decode(request(path, "GET", null, authed = true))
+  private inline fun <reified T> get(path: String, authed: Boolean = true): T =
+    decode(request(path, "GET", null, authed))
 
   private inline fun <reified B, reified T> post(path: String, body: B, authed: Boolean = true): T =
     decode(request(path, "POST", json.encodeToString(body), authed))

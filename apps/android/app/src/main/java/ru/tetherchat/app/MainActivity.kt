@@ -51,14 +51,20 @@ class MainActivity : ComponentActivity() {
       model.openChat(extraId, serverId, title, dm = serverId.isNullOrBlank())
       return
     }
-    val parts = intent.data?.pathSegments ?: return
-    if (parts.getOrNull(0) != "channels") return
-    val first = parts.getOrNull(1) ?: return
-    val second = parts.getOrNull(2)
-    when {
-      first == "@me" && !second.isNullOrBlank() -> model.openChat(second, null, "Чат", true)
-      !second.isNullOrBlank() -> model.openChat(second, first, "Чат", false)
+    val data = intent.data ?: return
+    val path = data.path.orEmpty()
+    val token = data.getQueryParameter("token")
+    val parts = data.pathSegments.orEmpty()
+    if (parts.getOrNull(0) == "channels") {
+      val first = parts.getOrNull(1) ?: return
+      val second = parts.getOrNull(2)
+      when {
+        first == "@me" && !second.isNullOrBlank() -> model.openChat(second, null, "Чат", true)
+        !second.isNullOrBlank() -> model.openChat(second, first, "Чат", false)
+      }
+      return
     }
+    if (path.isNotBlank()) model.openDeepLink(path, token)
   }
 
   private fun requestNotificationPermissionIfNeeded() {

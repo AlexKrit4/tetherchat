@@ -11,16 +11,10 @@ class RealtimeClient(
   private val json: kotlinx.serialization.json.Json,
 ) {
   private var socket: Socket? = null
+  var onConnection: ((Boolean) -> Unit)? = null
 
-  fun connect(
-    onMessage: (Message) -> Unit,
-    onMessageUpdated: (Message) -> Unit,
-    onMessageDeleted: (MessageDeletedEvent) -> Unit,
-    onReaction: (ReactionUpdatedEvent) -> Unit,
-    onDmCreate: (DirectConversation) -> Unit,
-    onPresence: (PresenceEvent) -> Unit,
-    onReady: () -> Unit,
-  ) {
+  fun connect(handlers: RealtimeHandlers) {
+    if (connected()) return
     disconnect()
     val token = api.ensureAccessToken()
     val options = IO.Options().apply {
@@ -33,27 +27,53 @@ class RealtimeClient(
       auth = hashMapOf("token" to token)
     }
     val next = IO.socket(URI.create(BuildConfig.API_URL), options)
-    next.on("message:new") { args ->
-      decode<Message>(args)?.let(onMessage)
+    next.on("message:new") { args -> decode<Message>(args)?.let(handlers.onMessage) }
+    next.on("message:updated") { args -> decode<Message>(args)?.let(handlers.onMessageUpdated) }
+    next.on("message:deleted") { args -> decode<MessageDeletedEvent>(args)?.let(handlers.onMessageDeleted) }
+    next.on("reaction:updated") { args -> decode<ReactionUpdatedEvent>(args)?.let(handlers.onReaction) }
+    next.on("dm:create") { args -> decode<DirectConversation>(args)?.let(handlers.onDmCreate) }
+    next.on("presence:update") { args -> decode<PresenceEvent>(args)?.let(handlers.onPresence) }
+    next.on("typing:update") { args -> decode<TypingEvent>(args)?.let(handlers.onTyping) }
+    next.on("member:join") { args -> handlers.onServerChanged() }
+    next.on("member:leave") { args -> handlers.onServerChanged() }
+    next.on("member:update") { args -> handlers.onServerChanged() }
+    next.on("channel:create") { args -> handlers.onServerChanged() }
+    next.on("channel:update") { args -> handlers.onServerChanged() }
+    next.on("channel:delete") { args -> handlers.onServerChanged() }
+    next.on("category:create") { args -> handlers.onServerChanged() }
+    next.on("category:update") { args -> handlers.onServerChanged() }
+    next.on("category:delete") { args -> handlers.onServerChanged() }
+    next.on("role:update") { args -> handlers.onServerChanged() }
+    next.on("server:update") { args -> handlers.onServersChanged() }
+    next.on("server:delete") { args -> handlers.onServersChanged() }
+    next.on("server:join") { args -> handlers.onServersChanged() }
+    next.on(Socket.EVENT_CONNECT) {
+      onConnection?.invoke(true)
+      handlers.onReady()
     }
-    next.on("message:updated") { args ->
-      decode<Message>(args)?.let(onMessageUpdated)
-    }
-    next.on("message:deleted") { args ->
-      decode<MessageDeletedEvent>(args)?.let(onMessageDeleted)
-    }
-    next.on("reaction:updated") { args ->
-      decode<ReactionUpdatedEvent>(args)?.let(onReaction)
-    }
-    next.on("dm:create") { args ->
-      decode<DirectConversation>(args)?.let(onDmCreate)
-    }
-    next.on("presence:update") { args ->
-      decode<PresenceEvent>(args)?.let(onPresence)
-    }
-    next.on(Socket.EVENT_CONNECT) { onReady() }
+    next.on(Socket.EVENT_DISCONNECT) { onConnection?.invoke(false) }
     next.connect()
     socket = next
+  }
+
+  fun subscribe(channelId: String) {
+    emit("channel:subscribe", JSONObject().put("channelId", channelId))
+  }
+
+  fun unsubscribe(channelId: String) {
+    emit("channel:unsubscribe", JSONObject().put("channelId", channelId))
+  }
+
+  fun typingStart(channelId: String) {
+    emit("typing:start", JSONObject().put("channelId", channelId))
+  }
+
+  fun typingStop(channelId: String) {
+    emit("typing:stop", JSONObject().put("channelId", channelId))
+  }
+
+  private fun emit(event: String, payload: JSONObject) {
+    socket?.emit(event, payload)
   }
 
   private inline fun <reified T> decode(args: Array<Any>): T? {
@@ -69,3 +89,16 @@ class RealtimeClient(
     socket = null
   }
 }
+
+class RealtimeHandlers(
+  val onMessage: (Message) -> Unit,
+  val onMessageUpdated: (Message) -> Unit,
+  val onMessageDeleted: (MessageDeletedEvent) -> Unit,
+  val onReaction: (ReactionUpdatedEvent) -> Unit,
+  val onDmCreate: (DirectConversation) -> Unit,
+  val onPresence: (PresenceEvent) -> Unit,
+  val onTyping: (TypingEvent) -> Unit,
+  val onServerChanged: () -> Unit,
+  val onServersChanged: () -> Unit,
+  val onReady: () -> Unit,
+)

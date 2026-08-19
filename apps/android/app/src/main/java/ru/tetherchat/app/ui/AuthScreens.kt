@@ -19,6 +19,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -44,6 +45,9 @@ fun LoginScreen(model: AppViewModel) {
     onAction = { model.login(login, password) },
     alt = "Нет аккаунта? Регистрация",
     onAlt = model::goRegister,
+    extra = {
+      TextButton(onClick = model::goForgot) { Text("Забыли пароль?", color = Brand) }
+    },
   ) {
     AuthField("Email или имя пользователя", login, { login = it })
     AuthField("Пароль", password, { password = it }, password = true)
@@ -72,6 +76,55 @@ fun RegisterScreen(model: AppViewModel) {
 }
 
 @Composable
+fun ForgotPasswordScreen(model: AppViewModel) {
+  var email by rememberSaveable { mutableStateOf("") }
+  AuthScaffold(
+    title = "Сброс пароля",
+    subtitle = "На почту придёт ссылка для нового пароля",
+    error = model.error,
+    busy = model.busy,
+    action = "Отправить ссылку",
+    onAction = { model.forgot(email) },
+    alt = "Назад ко входу",
+    onAlt = model::goLogin,
+  ) {
+    AuthField("Email", email, { email = it }, KeyboardType.Email)
+  }
+}
+
+@Composable
+fun ResetPasswordScreen(model: AppViewModel, token: String) {
+  var password by rememberSaveable { mutableStateOf("") }
+  AuthScaffold(
+    title = "Новый пароль",
+    subtitle = "Придумайте пароль для входа",
+    error = model.error,
+    busy = model.busy,
+    action = "Сохранить пароль",
+    onAction = { model.resetPassword(token, password) },
+    alt = "Назад ко входу",
+    onAlt = model::goLogin,
+  ) {
+    AuthField("Новый пароль", password, { password = it }, password = true)
+  }
+}
+
+@Composable
+fun VerifyEmailScreen(model: AppViewModel, token: String) {
+  LaunchedEffect(token) { model.verifyEmailToken(token) }
+  AuthScaffold(
+    title = "Подтверждение почты",
+    subtitle = if (model.busy) "Проверяем ссылку…" else "Можно вернуться ко входу",
+    error = model.error,
+    busy = model.busy,
+    action = "Ко входу",
+    onAction = model::goLogin,
+    alt = null,
+    onAlt = null,
+  ) {}
+}
+
+@Composable
 private fun AuthScaffold(
   title: String,
   subtitle: String,
@@ -79,8 +132,9 @@ private fun AuthScaffold(
   busy: Boolean,
   action: String,
   onAction: () -> Unit,
-  alt: String,
-  onAlt: () -> Unit,
+  alt: String?,
+  onAlt: (() -> Unit)?,
+  extra: @Composable () -> Unit = {},
   fields: @Composable () -> Unit,
 ) {
   Column(
@@ -115,7 +169,10 @@ private fun AuthScaffold(
     ) {
       Text(if (busy) "…" else action, fontWeight = FontWeight.SemiBold)
     }
-    TextButton(onClick = onAlt) { Text(alt, color = Brand) }
+    extra()
+    if (alt != null && onAlt != null) {
+      TextButton(onClick = onAlt) { Text(alt, color = Brand) }
+    }
   }
 }
 
