@@ -52,6 +52,7 @@ export async function completeAiChat(botId: string, history: ChatTurn[]): Promis
       messages,
       temperature: 0.7,
       max_tokens: 1024,
+      reasoning_effort: 'low',
     }),
     signal: AbortSignal.timeout(20_000),
   });
@@ -65,7 +66,11 @@ export async function completeAiChat(botId: string, history: ChatTurn[]): Promis
   const data = (await response.json()) as {
     choices?: { message?: { content?: string | null } }[];
   };
-  const text = data.choices?.[0]?.message?.content?.trim() ?? '';
+  const text = stripThink(data.choices?.[0]?.message?.content ?? '');
   if (!text) return 'Не удалось получить ответ. Попробуйте переформулировать вопрос.';
   return text.slice(0, LIMITS.messageContent.max);
+}
+
+function stripThink(raw: string): string {
+  return raw.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
 }

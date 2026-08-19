@@ -70,7 +70,7 @@ const schema = z.object({
    */
   GROQ_API_KEY: z.string().optional(),
   LLM_BASE_URL: z.string().default('https://api.groq.com/openai/v1'),
-  LLM_MODEL: z.string().default('llama-3.1-8b-instant'),
+  LLM_MODEL: z.string().default('openai/gpt-oss-20b'),
 
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 });
