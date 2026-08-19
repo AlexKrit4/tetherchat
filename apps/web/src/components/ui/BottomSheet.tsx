@@ -43,7 +43,11 @@ export function BottomSheet({ open, onClose, title, children, full, className }:
   return createPortal(
     <AnimatePresence>
       {open ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center" role="dialog" aria-modal="true">
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center pt-safe"
+          role="dialog"
+          aria-modal="true"
+        >
           <motion.button
             type="button"
             aria-label={t('common.close')}
@@ -58,7 +62,7 @@ export function BottomSheet({ open, onClose, title, children, full, className }:
           <motion.div
             ref={sheetRef}
             className={cn(
-              'relative z-10 w-full rounded-t-2xl bg-surface pb-safe shadow-sheet',
+              'relative z-10 flex w-full flex-col overflow-hidden rounded-t-2xl bg-surface pb-safe shadow-sheet',
               full ? 'h-[90dvh]' : 'max-h-[90dvh]',
               className,
             )}
@@ -73,17 +77,15 @@ export function BottomSheet({ open, onClose, title, children, full, className }:
               if (info.offset.y > DRAG_CLOSE_PX || info.velocity.y > DRAG_CLOSE_VELOCITY) onClose();
             }}
           >
-            <div className="flex justify-center pt-2.5" aria-hidden>
+            <div className="flex shrink-0 justify-center pt-2.5" aria-hidden>
               <span className="h-1 w-9 rounded-sm bg-[#4e5058]" />
             </div>
 
             {title ? (
-              <h2 className="px-4 pb-1 pt-3 text-base font-semibold text-text-heading">{title}</h2>
+              <h2 className="shrink-0 px-4 pb-1 pt-3 text-base font-semibold text-text-heading">{title}</h2>
             ) : null}
 
-            <div className={cn('scroller px-1 pb-2', full ? 'h-[calc(90dvh-56px)]' : 'max-h-[78dvh]')}>
-              {children}
-            </div>
+            <div className="scroller min-h-0 flex-1 overflow-y-auto px-1 pb-2">{children}</div>
           </motion.div>
         </div>
       ) : null}

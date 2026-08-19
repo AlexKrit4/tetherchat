@@ -25,6 +25,19 @@ describe('Toggle', () => {
     await userEvent.click(screen.getByRole('switch', { name: 'Muted' }));
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  it('pins the thumb inside the track in both states', () => {
+    const { rerender } = render(<Toggle checked={false} onChange={() => undefined} label="Hoist" />);
+    const thumbOff = screen.getByRole('switch').querySelector('[data-thumb]');
+    expect(thumbOff?.className).toContain('left-[2px]');
+    expect(thumbOff?.className).toContain('-translate-y-1/2');
+    expect(thumbOff?.className).not.toContain('translate-x-[20px]');
+
+    rerender(<Toggle checked onChange={() => undefined} label="Hoist" />);
+    const thumbOn = screen.getByRole('switch').querySelector('[data-thumb]');
+    expect(thumbOn?.className).toContain('translate-x-[20px]');
+    expect(thumbOn?.className).toContain('left-[2px]');
+  });
 });
 
 describe('IconButton', () => {

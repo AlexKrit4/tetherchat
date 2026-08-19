@@ -28,7 +28,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import ru.tetherchat.app.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity() {
@@ -59,6 +61,7 @@ class MainActivity : AppCompatActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        applySystemBarInsets()
 
         requestNotificationPermissionIfNeeded()
         setupWebView()
@@ -70,6 +73,20 @@ class MainActivity : AppCompatActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         loadInitialUrl()
+    }
+
+    /**
+     * Android WebView reports `env(safe-area-inset-*)` as 0, so CSS padding
+     * alone cannot keep the channel-list header out from under the status bar.
+     * Inset the native root instead: the WebView draws below the status bar
+     * and above the navigation bar, on the same dark surface as the theme.
+     */
+    private fun applySystemBarInsets() {
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            WindowInsetsCompat.CONSUMED
+        }
     }
 
     private fun requestNotificationPermissionIfNeeded() {

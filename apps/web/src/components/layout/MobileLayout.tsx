@@ -49,12 +49,16 @@ export function MobileLayout() {
     return () => window.removeEventListener('popstate', onPopState);
   }, [popMobileView]);
 
+  // Safe-area padding lives on the sliding pane, not the relative parent.
+  // `absolute inset-0` is positioned against the padding box, so a parent's
+  // `pt-safe` was painted over and the channel-list header sat under the
+  // Android status bar.
   return (
-    <div className="relative flex h-screen-dvh w-full flex-col overflow-hidden bg-surface-tertiary px-safe pt-safe">
+    <div className="relative flex h-screen-dvh w-full flex-col overflow-hidden bg-surface-tertiary">
       <AnimatePresence initial={false} mode="popLayout">
         <motion.div
           key={mobileView}
-          className="absolute inset-0 flex flex-col"
+          className="absolute inset-0 flex flex-col px-safe pt-safe"
           initial={{ x: enterFrom(mobileView), opacity: 0.6 }}
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: exitTo(mobileView), opacity: 0.6 }}
