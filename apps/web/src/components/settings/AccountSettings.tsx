@@ -10,6 +10,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { toast } from '@/stores/toastStore';
 import { SessionSettings } from './SessionSettings';
 import { PushToggle } from './NotificationSettings';
+import { TwoFactorSettings } from './TwoFactorSettings';
 
 export function AccountSettings() {
   const t = useT();
@@ -87,6 +88,10 @@ export function AccountSettings() {
       <div className="h-px bg-divider" />
 
       <PushToggle />
+
+      <div className="h-px bg-divider" />
+
+      <TwoFactorSettings />
 
       <div className="h-px bg-divider" />
 

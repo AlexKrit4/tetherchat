@@ -81,6 +81,17 @@ export function firstChannel(server: ServerDetail): Channel {
   return channel;
 }
 
+/** Makes two users friends without going through the request UI. */
+export async function linkFriends(a: TestUser, b: TestUser): Promise<void> {
+  await prisma.friendship.createMany({
+    data: [
+      { userId: a.id, friendId: b.id },
+      { userId: b.id, friendId: a.id },
+    ],
+    skipDuplicates: true,
+  });
+}
+
 /** Adds a member directly, skipping the invite dance when it is not the subject. */
 export async function joinServer(serverId: string, user: TestUser): Promise<void> {
   const everyone = await prisma.role.findFirst({

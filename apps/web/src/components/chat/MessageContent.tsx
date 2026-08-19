@@ -1,4 +1,4 @@
-import { Fragment, useMemo } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { tokenizeMentions } from '@tetherchat/shared';
@@ -33,30 +33,9 @@ export function MessageContent({ content, className }: { content: string; classN
 
   return (
     <div className={cn('md-content text-message text-text md:text-message', className)}>
-      {tokens.map((token, index) => {
+              {tokens.map((token, index) => {
         if (token.type === 'text') {
-          return (
-            <Markdown
-              key={index}
-              remarkPlugins={[remarkGfm]}
-              components={{
-                a: ({ href, children }) => (
-                  <a href={href} target="_blank" rel="noopener noreferrer nofollow">
-                    {children}
-                  </a>
-                ),
-                // Images inside message text are shown as links; real media
-                // arrives as an attachment, which has its own renderer.
-                img: ({ src, alt }) => (
-                  <a href={typeof src === 'string' ? src : '#'} target="_blank" rel="noopener noreferrer">
-                    {alt || src}
-                  </a>
-                ),
-              }}
-            >
-              {token.value}
-            </Markdown>
-          );
+          return <MarkdownWithSpoilers key={index} text={token.value} />;
         }
 
         if (token.type === 'user') {
@@ -89,6 +68,58 @@ export function MessageContent({ content, className }: { content: string; classN
         return <MentionChip key={index} label={t('chat.everyone')} highlighted />;
       })}
     </div>
+  );
+}
+
+function MarkdownWithSpoilers({ text }: { text: string }) {
+  const parts = text.split(/(\|\|[\s\S]+?\|\|)/g);
+  return (
+    <>
+      {parts.map((part, index) => {
+        const spoiler = part.startsWith('||') && part.endsWith('||') && part.length >= 4;
+        if (spoiler) {
+          return <SpoilerText key={index} text={part.slice(2, -2)} />;
+        }
+        return (
+          <Markdown
+            key={index}
+            remarkPlugins={[remarkGfm]}
+            components={{
+              a: ({ href, children }) => (
+                <a href={href} target="_blank" rel="noopener noreferrer nofollow">
+                  {children}
+                </a>
+              ),
+              img: ({ src, alt }) => (
+                <a href={typeof src === 'string' ? src : '#'} target="_blank" rel="noopener noreferrer">
+                  {alt || src}
+                </a>
+              ),
+            }}
+          >
+            {part}
+          </Markdown>
+        );
+      })}
+    </>
+  );
+}
+
+function SpoilerText({ text }: { text: string }) {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={() => setOpen(true)}
+      className={cn(
+        'rounded px-0.5 transition',
+        open ? 'bg-surface-tertiary text-text' : 'bg-text-heading text-text-heading hover:bg-[#4a4d55]',
+      )}
+      aria-label={open ? text : t('chat.spoilerReveal')}
+    >
+      {open ? text : text.replace(/./g, '█')}
+    </button>
   );
 }
 

@@ -9,6 +9,11 @@ export interface AccessTokenPayload {
   username: string;
 }
 
+export interface AdminTokenPayload {
+  sub: 'platform-admin';
+  dateKey: string;
+}
+
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 12);
 }
@@ -23,6 +28,27 @@ export function signAccessToken(payload: AccessTokenPayload): string {
     expiresIn: config.ACCESS_TOKEN_TTL,
     issuer: 'tetherchat',
   } as jwt.SignOptions);
+}
+
+export function signAdminToken(dateKey: string, expiresAt: Date): string {
+  const config = getConfig();
+  const expiresIn = Math.max(1, Math.floor((expiresAt.getTime() - Date.now()) / 1000));
+  return jwt.sign({ sub: 'platform-admin', dateKey }, config.JWT_ACCESS_SECRET, {
+    expiresIn,
+    issuer: 'tetherchat-admin',
+  } as jwt.SignOptions);
+}
+
+export function verifyAdminToken(token: string): AdminTokenPayload {
+  try {
+    const decoded = jwt.verify(token, getConfig().JWT_ACCESS_SECRET, { issuer: 'tetherchat-admin' });
+    if (typeof decoded === 'string' || decoded.sub !== 'platform-admin') {
+      throw new Error('malformed token');
+    }
+    return { sub: 'platform-admin', dateKey: String((decoded as jwt.JwtPayload).dateKey ?? '') };
+  } catch {
+    throw ApiError.unauthorized('Сессия админки истекла');
+  }
 }
 
 export function verifyAccessToken(token: string): AccessTokenPayload {

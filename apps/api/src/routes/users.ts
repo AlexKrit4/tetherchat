@@ -6,6 +6,7 @@ import { ApiError } from '../errors.js';
 import { normalizeAvatar } from '../lib/images.js';
 import { publicUserSelect, toPublicUser, toSelfUser } from '../lib/serialize.js';
 import { storage } from '../lib/storage.js';
+import { dropFriendship } from '../lib/friends.js';
 import { listReadStates } from '../services/readStateService.js';
 import { broadcastPresence } from '../ws/presence.js';
 import { readMultipartFile } from '../lib/multipart.js';
@@ -15,6 +16,8 @@ const selfSelect = {
   email: true,
   emailVerified: true,
   enterToSend: true,
+  totpEnabled: true,
+  isPlatformAdmin: true,
 } as const;
 
 const patchSchema = z.object({
@@ -131,6 +134,7 @@ export async function userRoutes(app: FastifyInstance) {
       create: { blockerId: request.userId, blockedId: userId },
       update: {},
     });
+    await dropFriendship(request.userId, userId);
 
     return toPublicUser(target);
   });

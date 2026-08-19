@@ -5,7 +5,7 @@ import { DM_ROUTE } from '@/hooks/useChatTarget';
 import { DirectMessageList } from '@/components/layout/DirectMessageList';
 import { UserPanel } from '@/components/layout/UserPanel';
 import { IconButton } from '@/components/ui/IconButton';
-import { NewConversationDialog } from '@/components/modals/NewConversationDialog';
+import { FriendRequestDialog } from '@/components/modals/FriendRequestDialog';
 import { MobileHeader } from './MobileHeader';
 import { useChatTarget } from '@/hooks/useChatTarget';
 import { useUiStore } from '@/stores/uiStore';
@@ -27,7 +27,7 @@ export function MobileDirectMessagesView() {
         actions={
           <IconButton
             icon={PenSquare}
-            label={t('nav.newConversation')}
+            label={t('friends.sendRequest')}
             size="lg"
             showTooltip={false}
             onClick={() => setNewOpen(true)}
@@ -48,7 +48,7 @@ export function MobileDirectMessagesView() {
 
       <UserPanel className="pb-safe" />
 
-      <NewConversationDialog open={newOpen} onClose={() => setNewOpen(false)} />
+      <FriendRequestDialog open={newOpen} onClose={() => setNewOpen(false)} />
     </div>
   );
 }

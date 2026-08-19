@@ -5,6 +5,7 @@ import { ChatHeader } from './ChatHeader';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
 import { PinnedMessagesPanel } from './PinnedMessagesPanel';
+import { MediaPanel } from './MediaPanel';
 import { SearchPanel } from './SearchPanel';
 
 /**
@@ -25,6 +26,7 @@ export function ChatArea({ className }: { className?: string }) {
       <MessageInput />
       <PinnedMessagesPanel />
       <SearchPanel />
+      <MediaPanel />
     </main>
   );
 }

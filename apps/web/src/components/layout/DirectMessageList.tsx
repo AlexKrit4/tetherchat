@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Bookmark, Users, X } from 'lucide-react';
+import { Ban, Bookmark, Pin, Plus, Users, X } from 'lucide-react';
 import type { DirectConversation } from '@tetherchat/shared';
 import { cn } from '@/lib/cn';
 import { DM_ROUTE } from '@/hooks/useChatTarget';
@@ -8,13 +8,17 @@ import { conversationTitle, useConversations, useLeaveConversation } from '@/hoo
 import { Avatar } from '@/components/ui/Avatar';
 import { IconButton } from '@/components/ui/IconButton';
 import { SidebarSkeleton } from '@/components/ui/Skeleton';
-import { NewConversationDialog } from '@/components/modals/NewConversationDialog';
+import { FriendRequestDialog } from '@/components/modals/FriendRequestDialog';
 import { useT } from '@/i18n/useT';
 import { useAuthStore } from '@/stores/authStore';
+import { ContextMenu, useContextMenu, type MenuItem } from '@/components/ui/ContextMenu';
+import { usePinConversation } from '@/hooks/useFriends';
+import { useBlockUser } from '@/components/settings/BlacklistSettings';
+import { useLongPress } from '@/hooks/useLongPress';
+import { useIsMobile } from '@/hooks/useMediaQuery';
 
 export interface DirectMessageListProps {
   activeConversationId: string | undefined;
-  /** Mobile renders 56px rows; the desktop sidebar uses 42px ones. */
   compact?: boolean;
   onSelect?: (conversation: DirectConversation) => void;
 }
@@ -25,11 +29,48 @@ export function DirectMessageList({
   onSelect,
 }: DirectMessageListProps) {
   const t = useT();
-  const navigate = useNavigate();
   const currentUserId = useAuthStore((state) => state.user?.id);
   const { data: conversations, isLoading } = useConversations();
   const leave = useLeaveConversation();
+  const pin = usePinConversation();
+  const block = useBlockUser();
   const [newOpen, setNewOpen] = useState(false);
+  const menu = useContextMenu();
+
+  const openMenu = (event: { clientX: number; clientY: number }, conversation: DirectConversation) => {
+    const title = conversationTitle(conversation, currentUserId, t('dm.savedMessages'));
+    const peer = conversation.members.find((member) => member.id !== currentUserId);
+    const items: MenuItem[] = [];
+    if (!conversation.isSaved) {
+      items.push({
+        id: 'pin',
+        label: conversation.pinned ? t('chat.unpinChat') : t('chat.pinChat'),
+        icon: <Pin size={16} aria-hidden />,
+        onSelect: () => pin.mutate({ conversationId: conversation.id, pinned: !conversation.pinned }),
+      });
+    }
+    if (conversation.isGroup) {
+      items.push({
+        id: 'leave',
+        label: t('nav.leaveGroup'),
+        icon: <X size={16} aria-hidden />,
+        tone: 'danger',
+        onSelect: () => leave.mutate(conversation.id),
+      });
+    } else if (peer && !conversation.isSaved) {
+      items.push({
+        id: 'block',
+        label: t('settings.blockUser'),
+        icon: <Ban size={16} aria-hidden />,
+        tone: 'danger',
+        onSelect: () => {
+          if (!window.confirm(t('settings.blockConfirm', { name: title }))) return;
+          block.mutate(peer.id);
+        },
+      });
+    }
+    if (items.length > 0) menu.open(event, items);
+  };
 
   if (isLoading) return <SidebarSkeleton />;
 
@@ -39,80 +80,107 @@ export function DirectMessageList({
         <span className="text-xs font-semibold uppercase tracking-[0.02em] text-text-muted">
           {t('dm.title')}
         </span>
-        <IconButton icon={Plus} label={t('nav.newConversation')} size="sm" onClick={() => setNewOpen(true)} />
+        <IconButton icon={Plus} label={t('friends.sendRequest')} size="sm" onClick={() => setNewOpen(true)} />
       </header>
 
       <ul className="mt-1 flex flex-col gap-0.5">
-        {conversations?.map((conversation) => {
-          const active = conversation.id === activeConversationId;
-          const others = conversation.members.filter((member) => member.id !== currentUserId);
-          const title = conversationTitle(conversation, currentUserId, t('dm.savedMessages'));
-
-          return (
-            <li key={conversation.id} className="group/dm relative">
-              <button
-                type="button"
-                onClick={() =>
-                  onSelect
-                    ? onSelect(conversation)
-                    : navigate(`/channels/${DM_ROUTE}/${conversation.id}`)
-                }
-                aria-current={active ? 'page' : undefined}
-                className={cn(
-                  'flex w-full items-center gap-3 rounded px-2 text-left',
-                  compact ? 'min-h-11 md:min-h-[42px]' : 'min-h-14',
-                  active
-                    ? 'bg-surface-selected text-text-heading'
-                    : 'text-text-muted hover:bg-surface-hover hover:text-text-subheading',
-                )}
-              >
-                {conversation.isSaved ? (
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-white">
-                    <Bookmark size={16} aria-hidden />
-                  </span>
-                ) : conversation.isGroup ? (
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-tertiary text-text-subheading">
-                    <Users size={16} aria-hidden />
-                  </span>
-                ) : others[0] ? (
-                  <Avatar user={others[0]} size={32} showStatus ringColor="var(--bg-secondary)" />
-                ) : (
-                  <span className="h-8 w-8 shrink-0 rounded-full bg-surface-tertiary" />
-                )}
-
-                <span className="flex min-w-0 flex-1 flex-col">
-                  <span
-                    className={cn('truncate text-base', active && 'font-medium text-text-heading')}
-                  >
-                    {title}
-                  </span>
-                  {conversation.isGroup ? (
-                    <span className="truncate text-xs text-text-muted">
-                      {t('server.membersCount', { count: conversation.members.length })}
-                    </span>
-                  ) : null}
-                </span>
-              </button>
-
-              {conversation.isGroup ? (
-                <IconButton
-                  icon={X}
-                  label={t('nav.leaveGroup')}
-                  size="sm"
-                  className="absolute right-1 top-1/2 hidden -translate-y-1/2 md:inline-flex md:opacity-0 md:group-hover/dm:opacity-100"
-                  onClick={() => leave.mutate(conversation.id)}
-                />
-              ) : null}
-            </li>
-          );
-        })}
+        {conversations?.map((conversation) => (
+          <DmRow
+            key={conversation.id}
+            conversation={conversation}
+            active={conversation.id === activeConversationId}
+            compact={compact}
+            currentUserId={currentUserId}
+            onSelect={onSelect}
+            onOpenMenu={openMenu}
+          />
+        ))}
 
         {conversations?.length === 0 ? (
           <li className="px-2 py-6 text-center text-sm text-text-muted">{t('dm.emptyHint')}</li>
         ) : null}
       </ul>
 
-      <NewConversationDialog open={newOpen} onClose={() => setNewOpen(false)} />
+      <FriendRequestDialog open={newOpen} onClose={() => setNewOpen(false)} />
+      <ContextMenu state={menu.state} onClose={menu.close} />
     </div>
+  );
+}
+
+function DmRow({
+  conversation,
+  active,
+  compact,
+  currentUserId,
+  onSelect,
+  onOpenMenu,
+}: {
+  conversation: DirectConversation;
+  active: boolean;
+  compact: boolean;
+  currentUserId: string | undefined;
+  onSelect?: (conversation: DirectConversation) => void;
+  onOpenMenu: (event: { clientX: number; clientY: number }, conversation: DirectConversation) => void;
+}) {
+  const t = useT();
+  const navigate = useNavigate();
+  const isMobile = useIsMobile();
+  const others = conversation.members.filter((member) => member.id !== currentUserId);
+  const title = conversationTitle(conversation, currentUserId, t('dm.savedMessages'));
+  const longPress = useLongPress(
+    () => onOpenMenu({ clientX: 24, clientY: 120 }, conversation),
+    { enabled: isMobile && !conversation.isSaved },
+  );
+
+  return (
+    <li className="group/dm relative">
+      <button
+        type="button"
+        {...longPress}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          onOpenMenu(event, conversation);
+        }}
+        onClick={() =>
+          onSelect ? onSelect(conversation) : navigate(`/channels/${DM_ROUTE}/${conversation.id}`)
+        }
+        aria-current={active ? 'page' : undefined}
+        className={cn(
+          'flex w-full items-center gap-3 rounded px-2 text-left',
+          compact ? 'min-h-11 md:min-h-[42px]' : 'min-h-14',
+          active
+            ? 'bg-surface-selected text-text-heading'
+            : 'text-text-muted hover:bg-surface-hover hover:text-text-subheading',
+        )}
+      >
+        {conversation.isSaved ? (
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-white">
+            <Bookmark size={16} aria-hidden />
+          </span>
+        ) : conversation.isGroup ? (
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-tertiary text-text-subheading">
+            <Users size={16} aria-hidden />
+          </span>
+        ) : others[0] ? (
+          <Avatar user={others[0]} size={32} showStatus ringColor="var(--bg-secondary)" />
+        ) : (
+          <span className="h-8 w-8 shrink-0 rounded-full bg-surface-tertiary" />
+        )}
+
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className={cn('truncate text-base', active && 'font-medium text-text-heading')}>
+            {title}
+          </span>
+          {conversation.isGroup ? (
+            <span className="truncate text-xs text-text-muted">
+              {t('server.membersCount', { count: conversation.members.length })}
+            </span>
+          ) : null}
+        </span>
+        {conversation.pinned && !conversation.isSaved ? (
+          <Pin size={12} className="shrink-0 text-text-faint" aria-hidden />
+        ) : null}
+      </button>
+    </li>
   );
 }

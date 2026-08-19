@@ -18,6 +18,7 @@ export interface ClientToServerEvents {
       replyToId?: string | null;
       attachmentIds?: string[];
       attachmentDurations?: Record<string, number>;
+      attachmentSpoilers?: Record<string, boolean>;
       forwardMessageId?: string;
       nonce?: string;
     },
@@ -66,6 +67,9 @@ export interface ServerToClientEvents {
   'category:delete': (payload: { categoryId: string; serverId: string }) => void;
   'role:update': (payload: { serverId: string; roles: Role[] }) => void;
   'dm:create': (payload: DirectConversation) => void;
+  'dm:update': (payload: DirectConversation) => void;
+  'friend:incoming': (payload: { count: number }) => void;
+  'friend:accepted': (payload: { conversation: DirectConversation }) => void;
   'receipt:update': (payload: {
     conversationId: string;
     userId: string;

@@ -36,6 +36,22 @@ import androidx.compose.ui.unit.sp
 fun LoginScreen(model: AppViewModel) {
   var login by rememberSaveable { mutableStateOf("") }
   var password by rememberSaveable { mutableStateOf("") }
+  var totp by rememberSaveable { mutableStateOf("") }
+  if (model.totpTicket != null) {
+    AuthScaffold(
+      title = "Двухфакторка",
+      subtitle = "Введите код из приложения-аутентификатора",
+      error = model.error,
+      busy = model.busy,
+      action = "Продолжить",
+      onAction = { model.loginTotp(totp) },
+      alt = "Назад ко входу",
+      onAlt = model::cancelTotp,
+    ) {
+      AuthField("Код из приложения", totp, { totp = it.filter { ch -> ch.isDigit() }.take(8) }, KeyboardType.Number)
+    }
+    return
+  }
   AuthScaffold(
     title = "С возвращением",
     subtitle = "Войдите в TetherChat",

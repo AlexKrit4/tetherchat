@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Download, FileText, X } from 'lucide-react';
+import { Download, FileText } from 'lucide-react';
 import { isAudioMime, isImageMime, isVideoMime } from '@tetherchat/shared';
 import type { Attachment, LinkPreview } from '@tetherchat/shared';
 import { cn } from '@/lib/cn';
 import { useT } from '@/i18n/useT';
+import { MediaLightbox } from './MediaLightbox';
 
 const MAX_INLINE_WIDTH = 520;
 const MAX_INLINE_HEIGHT = 350;
@@ -25,7 +26,9 @@ function inlineSize(attachment: Attachment): { width: number; height: number } |
 export function Attachments({ attachments }: { attachments: Attachment[] }) {
   const t = useT();
   const [lightbox, setLightbox] = useState<Attachment | null>(null);
+  const [revealed, setRevealed] = useState<Set<string>>(new Set());
   if (attachments.length === 0) return null;
+  const gallery = attachments.filter((item) => isImageMime(item.contentType) || isVideoMime(item.contentType));
 
   return (
     <>
@@ -33,12 +36,19 @@ export function Attachments({ attachments }: { attachments: Attachment[] }) {
         {attachments.map((attachment) => {
           if (isImageMime(attachment.contentType)) {
             const size = inlineSize(attachment);
+            const spoiler = Boolean(attachment.spoiler) && !revealed.has(attachment.id);
             return (
               <button
                 key={attachment.id}
                 type="button"
-                onClick={() => setLightbox(attachment)}
-                className="block max-w-full overflow-hidden rounded-lg"
+                onClick={() => {
+                  if (spoiler) {
+                    setRevealed((current) => new Set(current).add(attachment.id));
+                    return;
+                  }
+                  setLightbox(attachment);
+                }}
+                className="relative block max-w-full overflow-hidden rounded-lg"
                 style={size ? { width: size.width, maxWidth: '100%' } : undefined}
               >
                 <img
@@ -48,8 +58,16 @@ export function Attachments({ attachments }: { attachments: Attachment[] }) {
                   height={size?.height}
                   loading="lazy"
                   decoding="async"
-                  className="h-auto w-full rounded-lg bg-surface-tertiary object-cover"
+                  className={cn(
+                    'h-auto w-full rounded-lg bg-surface-tertiary object-cover',
+                    spoiler && 'blur-2xl brightness-50',
+                  )}
                 />
+                {spoiler ? (
+                  <span className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-white">
+                    {t('chat.spoilerReveal')}
+                  </span>
+                ) : null}
               </button>
             );
           }
@@ -84,26 +102,7 @@ export function Attachments({ attachments }: { attachments: Attachment[] }) {
       </div>
 
       {lightbox ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-[rgba(0,0,0,0.85)] p-4"
-          onClick={() => setLightbox(null)}
-        >
-          <img
-            src={lightbox.url}
-            alt={lightbox.filename}
-            className="max-h-full max-w-full rounded-lg object-contain"
-          />
-          <button
-            type="button"
-            aria-label={t('common.close')}
-            onClick={() => setLightbox(null)}
-            className="absolute right-4 top-[calc(env(safe-area-inset-top,0px)+16px)] flex h-touch w-touch items-center justify-center rounded-full bg-surface-floating text-text-heading"
-          >
-            <X size={22} aria-hidden />
-          </button>
-        </div>
+        <MediaLightbox items={gallery} current={lightbox} onClose={() => setLightbox(null)} onChange={setLightbox} />
       ) : null}
     </>
   );

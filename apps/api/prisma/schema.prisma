@@ -32,11 +32,14 @@ model User {
   bio           String?
   customStatus  String?
   status        PresenceStatus @default(offline)
-  emailVerified Boolean        @default(false)
-  enterToSend   Boolean        @default(true)
-  lastSeenAt    DateTime       @default(now())
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  emailVerified    Boolean        @default(false)
+  enterToSend      Boolean        @default(true)
+  totpEnabled      Boolean        @default(false)
+  totpSecretEnc    String?
+  isPlatformAdmin  Boolean        @default(false)
+  lastSeenAt       DateTime       @default(now())
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 
   refreshTokens        RefreshToken[]
   verificationTokens   VerificationToken[]
@@ -56,6 +59,15 @@ model User {
   uploads              Attachment[]               @relation("AttachmentUploader")
   blocksIssued         UserBlock[]                @relation("Blocker")
   blocksReceived       UserBlock[]                @relation("Blocked")
+  friendRequestsSent      FriendRequest[] @relation("FriendRequestFrom")
+  friendRequestsReceived  FriendRequest[] @relation("FriendRequestTo")
+  friendships             Friendship[]    @relation("FriendshipUser")
+  friendsOf               Friendship[]    @relation("FriendshipPeer")
+  reportsFiled            MessageReport[] @relation("ReportReporter")
+  reportsAbout            MessageReport[] @relation("ReportTarget")
+  reportsResolved         MessageReport[] @relation("ReportResolver")
+  siteBans                SiteBan[]       @relation("SiteBannedUser")
+  issuedSiteBans          SiteBan[]       @relation("SiteBanModerator")
 
   @@index([username])
 }
@@ -248,6 +260,7 @@ model Message {
   attachments   Attachment[]
   previews      LinkPreview[]
   pin           Pin?
+  reports       MessageReport[]
 
   @@index([channelId, createdAt(sort: Desc)])
   @@index([conversationId, createdAt(sort: Desc)])
@@ -282,6 +295,7 @@ model Attachment {
   width       Int?
   height      Int?
   durationMs  Int?
+  spoiler     Boolean  @default(false)
   createdAt   DateTime @default(now())
 
   message  Message? @relation(fields: [messageId], references: [id], onDelete: Cascade)
@@ -343,6 +357,7 @@ model DirectConversationMember {
   userId            String
   lastReadMessageId String?
   lastReadAt        DateTime?
+  pinnedAt          DateTime?
   joinedAt          DateTime  @default(now())
   leftAt            DateTime?
 
@@ -425,4 +440,78 @@ model PushSubscription {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+model FriendRequest {
+  id        String   @id @default(cuid())
+  fromId    String
+  toId      String
+  createdAt DateTime @default(now())
+
+  from User @relation("FriendRequestFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  to   User @relation("FriendRequestTo", fields: [toId], references: [id], onDelete: Cascade)
+
+  @@unique([fromId, toId])
+  @@index([toId, createdAt])
+}
+
+model Friendship {
+  userId    String
+  friendId  String
+  createdAt DateTime @default(now())
+
+  user   User @relation("FriendshipUser", fields: [userId], references: [id], onDelete: Cascade)
+  friend User @relation("FriendshipPeer", fields: [friendId], references: [id], onDelete: Cascade)
+
+  @@id([userId, friendId])
+  @@index([friendId])
+}
+
+enum ReportStatus {
+  pending
+  pardoned
+  banned
+}
+
+model MessageReport {
+  id               String       @id @default(cuid())
+  messageId        String?
+  reporterId       String
+  targetUserId     String
+  comment          String
+  status           ReportStatus @default(pending)
+  createdAt        DateTime     @default(now())
+  resolvedAt       DateTime?
+  resolvedById     String?
+  siteBanId        String?      @unique
+  messageContent   String
+  messageCreatedAt DateTime
+  attachmentsJson  Json
+
+  message    Message? @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  reporter   User     @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  target     User     @relation("ReportTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+  resolvedBy User?    @relation("ReportResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+  siteBan    SiteBan? @relation(fields: [siteBanId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([reporterId, messageId])
+  @@index([targetUserId])
+}
+
+model SiteBan {
+  id          String    @id @default(cuid())
+  userId      String
+  reason      String
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  createdById String?
+  liftedAt    DateTime?
+
+  user      User           @relation("SiteBannedUser", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy User?          @relation("SiteBanModerator", fields: [createdById], references: [id], onDelete: SetNull)
+  report    MessageReport?
+
+  @@index([userId, liftedAt])
+  @@index([expiresAt])
 }

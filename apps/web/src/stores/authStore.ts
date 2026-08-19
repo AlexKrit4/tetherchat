@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { AuthResponse, SelfUser } from '@tetherchat/shared';
+import type { AuthResponse, SelfUser, TotpChallenge } from '@tetherchat/shared';
 import { api, setAccessToken } from '@/lib/api';
 import { disconnectSocket } from '@/lib/socket';
 
@@ -11,6 +11,7 @@ interface AuthState {
   /** Restores a session from the refresh cookie on first paint. */
   bootstrap: () => Promise<void>;
   login: (login: string, password: string) => Promise<void>;
+  completeTotp: (ticket: string, code: string) => Promise<void>;
   register: (input: {
     email: string;
     username: string;
@@ -37,9 +38,23 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   login: async (login, password) => {
-    const session = await api.post<AuthResponse>(
+    const session = await api.post<AuthResponse | TotpChallenge>(
       '/api/auth/login',
       { login, password },
+      { skipRefresh: true },
+    );
+    if ('requires2fa' in session && session.requires2fa) {
+      throw Object.assign(new Error('totp_required'), { ticket: session.ticket, code: 'totp_required' });
+    }
+    const authed = session as AuthResponse;
+    setAccessToken(authed.accessToken);
+    set({ status: 'authenticated', user: authed.user });
+  },
+
+  completeTotp: async (ticket, code) => {
+    const session = await api.post<AuthResponse>(
+      '/api/auth/login/totp',
+      { ticket, code },
       { skipRefresh: true },
     );
     setAccessToken(session.accessToken);

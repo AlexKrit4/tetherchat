@@ -10,6 +10,7 @@ import { MobileDirectMessagesView } from '@/components/mobile/MobileDirectMessag
 import { MobileMembersView } from '@/components/mobile/MobileMembersView';
 import { MobileSearchView } from '@/components/mobile/MobileSearchView';
 import { MobileSettingsView } from '@/components/mobile/MobileSettingsView';
+import { MobileFriendsView } from '@/components/friends/IncomingFriends';
 import type { MobileView } from '@/stores/uiStore';
 
 /**
@@ -85,6 +86,8 @@ function renderView(view: MobileView) {
       return <MobileSearchView />;
     case 'settings':
       return <MobileSettingsView />;
+    case 'friends':
+      return <MobileFriendsView />;
     case 'chat':
     default:
       return <MobileChatView />;

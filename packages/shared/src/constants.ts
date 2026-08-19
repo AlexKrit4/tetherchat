@@ -1,3 +1,7 @@
+/** Designated platform operator; also mirrored by User.isPlatformAdmin. */
+export const PLATFORM_ADMIN_USERNAME = 'alexkrit';
+export const PLATFORM_ADMIN_EMAIL = 'alesa89851307411@gmail.com';
+
 export const LIMITS = {
   username: { min: 2, max: 32 },
   displayName: { max: 32 },

@@ -4,6 +4,7 @@ import { LIMITS, socketRooms } from '@tetherchat/shared';
 import { prisma } from '../db.js';
 import { ApiError } from '../errors.js';
 import { blockedPeerIds, isBlockedEitherWay } from '../lib/blocks.js';
+import { areFriends } from '../lib/friends.js';
 import { assertConversationMember } from '../lib/permissions.js';
 import { conversationInclude, toConversation } from '../lib/serialize.js';
 import {
@@ -11,6 +12,7 @@ import {
   listMessages,
   searchMessages,
 } from '../services/messageService.js';
+import { listChatMedia } from '../services/mediaService.js';
 import { ackConversation } from '../services/readStateService.js';
 import { emitToUser, joinUserToRoom } from '../ws/realtime.js';
 
@@ -18,8 +20,9 @@ const conversationParam = z.object({ conversationId: z.string().min(1) });
 const messageBody = z.object({
   content: z.string().max(LIMITS.messageContent.max).default(''),
   replyToId: z.string().nullable().optional(),
-  attachmentIds: z.array(z.string()).max(LIMITS.attachmentsPerMessage).optional(),
+      attachmentIds: z.array(z.string()).max(LIMITS.attachmentsPerMessage).optional(),
   attachmentDurations: z.record(z.string(), z.number().int().min(1).max(15 * 60_000)).optional(),
+  attachmentSpoilers: z.record(z.string(), z.boolean()).optional(),
   forwardMessageId: z.string().min(1).optional(),
   nonce: z.string().max(64).optional(),
 });
@@ -46,7 +49,14 @@ export async function dmRoutes(app: FastifyInstance) {
           conversation.isSaved ||
           conversation.isGroup ||
           !conversation.members.some((member) => member.id !== request.userId && blocked.has(member.id)),
-      );
+      )
+      .sort((a, b) => {
+        if (a.isSaved !== b.isSaved) return a.isSaved ? -1 : 1;
+        if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
+        const aTime = a.lastMessageAt ?? '';
+        const bTime = b.lastMessageAt ?? '';
+        return bTime.localeCompare(aTime);
+      });
   });
 
   app.get('/saved', async (request) => {
@@ -80,10 +90,19 @@ export async function dmRoutes(app: FastifyInstance) {
       if (await isBlockedEitherWay(request.userId, otherIds[0])) {
         throw ApiError.forbidden('You cannot message this user');
       }
+      if (!(await areFriends(request.userId, otherIds[0]))) {
+        throw ApiError.forbidden('Сначала добавьте пользователя в друзья');
+      }
       const existing = await findDirectConversation(request.userId, otherIds[0]);
       if (existing) {
         reply.send(toConversation(existing, request.userId));
         return;
+      }
+    } else {
+      for (const otherId of otherIds) {
+        if (!(await areFriends(request.userId, otherId))) {
+          throw ApiError.forbidden('В группу можно добавить только друзей');
+        }
       }
     }
 
@@ -140,6 +159,7 @@ export async function dmRoutes(app: FastifyInstance) {
       replyToId: body.replyToId ?? null,
       attachmentIds: body.attachmentIds,
       attachmentDurations: body.attachmentDurations,
+      attachmentSpoilers: body.attachmentSpoilers,
       forwardMessageId: body.forwardMessageId,
       nonce: body.nonce,
     });
@@ -152,6 +172,50 @@ export async function dmRoutes(app: FastifyInstance) {
     const { q } = z.object({ q: z.string().min(2).max(200) }).parse(request.query);
     await assertConversationMember(conversationId, request.userId);
     return searchMessages({ conversationId, serverId: null }, q, request.userId);
+  });
+
+  app.get('/:conversationId/media', async (request) => {
+    const { conversationId } = conversationParam.parse(request.params);
+    const query = z
+      .object({
+        before: z.string().optional(),
+        limit: z.coerce.number().int().min(1).max(100).default(50),
+      })
+      .parse(request.query);
+    await assertConversationMember(conversationId, request.userId);
+    return listChatMedia({ conversationId, before: query.before, limit: query.limit });
+  });
+
+  app.post('/:conversationId/pin', async (request) => {
+    const { conversationId } = conversationParam.parse(request.params);
+    await assertConversationMember(conversationId, request.userId);
+    await prisma.directConversationMember.update({
+      where: { conversationId_userId: { conversationId, userId: request.userId } },
+      data: { pinnedAt: new Date() },
+    });
+    const conversation = await prisma.directConversation.findUniqueOrThrow({
+      where: { id: conversationId },
+      include: conversationInclude,
+    });
+    const payload = toConversation(conversation, request.userId);
+    emitToUser(request.userId, 'dm:update', payload);
+    return payload;
+  });
+
+  app.delete('/:conversationId/pin', async (request) => {
+    const { conversationId } = conversationParam.parse(request.params);
+    await assertConversationMember(conversationId, request.userId);
+    await prisma.directConversationMember.update({
+      where: { conversationId_userId: { conversationId, userId: request.userId } },
+      data: { pinnedAt: null },
+    });
+    const conversation = await prisma.directConversation.findUniqueOrThrow({
+      where: { id: conversationId },
+      include: conversationInclude,
+    });
+    const payload = toConversation(conversation, request.userId);
+    emitToUser(request.userId, 'dm:update', payload);
+    return payload;
   });
 
   app.post('/:conversationId/ack', async (request) => {

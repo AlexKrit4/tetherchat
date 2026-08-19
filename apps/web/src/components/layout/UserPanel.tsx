@@ -1,14 +1,16 @@
 import { useState } from 'react';
-import { Mic, MicOff, Settings } from 'lucide-react';
+import { Mic, MicOff, Settings, UserPlus } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { useT } from '@/i18n/useT';
 import { Avatar } from '@/components/ui/Avatar';
 import { IconButton } from '@/components/ui/IconButton';
 import { UserSettingsDialog } from '@/components/modals/UserSettingsDialog';
+import { IncomingFriendsDialog } from '@/components/friends/IncomingFriends';
 import { StatusMenu } from '@/components/modals/StatusMenu';
 import { useAuthStore } from '@/stores/authStore';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import { useUiStore } from '@/stores/uiStore';
+import { useIncomingFriendRequests } from '@/hooks/useFriends';
 
 /**
  * Fixed strip at the bottom of the channel sidebar: avatar, name, and the
@@ -21,7 +23,10 @@ export function UserPanel({ className }: { className?: string }) {
   const pushMobileView = useUiStore((state) => state.pushMobileView);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
+  const [friendsOpen, setFriendsOpen] = useState(false);
   const [muted, setMuted] = useState(false);
+  const incoming = useIncomingFriendRequests();
+  const incomingCount = incoming.data?.length ?? 0;
 
   if (!user) return null;
 
@@ -57,6 +62,21 @@ export function UserPanel({ className }: { className?: string }) {
         tone={muted ? 'danger' : 'default'}
       />
 
+      <span className="relative inline-flex">
+        <IconButton
+          icon={UserPlus}
+          label={t('friends.incoming')}
+          size={isMobile ? 'lg' : 'md'}
+          showTooltip={!isMobile}
+          onClick={() => (isMobile ? pushMobileView('friends') : setFriendsOpen(true))}
+        />
+        {incomingCount > 0 ? (
+          <span className="pointer-events-none absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold text-white">
+            {incomingCount > 9 ? '9+' : incomingCount}
+          </span>
+        ) : null}
+      </span>
+
       <IconButton
         icon={Settings}
         label={t('nav.userSettings')}
@@ -66,6 +86,7 @@ export function UserPanel({ className }: { className?: string }) {
 
       <StatusMenu open={statusOpen} onClose={() => setStatusOpen(false)} />
       <UserSettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <IncomingFriendsDialog open={friendsOpen} onClose={() => setFriendsOpen(false)} />
     </div>
   );
 }

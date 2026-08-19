@@ -134,6 +134,21 @@ export function useRealtime(): ConnectionState {
       );
     };
 
+    const onDmUpdate = (conversation: DirectConversation) => {
+      client.setQueryData<DirectConversation[]>(queryKeys.dms, (current) => {
+        if (!current) return current;
+        return [...current.map((row) => (row.id === conversation.id ? conversation : row))].sort((a, b) => {
+          if (a.isSaved !== b.isSaved) return a.isSaved ? -1 : 1;
+          if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
+          return (b.lastMessageAt ?? '').localeCompare(a.lastMessageAt ?? '');
+        });
+      });
+    };
+
+    const onFriendIncoming = () => {
+      void client.invalidateQueries({ queryKey: queryKeys.friendIncoming });
+    };
+
     const onReceipt = (payload: {
       conversationId: string;
       userId: string;
@@ -179,6 +194,9 @@ export function useRealtime(): ConnectionState {
     socket.on('server:delete', () => void client.invalidateQueries({ queryKey: queryKeys.servers }));
     socket.on('server:join', () => void client.invalidateQueries({ queryKey: queryKeys.servers }));
     socket.on('dm:create', onDmCreate);
+    socket.on('dm:update', onDmUpdate);
+    socket.on('friend:incoming', onFriendIncoming);
+    socket.on('friend:accepted', onFriendIncoming);
     socket.on('receipt:update', onReceipt);
 
     return () => {
@@ -206,6 +224,9 @@ export function useRealtime(): ConnectionState {
       socket.removeAllListeners('server:delete');
       socket.removeAllListeners('server:join');
       socket.removeAllListeners('dm:create');
+      socket.removeAllListeners('dm:update');
+      socket.removeAllListeners('friend:incoming');
+      socket.removeAllListeners('friend:accepted');
       socket.removeAllListeners('receipt:update');
     };
   }, [client, currentUserId, setPresence, setTyping, status]);

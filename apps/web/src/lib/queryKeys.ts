@@ -16,4 +16,7 @@ export const queryKeys = {
   invitePreview: (code: string) => ['invite-preview', code] as const,
   blocks: ['blocks'] as const,
   sessions: ['sessions'] as const,
+  friends: ['friends'] as const,
+  friendIncoming: ['friend-incoming'] as const,
+  media: (channelId: string) => ['media', channelId] as const,
 };

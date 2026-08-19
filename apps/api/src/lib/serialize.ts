@@ -50,7 +50,13 @@ export function toPublicUser(row: PublicUserRow): PublicUser {
 }
 
 export function toSelfUser(
-  row: PublicUserRow & { email: string; emailVerified: boolean; enterToSend: boolean },
+  row: PublicUserRow & {
+    email: string;
+    emailVerified: boolean;
+    enterToSend: boolean;
+    totpEnabled?: boolean;
+    isPlatformAdmin?: boolean;
+  },
 ): SelfUser {
   return {
     ...toPublicUser(row),
@@ -58,6 +64,8 @@ export function toSelfUser(
     email: row.email,
     emailVerified: row.emailVerified,
     enterToSend: row.enterToSend,
+    totpEnabled: Boolean(row.totpEnabled),
+    isPlatformAdmin: Boolean(row.isPlatformAdmin),
   };
 }
 
@@ -82,6 +90,7 @@ export function toAttachment(row: MessageRow['attachments'][number]): Attachment
     width: row.width,
     height: row.height,
     durationMs: row.durationMs ?? null,
+    spoiler: row.spoiler ?? false,
   };
 }
 
@@ -239,6 +248,7 @@ export function toConversation(row: ConversationRow, currentUserId?: string): Di
   const isOneToOne = !row.isGroup && !isSaved && active.length === 2;
   const peer =
     currentUserId && isOneToOne ? active.find((member) => member.userId !== currentUserId) : undefined;
+  const selfMember = currentUserId ? row.members.find((member) => member.userId === currentUserId) : undefined;
 
   return {
     id: row.id,
@@ -251,6 +261,7 @@ export function toConversation(row: ConversationRow, currentUserId?: string): Di
     lastMessageAt: row.lastMessageAt?.toISOString() ?? null,
     peerLastReadMessageId: isOneToOne ? (peer?.lastReadMessageId ?? null) : null,
     peerLastReadAt: isOneToOne ? (peer?.lastReadAt?.toISOString() ?? null) : null,
+    pinned: Boolean(selfMember?.pinnedAt),
   };
 }
 

@@ -21,6 +21,10 @@ export class ApiError extends Error {
     return new ApiError(403, 'forbidden', message);
   }
 
+  static banned(message: string) {
+    return new ApiError(403, 'account_banned', message);
+  }
+
   static notFound(message = 'Не найдено') {
     return new ApiError(404, 'not_found', message);
   }

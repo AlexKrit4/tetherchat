@@ -1,4 +1,4 @@
-import { ArrowLeft, AtSign, Bell, Hash, Pin, Search, Users } from 'lucide-react';
+import { ArrowLeft, AtSign, Bell, Hash, Image as ImageIcon, Pin, Search, Users } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { useT } from '@/i18n/useT';
 import { useChatTarget } from '@/hooks/useChatTarget';
@@ -26,6 +26,7 @@ export function ChatHeader() {
   const toggleMembersOverlay = useUiStore((state) => state.toggleMembersOverlay);
   const setPinsOpen = useUiStore((state) => state.setPinsOpen);
   const setSearchOpen = useUiStore((state) => state.setSearchOpen);
+  const setMediaOpen = useUiStore((state) => state.setMediaOpen);
   const popMobileView = useUiStore((state) => state.popMobileView);
   const pushMobileView = useUiStore((state) => state.pushMobileView);
 
@@ -79,6 +80,13 @@ export function ChatHeader() {
             className="hidden md:inline-flex"
           />
         ) : null}
+
+        <IconButton
+          icon={ImageIcon}
+          label={t('chat.mediaTitle')}
+          size={isMobile ? 'lg' : 'md'}
+          onClick={() => setMediaOpen(true)}
+        />
 
         <IconButton
           icon={Pin}

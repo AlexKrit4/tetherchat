@@ -31,6 +31,7 @@ export interface CreateMessageInput {
   replyToId?: string | null;
   attachmentIds?: string[];
   attachmentDurations?: Record<string, number>;
+  attachmentSpoilers?: Record<string, boolean>;
   forwardMessageId?: string;
   /**
    * Client-generated id echoed back in the broadcast so the sender can replace
@@ -189,6 +190,14 @@ export async function createMessage(input: CreateMessageInput): Promise<Message>
         await tx.attachment.update({
           where: { id: attachmentId },
           data: { durationMs: Math.round(durationMs) },
+        });
+      }
+      const spoilers = input.attachmentSpoilers ?? {};
+      const spoilerIds = attachmentIds.filter((id) => spoilers[id]);
+      if (spoilerIds.length > 0) {
+        await tx.attachment.updateMany({
+          where: { id: { in: spoilerIds } },
+          data: { spoiler: true },
         });
       }
     }

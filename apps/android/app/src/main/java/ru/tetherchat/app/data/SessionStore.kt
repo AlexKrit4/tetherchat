@@ -29,9 +29,11 @@ class SessionStore(context: Context) {
   val hasSession: Boolean get() = !refreshToken.isNullOrBlank()
 
   fun save(auth: AuthResponse) {
-    accessToken = auth.accessToken
+    val token = auth.accessToken ?: return
+    val user = auth.user ?: return
+    accessToken = token
     if (!auth.refreshToken.isNullOrBlank()) refreshToken = auth.refreshToken
-    userId = auth.user.id
+    userId = user.id
   }
 
   fun clear() {

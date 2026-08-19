@@ -30,8 +30,11 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AlternateEmail
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material.icons.outlined.PersonAdd
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Tag
+import androidx.compose.material.icons.outlined.PersonOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
@@ -144,7 +147,7 @@ private fun ServerHeader(model: AppViewModel) {
     )
     if (model.selectedServerId == null) {
       IconButton(onClick = { model.showNewDm = true; model.dialogText = ""; model.searchQuery = ""; model.selectedDmUsers = emptyList() }) {
-        Icon(Icons.Outlined.Add, contentDescription = "Новый диалог", tint = TextMuted)
+        Icon(Icons.Outlined.Add, contentDescription = "Отправить заявку", tint = TextMuted)
       }
     } else {
       IconButton(onClick = { menu = true }) {
@@ -378,6 +381,7 @@ private fun DmList(model: AppViewModel) {
   }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun DmRow(
   conversation: DirectConversation,
@@ -387,34 +391,68 @@ private fun DmRow(
 ) {
   val other = conversation.members.firstOrNull { it.id != meId } ?: conversation.members.firstOrNull()
   val unread = model.unread(conversation.id) || model.mentions(conversation.id) > 0
-  Row(
-    modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 8.dp),
-    verticalAlignment = Alignment.CenterVertically,
-  ) {
-    if (conversation.isSaved) {
-      Box(
-        Modifier.size(40.dp).clip(CircleShape).background(Brand),
-        contentAlignment = Alignment.Center,
-      ) {
-        Icon(Icons.Outlined.Bookmark, contentDescription = null, tint = Color.White)
+  var menu by remember { mutableStateOf(false) }
+  Box {
+    Row(
+      modifier = Modifier
+        .fillMaxWidth()
+        .combinedClickable(onClick = onClick, onLongClick = { if (!conversation.isSaved) menu = true })
+        .padding(horizontal = 12.dp, vertical = 8.dp),
+      verticalAlignment = Alignment.CenterVertically,
+    ) {
+      if (conversation.isSaved) {
+        Box(
+          Modifier.size(40.dp).clip(CircleShape).background(Brand),
+          contentAlignment = Alignment.Center,
+        ) {
+          Icon(Icons.Outlined.Bookmark, contentDescription = null, tint = Color.White)
+        }
+      } else if (conversation.isGroup) {
+        Box(Modifier.size(40.dp).clip(CircleShape).background(Brand), contentAlignment = Alignment.Center) {
+          Text(conversation.title(meId).take(1).uppercase(), color = Color.White, fontWeight = FontWeight.SemiBold)
+        }
+      } else if (other != null) {
+        UserAvatar(other, 40.dp, model.statusOf(other.id, other.status))
+      } else {
+        Box(Modifier.size(40.dp).clip(CircleShape).background(Brand))
       }
-    } else if (other != null) {
-      UserAvatar(other, 40.dp, model.statusOf(other.id, other.status))
-    } else {
-      Box(Modifier.size(40.dp).clip(CircleShape).background(Brand))
+      Spacer(Modifier.width(12.dp))
+      Text(
+        conversation.title(meId),
+        color = TextPrimary,
+        fontSize = 16.sp,
+        fontWeight = if (unread) FontWeight.SemiBold else FontWeight.Normal,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.weight(1f),
+      )
+      if (conversation.pinned && !conversation.isSaved) {
+        Icon(Icons.Outlined.PushPin, contentDescription = null, tint = TextMuted, modifier = Modifier.size(14.dp))
+        Spacer(Modifier.width(8.dp))
+      }
+      if (unread) {
+        Box(Modifier.size(8.dp).clip(CircleShape).background(Brand))
+      }
     }
-    Spacer(Modifier.width(12.dp))
-    Text(
-      conversation.title(meId),
-      color = TextPrimary,
-      fontSize = 16.sp,
-      fontWeight = if (unread) FontWeight.SemiBold else FontWeight.Normal,
-      maxLines = 1,
-      overflow = TextOverflow.Ellipsis,
-      modifier = Modifier.weight(1f),
-    )
-    if (unread) {
-      Box(Modifier.size(8.dp).clip(CircleShape).background(Brand))
+    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+      DropdownMenuItem(
+        text = { Text(if (conversation.pinned) "Открепить" else "Закрепить") },
+        onClick = {
+          menu = false
+          model.pinConversation(conversation, !conversation.pinned)
+        },
+        leadingIcon = { Icon(Icons.Outlined.PushPin, contentDescription = null) },
+      )
+      if (!conversation.isGroup && other != null) {
+        DropdownMenuItem(
+          text = { Text("Заблокировать", color = Danger) },
+          onClick = {
+            menu = false
+            model.blockUser(other.id)
+          },
+          leadingIcon = { Icon(Icons.Outlined.PersonOff, contentDescription = null, tint = Danger) },
+        )
+      }
     }
   }
 }
@@ -441,7 +479,15 @@ private fun UserFooter(model: AppViewModel) {
         maxLines = 1,
       )
     }
-    Icon(Icons.Outlined.Settings, contentDescription = "Настройки", tint = TextMuted)
+    IconButton(onClick = model::openIncomingFriends) {
+      Box {
+        Icon(Icons.Outlined.PersonAdd, contentDescription = "Заявки в друзья", tint = TextMuted)
+        Box(Modifier.align(Alignment.TopEnd)) { FriendBadge(model.incomingFriendCount) }
+      }
+    }
+    IconButton(onClick = model::openSettings) {
+      Icon(Icons.Outlined.Settings, contentDescription = "Настройки", tint = TextMuted)
+    }
   }
 }
 
@@ -510,18 +556,9 @@ private fun ChannelSettingsDialog(model: AppViewModel) {
 private fun NewDmDialog(model: AppViewModel) {
   AlertDialog(
     onDismissRequest = { model.showNewDm = false; model.selectedDmUsers = emptyList() },
-    title = { Text("Новый чат") },
+    title = { Text("Отправить заявку") },
     text = {
       Column {
-        if (model.selectedDmUsers.size > 1) {
-          OutlinedTextField(
-            value = model.groupName,
-            onValueChange = { model.groupName = it },
-            label = { Text("Название группы") },
-            singleLine = true,
-          )
-          Spacer(Modifier.height(8.dp))
-        }
         OutlinedTextField(
           value = model.searchQuery,
           onValueChange = model::searchPeople,
@@ -529,28 +566,22 @@ private fun NewDmDialog(model: AppViewModel) {
           singleLine = true,
         )
         Spacer(Modifier.height(8.dp))
-        model.searchResults.forEach { user ->
-          val selected = model.selectedDmUsers.any { it.id == user.id }
+        model.searchResults.filter { it.id != model.me?.id }.forEach { user ->
           Row(
-            modifier = Modifier.fillMaxWidth().clickable { model.toggleDmUser(user) }.padding(vertical = 8.dp),
+            modifier = Modifier.fillMaxWidth().clickable { model.sendFriendRequest(user) }.padding(vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
           ) {
-            Checkbox(checked = selected, onCheckedChange = { model.toggleDmUser(user) })
             UserAvatar(user, 32.dp, model.statusOf(user.id, user.status))
             Spacer(Modifier.width(10.dp))
-            Text(user.label, color = TextPrimary)
+            Column {
+              Text(user.label, color = TextPrimary)
+              Text("@${user.username}", color = TextMuted, fontSize = 12.sp)
+            }
           }
         }
       }
     },
-    confirmButton = {
-      TextButton(
-        onClick = { model.startGroupOrDm() },
-        enabled = model.selectedDmUsers.isNotEmpty(),
-      ) {
-        Text(if (model.selectedDmUsers.size > 1) "Создать группу" else "Написать", color = Brand)
-      }
-    },
+    confirmButton = {},
     dismissButton = {
       TextButton(onClick = { model.showNewDm = false; model.selectedDmUsers = emptyList() }) { Text("Закрыть") }
     },

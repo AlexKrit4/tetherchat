@@ -33,7 +33,7 @@ fun TetherRoot(model: AppViewModel) {
     val toastable = screen is Screen.Home || screen is Screen.Chat || screen is Screen.Settings ||
       screen is Screen.Blacklist || screen is Screen.ServerSettings || screen is Screen.Members ||
       screen is Screen.ProfileSettings || screen is Screen.AccountSettings ||
-      screen is Screen.Sessions ||
+      screen is Screen.Sessions || screen is Screen.IncomingFriends || screen is Screen.AdminCredentials ||
       screen is Screen.AppearanceSettings || screen is Screen.UserProfile
     if (toastable) {
       snack.showSnackbar(text)
@@ -41,10 +41,13 @@ fun TetherRoot(model: AppViewModel) {
     }
   }
   val canGoBack = when (model.screen) {
-    Screen.Boot, Screen.Login, Screen.Home -> false
+    Screen.Boot, Screen.Home -> false
+    Screen.Login -> model.totpTicket != null
     else -> true
   }
-  BackHandler(enabled = canGoBack) { model.back() }
+  BackHandler(enabled = canGoBack) {
+    if (model.screen is Screen.Login) model.cancelTotp() else model.back()
+  }
   Box(Modifier.fillMaxSize().background(SurfaceDeep)) {
     when (val screen = model.screen) {
       Screen.Boot -> BootSplash()
@@ -61,6 +64,8 @@ fun TetherRoot(model: AppViewModel) {
       Screen.Sessions -> SessionsScreen(model)
       Screen.AppearanceSettings -> AppearanceSettingsScreen(model)
       Screen.Blacklist -> BlacklistScreen(model)
+      Screen.IncomingFriends -> IncomingFriendsScreen(model)
+      Screen.AdminCredentials -> AdminCredentialsScreen(model)
       Screen.ServerSettings -> ServerSettingsScreen(model)
       Screen.Members -> MembersScreen(model)
       is Screen.UserProfile -> UserProfileScreen(model)

@@ -5,6 +5,7 @@ import { prisma } from '../db.js';
 import { ApiError } from '../errors.js';
 import { assertPermission, loadChannelContext } from '../lib/permissions.js';
 import { messageInclude, toChannel, toMessage } from '../lib/serialize.js';
+import { listChatMedia } from '../services/mediaService.js';
 import {
   createMessage,
   listMessages,
@@ -96,6 +97,7 @@ export async function channelRoutes(app: FastifyInstance) {
         replyToId: z.string().nullable().optional(),
         attachmentIds: z.array(z.string()).max(LIMITS.attachmentsPerMessage).optional(),
         attachmentDurations: z.record(z.string(), z.number().int().min(1).max(15 * 60_000)).optional(),
+        attachmentSpoilers: z.record(z.string(), z.boolean()).optional(),
         forwardMessageId: z.string().min(1).optional(),
         nonce: z.string().max(64).optional(),
       })
@@ -108,6 +110,7 @@ export async function channelRoutes(app: FastifyInstance) {
       replyToId: body.replyToId ?? null,
       attachmentIds: body.attachmentIds,
       attachmentDurations: body.attachmentDurations,
+      attachmentSpoilers: body.attachmentSpoilers,
       forwardMessageId: body.forwardMessageId,
       nonce: body.nonce,
     });
@@ -121,6 +124,18 @@ export async function channelRoutes(app: FastifyInstance) {
 
     const context = await loadChannelContext(channelId, request.userId);
     return searchMessages({ channelId, serverId: context.serverId }, q, request.userId);
+  });
+
+  app.get('/:channelId/media', async (request) => {
+    const { channelId } = channelParam.parse(request.params);
+    const query = z
+      .object({
+        before: z.string().optional(),
+        limit: z.coerce.number().int().min(1).max(100).default(50),
+      })
+      .parse(request.query);
+    await loadChannelContext(channelId, request.userId);
+    return listChatMedia({ channelId, before: query.before, limit: query.limit });
   });
 
   app.get('/:channelId/pins', async (request) => {

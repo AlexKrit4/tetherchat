@@ -106,6 +106,7 @@ export function useSendMessage(channelId: string, isDm: boolean) {
       replyToId?: string | null;
       attachmentIds?: string[];
       attachmentDurations?: Record<string, number>;
+      attachmentSpoilers?: Record<string, boolean>;
       forwardMessageId?: string;
       nonce: string;
     }) => {

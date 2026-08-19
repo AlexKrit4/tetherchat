@@ -28,8 +28,14 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
 import android.net.Uri
+import android.graphics.Bitmap
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import com.canhub.cropper.CropImageContract
+import com.canhub.cropper.CropImageContractOptions
+import com.canhub.cropper.CropImageOptions
+import com.canhub.cropper.CropImageView
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -64,15 +70,18 @@ import androidx.compose.material.icons.automirrored.outlined.Reply
 import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Collections
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.EmojiEmotions
+import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.People
-import androidx.compose.material.icons.outlined.PersonOff
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -134,8 +143,32 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
   var selected by remember { mutableStateOf<Message?>(null) }
   var showSettings by remember { mutableStateOf(false) }
   var preview by remember { mutableStateOf<Attachment?>(null) }
-  val pickFiles = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
-    if (uris.isNotEmpty()) model.attachUris(uris)
+  var reportTarget by remember { mutableStateOf<Message?>(null) }
+  val cropImage = rememberLauncherForActivityResult(CropImageContract()) { result ->
+    if (result.isSuccessful) {
+      result.uriContent?.let { model.attachUris(listOf(it)) }
+    } else if (result.error != null) {
+      model.error = result.error?.localizedMessage ?: "Не удалось обрезать фото"
+    }
+  }
+  val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+    if (uri != null) {
+      cropImage.launch(
+        CropImageContractOptions(
+          uri = uri,
+          cropImageOptions = CropImageOptions(
+            imageSourceIncludeCamera = false,
+            imageSourceIncludeGallery = false,
+            guidelines = CropImageView.Guidelines.ON,
+            outputCompressFormat = Bitmap.CompressFormat.JPEG,
+            activityTitle = "Обрезать фото",
+            cropMenuCropButtonTitle = "Готово",
+            allowRotation = true,
+            allowFlipping = true,
+          ),
+        ),
+      )
+    }
   }
   val recordPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
     if (!granted) model.error = "Нужен доступ к микрофону"
@@ -212,6 +245,9 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
       IconButton(onClick = { model.showSearch = true }) {
         Icon(Icons.Outlined.Search, contentDescription = "Поиск", tint = TextMuted)
       }
+      IconButton(onClick = { model.loadChatMedia(); model.showMedia = true }) {
+        Icon(Icons.Outlined.Collections, contentDescription = "Медиа", tint = TextMuted)
+      }
       if (!chat.dm) {
         IconButton(onClick = { model.loadPins(); model.showPins = true }) {
           Icon(Icons.Outlined.PushPin, contentDescription = "Закреплённые", tint = TextMuted)
@@ -284,8 +320,10 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
         verticalAlignment = Alignment.CenterVertically,
       ) {
         if (canAttach) {
-          IconButton(onClick = { pickFiles.launch(arrayOf("*/*")) }) {
-            Icon(Icons.Outlined.Add, contentDescription = "Прикрепить файл", tint = TextMuted)
+          IconButton(onClick = {
+            pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+          }) {
+            Icon(Icons.Outlined.Add, contentDescription = "Прикрепить фото", tint = TextMuted)
           }
         }
         IconButton(onClick = { model.showEmojiPicker = !model.showEmojiPicker }) {
@@ -388,8 +426,8 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
       onPin = { model.togglePin(selectedMessage); selected = null },
       onDelete = { model.deleteMessage(selectedMessage); selected = null },
       onReact = { emoji -> model.react(selectedMessage, emoji); selected = null },
-      onBlock = {
-        model.blockUser(selectedMessage.authorId)
+      onReport = {
+        reportTarget = selectedMessage
         selected = null
       },
     )
@@ -408,25 +446,30 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
   if (model.showPins) {
     PinsSheet(model) { model.showPins = false }
   }
+  if (model.showMedia) {
+    MediaSheet(model) { model.showMedia = false }
+  }
+  reportTarget?.let { target ->
+    ReportDialog(
+      message = target,
+      busy = model.busy,
+      onDismiss = { reportTarget = null },
+      onSend = { comment ->
+        model.reportMessage(target, comment) { reportTarget = null }
+      },
+    )
+  }
 
   val lightbox = preview
   if (lightbox != null) {
-    Dialog(onDismissRequest = { preview = null }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-      Box(
-        modifier = Modifier
-          .fillMaxSize()
-          .background(Color.Black)
-          .clickable { preview = null },
-        contentAlignment = Alignment.Center,
-      ) {
-        AsyncImage(
-          model = lightbox.url,
-          contentDescription = lightbox.filename,
-          modifier = Modifier.fillMaxWidth().padding(12.dp),
-          contentScale = ContentScale.Fit,
-        )
+    val gallery = model.messages.flatMap { message ->
+      message.attachments.filter { it.isImage && it.url.isNotBlank() }.map { attachment ->
+        ViewerMedia(attachment.id, attachment.url, attachment.filename, attachment.contentType, attachment.spoiler)
       }
+    }.ifEmpty {
+      listOf(ViewerMedia(lightbox.id, lightbox.url, lightbox.filename, lightbox.contentType, lightbox.spoiler))
     }
+    MediaViewer(items = gallery, currentId = lightbox.id, onClose = { preview = null })
   }
 }
 
@@ -555,6 +598,16 @@ private fun ComposerExtras(model: AppViewModel) {
             fontSize = 12.sp,
             maxLines = 1,
           )
+          if (pending.mime.startsWith("image/") && pending.error == null) {
+            IconButton(onClick = { model.togglePendingSpoiler(pending.localId) }, modifier = Modifier.size(28.dp)) {
+              Icon(
+                Icons.Outlined.VisibilityOff,
+                contentDescription = "Спойлер",
+                tint = if (pending.spoiler) Brand else TextMuted,
+                modifier = Modifier.size(16.dp),
+              )
+            }
+          }
           IconButton(onClick = { model.removePending(pending.localId) }, modifier = Modifier.size(28.dp)) {
             Icon(Icons.Outlined.Close, contentDescription = "Убрать", tint = TextMuted, modifier = Modifier.size(16.dp))
           }
@@ -635,21 +688,21 @@ private fun MessageRow(
         )
       }
       if (message.content.isNotBlank()) {
-        Text(markdownAnnotated(message.content), color = TextPrimary, fontSize = 15.sp)
+        MessageBody(message.content)
       }
       message.attachments.forEach { attachment ->
         when {
           attachment.isImage && attachment.url.isNotBlank() -> {
-            AsyncImage(
-              model = attachment.url,
-              contentDescription = attachment.filename,
-              contentScale = ContentScale.Crop,
+            SpoilerImage(
+              url = attachment.url,
+              filename = attachment.filename,
+              spoiler = attachment.spoiler,
               modifier = Modifier
                 .padding(top = 6.dp)
                 .fillMaxWidth()
                 .heightIn(min = 120.dp, max = 280.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .clickable { onOpenAttachment(attachment) },
+                .clip(RoundedCornerShape(8.dp)),
+              onOpen = { onOpenAttachment(attachment) },
             )
           }
           attachment.isVideo -> {
@@ -741,7 +794,7 @@ private fun MessageActionSheet(
   onPin: () -> Unit,
   onDelete: () -> Unit,
   onReact: (String) -> Unit,
-  onBlock: () -> Unit,
+  onReport: () -> Unit,
 ) {
   val own = message.authorId == meId
   ModalBottomSheet(
@@ -772,7 +825,7 @@ private fun MessageActionSheet(
     if (own) SheetRow(Icons.Outlined.Edit, "Изменить сообщение", onEdit)
     if (!dm) SheetRow(Icons.Outlined.PushPin, if (message.pinned) "Открепить сообщение" else "Закрепить сообщение", onPin)
     if (own || canManage) SheetRow(Icons.Outlined.Delete, "Удалить сообщение", onDelete, danger = true)
-    if (!own && dm) SheetRow(Icons.Outlined.PersonOff, "Заблокировать", onBlock, danger = true)
+    if (!own) SheetRow(Icons.Outlined.Flag, "Пожаловаться", onReport, danger = true)
     Spacer(Modifier.height(16.dp))
   }
 }
@@ -1110,4 +1163,99 @@ private fun ForwardPickerSheet(model: AppViewModel, onDismiss: () -> Unit) {
     }
     Spacer(Modifier.height(16.dp))
   }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MediaSheet(model: AppViewModel, onDismiss: () -> Unit) {
+  var previewId by remember { mutableStateOf<String?>(null) }
+  ModalBottomSheet(
+    onDismissRequest = onDismiss,
+    sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    containerColor = SurfacePanel,
+  ) {
+    Text(
+      "Медиа чата",
+      color = TextPrimary,
+      fontWeight = FontWeight.SemiBold,
+      fontSize = 16.sp,
+      modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+    )
+    if (model.chatMedia.isEmpty()) {
+      Text("Пока нет фото и видео", color = TextMuted, modifier = Modifier.padding(20.dp))
+    } else {
+      LazyVerticalGrid(
+        columns = GridCells.Fixed(3),
+        modifier = Modifier.fillMaxWidth().heightIn(max = 480.dp),
+        contentPadding = PaddingValues(8.dp),
+      ) {
+        items(model.chatMedia, key = { it.id }) { item ->
+          SpoilerImage(
+            url = item.url,
+            filename = item.filename,
+            spoiler = item.spoiler,
+            modifier = Modifier
+              .padding(2.dp)
+              .fillMaxWidth()
+              .height(110.dp)
+              .clip(RoundedCornerShape(6.dp)),
+            onOpen = { previewId = item.id },
+          )
+        }
+      }
+    }
+    Spacer(Modifier.height(16.dp))
+  }
+  previewId?.let { id ->
+    MediaViewer(
+      items = model.chatMedia.map {
+        ViewerMedia(it.id, it.url, it.filename, it.contentType, it.spoiler)
+      },
+      currentId = id,
+      onClose = { previewId = null },
+    )
+  }
+}
+
+@Composable
+private fun ReportDialog(
+  message: Message,
+  busy: Boolean,
+  onDismiss: () -> Unit,
+  onSend: (String) -> Unit,
+) {
+  var comment by remember { mutableStateOf("") }
+  AlertDialog(
+    onDismissRequest = onDismiss,
+    title = { Text("Пожаловаться") },
+    text = {
+      Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(message.author.label, color = TextMuted, fontSize = 12.sp)
+        if (message.content.isNotBlank()) {
+          Text(message.content, color = TextPrimary, fontSize = 14.sp, maxLines = 6)
+        }
+        message.attachments.filter { it.isImage }.forEach { attachment ->
+          AsyncImage(
+            model = attachment.url,
+            contentDescription = attachment.filename,
+            modifier = Modifier.fillMaxWidth().heightIn(max = 160.dp).clip(RoundedCornerShape(8.dp)),
+            contentScale = ContentScale.Crop,
+          )
+        }
+        OutlinedTextField(
+          value = comment,
+          onValueChange = { comment = it.take(1000) },
+          label = { Text("Сообщение админу") },
+          minLines = 3,
+        )
+      }
+    },
+    confirmButton = {
+      TextButton(
+        onClick = { onSend(comment) },
+        enabled = comment.trim().isNotEmpty() && !busy,
+      ) { Text("Отправить", color = Brand) }
+    },
+    dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
+  )
 }

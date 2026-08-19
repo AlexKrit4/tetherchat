@@ -68,6 +68,11 @@ import ru.tetherchat.app.data.Role
 import ru.tetherchat.app.data.ServerMember
 import ru.tetherchat.app.data.can
 import ru.tetherchat.app.data.toggle
+import android.graphics.BitmapFactory
+import android.util.Base64
+import androidx.compose.foundation.Image
+import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.ui.graphics.asImageBitmap
 
 private val Statuses = listOf(
   "online" to "В сети",
@@ -245,6 +250,10 @@ fun AccountSettingsScreen(model: AppViewModel) {
         colors = ButtonDefaults.buttonColors(containerColor = SurfacePanel),
         modifier = Modifier.fillMaxWidth(),
       ) { Text("Устройства и сессии", color = TextPrimary) }
+      TwoFactorBlock(model)
+      if (user.isPlatformAdmin) {
+        AdminAccountBlock(model)
+      }
     }
   }
 }
@@ -698,7 +707,148 @@ private fun InvitesTab(model: AppViewModel) {
 }
 
 @Composable
-private fun SettingsHeader(title: String, onBack: () -> Unit) {
+private fun TwoFactorBlock(model: AppViewModel) {
+  val user = model.me ?: return
+  var code by rememberSaveable { mutableStateOf("") }
+  var password by rememberSaveable { mutableStateOf("") }
+  val setup = model.totpSetup
+  Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+    Text("Двухфакторная аутентификация", color = TextPrimary, fontWeight = FontWeight.SemiBold)
+    Text(
+      "Необязательная защита входа кодом из приложения-аутентификатора.",
+      color = TextMuted,
+      fontSize = 13.sp,
+    )
+    if (user.totpEnabled) {
+      Text("Двухфакторка включена", color = Online, fontSize = 13.sp)
+      Field("Код из приложения", code, 8) { code = it.filter { ch -> ch.isDigit() } }
+      Field("Пароль", password, 128) { password = it }
+      Button(
+        onClick = { model.disableTotp(code, password) },
+        colors = ButtonDefaults.buttonColors(containerColor = Danger),
+        modifier = Modifier.fillMaxWidth(),
+        enabled = code.length >= 6 && password.isNotBlank() && !model.busy,
+      ) { Text("Отключить двухфакторку") }
+    } else {
+      Button(
+        onClick = model::beginTotpSetup,
+        colors = ButtonDefaults.buttonColors(containerColor = SurfacePanel),
+        modifier = Modifier.fillMaxWidth(),
+      ) { Text("Настроить двухфакторку", color = TextPrimary) }
+      if (setup != null) {
+        val bitmap = remember(setup.qrDataUrl) { decodeDataUrl(setup.qrDataUrl) }
+        if (bitmap != null) {
+          Image(
+            bitmap = bitmap.asImageBitmap(),
+            contentDescription = "QR-код",
+            modifier = Modifier.fillMaxWidth().height(180.dp),
+          )
+        }
+        Text("Секрет: ${setup.secret}", color = TextMuted, fontSize = 12.sp)
+        Field("Код из приложения", code, 8) { code = it.filter { ch -> ch.isDigit() } }
+        Button(
+          onClick = { model.enableTotp(code) },
+          colors = ButtonDefaults.buttonColors(containerColor = Brand),
+          modifier = Modifier.fillMaxWidth(),
+          enabled = code.length >= 6 && !model.busy,
+        ) { Text("Включить") }
+      }
+    }
+  }
+}
+
+@Composable
+private fun AdminAccountBlock(model: AppViewModel) {
+  Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 12.dp)) {
+    Text("Администрирование", color = TextPrimary, fontWeight = FontWeight.SemiBold)
+    Button(
+      onClick = model::installAdminPanel,
+      colors = ButtonDefaults.buttonColors(containerColor = SurfacePanel),
+      modifier = Modifier.fillMaxWidth(),
+    ) { Text("Установить панель админку", color = TextPrimary) }
+    Button(
+      onClick = model::openAdminCredentials,
+      colors = ButtonDefaults.buttonColors(containerColor = SurfacePanel),
+      modifier = Modifier.fillMaxWidth(),
+      enabled = model.me?.totpEnabled == true,
+    ) { Text("Данные для входа", color = TextPrimary) }
+    if (model.me?.totpEnabled != true) {
+      Text("Сначала включите двухфакторку, чтобы открыть данные для входа.", color = TextMuted, fontSize = 13.sp)
+    }
+  }
+}
+
+@Composable
+fun AdminCredentialsScreen(model: AppViewModel) {
+  val context = LocalContext.current
+  var code by rememberSaveable { mutableStateOf("") }
+  val creds = model.adminCredentials
+  Column(
+    modifier = Modifier
+      .fillMaxSize()
+      .background(SurfaceDeep)
+      .statusBarsPadding()
+      .navigationBarsPadding()
+      .imePadding()
+      .padding(bottom = 16.dp),
+  ) {
+    SettingsHeader("Данные для входа", model::back)
+    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+      Text(
+        "Код из двухфакторки откроет логин и пароль админ-панели на сегодня. Они сгорают в 00:00 по Москве.",
+        color = TextMuted,
+        fontSize = 13.sp,
+      )
+      if (creds == null) {
+        Field("Код из приложения", code, 8) { code = it.filter { ch -> ch.isDigit() } }
+        Button(
+          onClick = { model.revealAdminCredentials(code) },
+          colors = ButtonDefaults.buttonColors(containerColor = Brand),
+          modifier = Modifier.fillMaxWidth(),
+          enabled = code.length >= 6 && !model.busy,
+        ) { Text("Показать данные") }
+      } else {
+        CopyField("Логин", creds.login, context)
+        CopyField("Пароль", creds.password, context)
+        Text("Действуют до ${creds.expiresAt.take(16).replace('T', ' ')} МСК", color = TextMuted, fontSize = 12.sp)
+      }
+    }
+  }
+}
+
+@Composable
+private fun CopyField(label: String, value: String, context: android.content.Context) {
+  Row(
+    Modifier
+      .fillMaxWidth()
+      .background(SurfacePanel, RoundedCornerShape(12.dp))
+      .padding(12.dp),
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    Column(Modifier.weight(1f)) {
+      Text(label, color = TextMuted, fontSize = 12.sp)
+      Text(value, color = TextPrimary, fontWeight = FontWeight.Medium)
+    }
+    IconButton(onClick = {
+      context.getSystemService(ClipboardManager::class.java)
+        ?.setPrimaryClip(ClipData.newPlainText(label, value))
+    }) {
+      Icon(Icons.Outlined.ContentCopy, contentDescription = "Копировать", tint = Brand)
+    }
+  }
+}
+
+private fun decodeDataUrl(url: String): android.graphics.Bitmap? {
+  val comma = url.indexOf(',')
+  if (comma < 0) return null
+  return runCatching {
+    val bytes = Base64.decode(url.substring(comma + 1), Base64.DEFAULT)
+    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+  }.getOrNull()
+}
+
+@Composable
+fun SettingsHeader(title: String, onBack: () -> Unit) {
   Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(end = 8.dp)) {
     IconButton(onClick = onBack) {
       Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Назад", tint = TextPrimary)

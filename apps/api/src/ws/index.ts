@@ -7,6 +7,7 @@ import { getConfig } from '../config.js';
 import { prisma } from '../db.js';
 import { isApiError } from '../errors.js';
 import { verifyAccessToken } from '../lib/tokens.js';
+import { activeSiteBan } from '../lib/platformAdmin.js';
 import { createRedis } from '../redis.js';
 import {
   createMessage,
@@ -88,7 +89,10 @@ export async function attachSocketServer(app: FastifyInstance): Promise<TypedSer
       data.userId = payload.sub;
       data.username = payload.username;
       data.silent = handshakeIsSilent(socket.handshake.auth, socket.handshake.query);
-      next();
+      void activeSiteBan(payload.sub).then((ban) => {
+        if (ban) next(new Error('account_banned'));
+        else next();
+      });
     } catch {
       next(new Error('unauthorized'));
     }
@@ -127,6 +131,7 @@ export async function attachSocketServer(app: FastifyInstance): Promise<TypedSer
             replyToId: payload.replyToId ?? null,
             attachmentIds: payload.attachmentIds,
             attachmentDurations: payload.attachmentDurations,
+            attachmentSpoilers: payload.attachmentSpoilers,
             forwardMessageId: payload.forwardMessageId,
             nonce: payload.nonce,
           });

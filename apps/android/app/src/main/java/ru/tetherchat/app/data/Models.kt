@@ -39,6 +39,8 @@ data class SelfUser(
   val email: String = "",
   val emailVerified: Boolean = false,
   val enterToSend: Boolean = true,
+  val totpEnabled: Boolean = false,
+  val isPlatformAdmin: Boolean = false,
 ) {
   val label: String get() = displayName?.takeIf { it.isNotBlank() } ?: username
 
@@ -57,10 +59,12 @@ data class SelfUser(
 
 @Serializable
 data class AuthResponse(
-  val accessToken: String,
+  val accessToken: String? = null,
   val expiresIn: Int = 900,
   val refreshToken: String? = null,
-  val user: SelfUser,
+  val user: SelfUser? = null,
+  val requires2fa: Boolean = false,
+  val ticket: String? = null,
 )
 
 @Serializable
@@ -140,6 +144,7 @@ data class Attachment(
   val width: Int? = null,
   val height: Int? = null,
   val durationMs: Int? = null,
+  val spoiler: Boolean = false,
 ) {
   val isImage: Boolean get() = contentType.startsWith("image/")
   val isVideo: Boolean get() = contentType.startsWith("video/")
@@ -210,6 +215,7 @@ data class DirectConversation(
   val lastMessageAt: String? = null,
   val peerLastReadMessageId: String? = null,
   val peerLastReadAt: String? = null,
+  val pinned: Boolean = false,
 ) {
   fun title(meId: String): String {
     if (isSaved) return "Избранное"
@@ -246,6 +252,7 @@ data class SendMessageBody(
   val replyToId: String? = null,
   val attachmentIds: List<String>? = null,
   val attachmentDurations: Map<String, Int>? = null,
+  val attachmentSpoilers: Map<String, Boolean>? = null,
   val forwardMessageId: String? = null,
 )
 
@@ -309,6 +316,7 @@ data class PendingUpload(
   val mime: String,
   val attachment: Attachment? = null,
   val error: String? = null,
+  val spoiler: Boolean = false,
 )
 
 @Serializable
@@ -459,3 +467,112 @@ data class ReceiptUpdate(
   val lastReadMessageId: String = "",
   val lastReadAt: String? = null,
 )
+
+@Serializable
+data class TotpLoginBody(val ticket: String, val code: String)
+
+@Serializable
+data class TotpCodeBody(val code: String)
+
+@Serializable
+data class TotpDisableBody(val code: String, val password: String)
+
+@Serializable
+data class TotpSetup(
+  val secret: String = "",
+  val otpauthUrl: String = "",
+  val qrDataUrl: String = "",
+)
+
+@Serializable
+data class FriendRequest(
+  val id: String,
+  val createdAt: String = "",
+  val from: PublicUser,
+  val to: PublicUser,
+)
+
+@Serializable
+data class FriendRequestBody(val userId: String? = null, val username: String? = null)
+
+@Serializable
+data class CountBody(val count: Int = 0)
+
+@Serializable
+data class ChatMediaItem(
+  val id: String,
+  val messageId: String = "",
+  val url: String = "",
+  val filename: String = "",
+  val contentType: String = "",
+  val width: Int? = null,
+  val height: Int? = null,
+  val spoiler: Boolean = false,
+  val createdAt: String = "",
+) {
+  val isImage: Boolean get() = contentType.startsWith("image/")
+  val isVideo: Boolean get() = contentType.startsWith("video/")
+}
+
+@Serializable
+data class ReportAttachmentSnapshot(
+  val url: String = "",
+  val filename: String = "",
+  val contentType: String = "",
+  val spoiler: Boolean = false,
+)
+
+@Serializable
+data class MessageReport(
+  val id: String,
+  val messageId: String? = null,
+  val reporter: PublicUser,
+  val target: PublicUser,
+  val comment: String = "",
+  val status: String = "pending",
+  val createdAt: String = "",
+  val resolvedAt: String? = null,
+  val messageContent: String = "",
+  val messageCreatedAt: String = "",
+  val attachments: List<ReportAttachmentSnapshot> = emptyList(),
+  val ban: SiteBan? = null,
+)
+
+@Serializable
+data class SiteBan(
+  val id: String,
+  val user: PublicUser,
+  val reason: String = "",
+  val expiresAt: String? = null,
+  val createdAt: String = "",
+  val liftedAt: String? = null,
+)
+
+@Serializable
+data class AdminCredentials(
+  val login: String = "",
+  val password: String = "",
+  val expiresAt: String = "",
+  val dateKey: String = "",
+)
+
+@Serializable
+data class AdminSession(
+  val accessToken: String,
+  val expiresAt: String = "",
+)
+
+@Serializable
+data class ReportBody(val messageId: String, val comment: String)
+
+@Serializable
+data class BanActionBody(val durationHours: Int? = null, val message: String)
+
+@Serializable
+data class AdminLoginBody(val login: String, val password: String)
+
+@Serializable
+data class FriendIncomingEvent(val count: Int = 0)
+
+@Serializable
+data class FriendAcceptedEvent(val conversation: DirectConversation)

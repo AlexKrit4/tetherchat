@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import type { DirectConversation, PublicUser } from '@tetherchat/shared';
 import { prisma } from '../db.js';
-import { closeTestApp, createUser, testApp } from './harness.js';
+import { closeTestApp, createUser, linkFriends, testApp } from './harness.js';
 import type { TestUser } from './harness.js';
 
 const created: TestUser[] = [];
@@ -16,6 +16,7 @@ describe('user blocks', () => {
     const alice = await createUser();
     const bob = await createUser();
     created.push(alice, bob);
+    await linkFriends(alice, bob);
     const app = await testApp();
 
     const opened = await app.inject({

@@ -29,13 +29,16 @@ import ru.tetherchat.app.BuildConfig
 import ru.tetherchat.app.ForegroundState
 import ru.tetherchat.app.NotificationHelper
 import ru.tetherchat.app.PushRegistrar
+import ru.tetherchat.app.data.AdminCredentials
 import ru.tetherchat.app.data.AndroidRelease
 import ru.tetherchat.app.data.ApiException
 import ru.tetherchat.app.data.Ban
 import ru.tetherchat.app.data.Channel
+import ru.tetherchat.app.data.ChatMediaItem
 import ru.tetherchat.app.data.DeviceSession
 import ru.tetherchat.app.data.DirectConversation
 import ru.tetherchat.app.data.DraftStore
+import ru.tetherchat.app.data.FriendRequest
 import ru.tetherchat.app.data.ReceiptUpdate
 import ru.tetherchat.app.data.Invite
 import ru.tetherchat.app.data.InvitePreview
@@ -54,6 +57,7 @@ import ru.tetherchat.app.data.ServerMember
 import ru.tetherchat.app.data.ServerSummary
 import ru.tetherchat.app.data.SessionStore
 import ru.tetherchat.app.data.TetherApi
+import ru.tetherchat.app.data.TotpSetup
 import ru.tetherchat.app.data.can
 import java.util.UUID
 
@@ -72,6 +76,8 @@ sealed class Screen {
   data object Sessions : Screen()
   data object AppearanceSettings : Screen()
   data object Blacklist : Screen()
+  data object IncomingFriends : Screen()
+  data object AdminCredentials : Screen()
   data object ServerSettings : Screen()
   data object Members : Screen()
   data class UserProfile(val userId: String) : Screen()
@@ -202,6 +208,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   var collapsedCategories = mutableStateMapOf<String, Boolean>()
   var selectedDmUsers by mutableStateOf<List<PublicUser>>(emptyList())
   var groupName by mutableStateOf("")
+  var incomingFriendCount by mutableStateOf(0)
+    private set
+  var incomingFriends by mutableStateOf<List<FriendRequest>>(emptyList())
+    private set
+  var totpTicket by mutableStateOf<String?>(null)
+  var totpSetup by mutableStateOf<TotpSetup?>(null)
+  var adminCredentials by mutableStateOf<AdminCredentials?>(null)
+  var chatMedia by mutableStateOf<List<ChatMediaItem>>(emptyList())
+    private set
+  var showMedia by mutableStateOf(false)
   var showServerMenu by mutableStateOf(false)
   var showCreateChannel by mutableStateOf(false)
   var showCreateCategory by mutableStateOf(false)
@@ -249,6 +265,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     me = api.me()
     servers = api.servers()
     dms = api.dms()
+    incomingFriendCount = runCatching { api.incomingFriendCount() }.getOrDefault(0)
     api.readStates().forEach { readStates[it.channelId] = it }
     val current = selectedServerId
     if (current != null) {
@@ -270,7 +287,61 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     }
   }
 
-  fun login(login: String, password: String) = authAction { api.login(login.trim(), password) }
+  fun login(login: String, password: String) {
+    viewModelScope.launch {
+      busy = true
+      error = null
+      totpTicket = null
+      val result = runCatching { withContext(Dispatchers.IO) { api.login(login.trim(), password) } }
+      busy = false
+      result.onSuccess { response ->
+        if (response.requires2fa) {
+          totpTicket = response.ticket
+        } else {
+          finishAuth()
+        }
+      }.onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun loginTotp(code: String) {
+    val ticket = totpTicket ?: return
+    viewModelScope.launch {
+      busy = true
+      error = null
+      val result = runCatching { withContext(Dispatchers.IO) { api.loginTotp(ticket, code.trim()) } }
+      busy = false
+      result.onSuccess {
+        totpTicket = null
+        finishAuth()
+      }.onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun cancelTotp() {
+    totpTicket = null
+    error = null
+  }
+
+  private fun finishAuth() {
+    viewModelScope.launch {
+      busy = true
+      error = null
+      val result = runCatching { withContext(Dispatchers.IO) { loadWorkspace() } }
+      busy = false
+      result.onSuccess {
+        notificationsEnabled = session.notificationsEnabled
+        screen = Screen.Home
+        connectRealtime()
+        PushRegistrar.sync(getApplication())
+        consumePendingDeepLink()
+        pendingInviteCode?.let { code ->
+          dialogText = code
+          joinServer()
+        }
+      }.onFailure { error = it.userMessage() }
+    }
+  }
 
   fun register(email: String, username: String, password: String) = authAction {
     api.register(email.trim(), username.trim(), password)
@@ -406,6 +477,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     viewModelScope.launch {
       busy = true
       error = null
+      totpTicket = null
       val result = runCatching { withContext(Dispatchers.IO) { block(); loadWorkspace() } }
       busy = false
       result.onSuccess {
@@ -434,6 +506,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
       dms = emptyList()
       messages = emptyList()
       blockedUsers = emptyList()
+      incomingFriends = emptyList()
+      incomingFriendCount = 0
+      totpTicket = null
+      totpSetup = null
+      adminCredentials = null
       screen = Screen.Login
     }
   }
@@ -441,7 +518,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   fun goHome() { screen = Screen.Home }
 
   fun goRegister() { error = null; screen = Screen.Register }
-  fun goLogin() { error = null; screen = Screen.Login }
+  fun goLogin() { error = null; totpTicket = null; screen = Screen.Login }
   fun goForgot() { error = null; screen = Screen.ForgotPassword }
 
   fun openSettings() { screen = Screen.Settings }
@@ -559,6 +636,183 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     joinServer()
   }
 
+  fun openIncomingFriends() {
+    screen = Screen.IncomingFriends
+    refreshIncomingFriends()
+  }
+
+  fun refreshIncomingFriends() {
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.incomingFriends() to api.incomingFriendCount() } }
+        .onSuccess { (list, count) ->
+          incomingFriends = list
+          incomingFriendCount = count
+        }
+        .onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun sendFriendRequest(user: PublicUser) {
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.sendFriendRequest(user.id) } }
+        .onSuccess {
+          showNewDm = false
+          searchQuery = ""
+          searchResults = emptyList()
+          selectedDmUsers = emptyList()
+          error = "Заявка отправлена"
+        }
+        .onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun acceptFriend(request: FriendRequest) {
+    viewModelScope.launch {
+      runCatching {
+        withContext(Dispatchers.IO) {
+          api.acceptFriend(request.id)
+          api.incomingFriends() to api.dms()
+        }
+      }.onSuccess { (list, conversations) ->
+        incomingFriends = list
+        incomingFriendCount = list.size
+        dms = conversations
+      }.onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun declineFriend(request: FriendRequest) {
+    viewModelScope.launch {
+      runCatching {
+        withContext(Dispatchers.IO) {
+          api.declineFriend(request.id)
+          api.incomingFriends()
+        }
+      }.onSuccess { list ->
+        incomingFriends = list
+        incomingFriendCount = list.size
+      }.onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun pinConversation(conversation: DirectConversation, pinned: Boolean) {
+    viewModelScope.launch {
+      runCatching {
+        withContext(Dispatchers.IO) {
+          if (pinned) api.pinConversation(conversation.id) else api.unpinConversation(conversation.id)
+        }
+      }.onSuccess { updated -> upsertDm(updated) }
+        .onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun reportMessage(message: Message, comment: String, onDone: () -> Unit) {
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.reportMessage(message.id, comment.trim()) } }
+        .onSuccess { onDone() }
+        .onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun loadChatMedia() {
+    val chat = screen as? Screen.Chat ?: return
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.chatMedia(chat.channelId, chat.dm) } }
+        .onSuccess { chatMedia = it }
+        .onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun beginTotpSetup() {
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.totpSetup() } }
+        .onSuccess { totpSetup = it }
+        .onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun enableTotp(code: String) {
+    viewModelScope.launch {
+      busy = true
+      runCatching { withContext(Dispatchers.IO) { api.totpEnable(code.trim()) } }
+        .onSuccess {
+          me = it
+          totpSetup = null
+        }
+        .onFailure { error = it.userMessage() }
+      busy = false
+    }
+  }
+
+  fun disableTotp(code: String, password: String) {
+    viewModelScope.launch {
+      busy = true
+      runCatching { withContext(Dispatchers.IO) { api.totpDisable(code.trim(), password) } }
+        .onSuccess { me = it }
+        .onFailure { error = it.userMessage() }
+      busy = false
+    }
+  }
+
+  fun openAdminCredentials() {
+    if (me?.isPlatformAdmin != true) return
+    adminCredentials = null
+    screen = Screen.AdminCredentials
+  }
+
+  fun revealAdminCredentials(code: String) {
+    viewModelScope.launch {
+      busy = true
+      runCatching { withContext(Dispatchers.IO) { api.adminCredentials(code.trim()) } }
+        .onSuccess { adminCredentials = it }
+        .onFailure { error = it.userMessage() }
+      busy = false
+    }
+  }
+
+  fun installAdminPanel() {
+    val url = "${BuildConfig.API_URL.trimEnd('/')}/app/tetherchat-admin.apk"
+    val dest = File(getApplication<Application>().cacheDir, "updates/tetherchat-admin.apk")
+    if (downloadJob?.isActive == true) return
+    updateFailed = null
+    needsInstallPermission = false
+    updateDownloading = true
+    updateProgress = 0f
+    updateBytesRead = 0L
+    updateBytesTotal = -1L
+    pendingInstall = false
+    availableUpdate = AndroidRelease(versionCode = 0, versionName = "Admin", url = url)
+    downloadJob = viewModelScope.launch {
+      runCatching {
+        withContext(Dispatchers.IO) {
+          var lastPosted = 0L
+          api.downloadTo(url, dest) { read, total ->
+            if (read - lastPosted < 128 * 1024 && total > 0 && read < total) return@downloadTo
+            lastPosted = read
+            updateBytesRead = read
+            updateBytesTotal = total
+            updateProgress = if (total > 0) (read.toFloat() / total.toFloat()).coerceIn(0f, 1f) else 0f
+          }
+        }
+      }.onSuccess {
+        downloadedApk = dest
+        updateBytesRead = dest.length()
+        updateBytesTotal = dest.length()
+        updateProgress = 1f
+        updateDownloading = false
+        pendingInstall = true
+        installDownloadedUpdate()
+      }.onFailure { err ->
+        if (err is CancellationException) return@onFailure
+        updateDownloading = false
+        pendingInstall = false
+        downloadedApk = null
+        dest.delete()
+        updateFailed = err.userMessage()
+      }
+    }
+  }
+
   fun openBlacklist() {
     screen = Screen.Blacklist
     viewModelScope.launch {
@@ -584,10 +838,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
         typingLabel = null
         showPins = false
         showSearch = false
+        showMedia = false
         forwarding = null
         screen = Screen.Home
       }
       Screen.Blacklist -> screen = Screen.Settings
+      Screen.IncomingFriends -> screen = Screen.Home
+      Screen.AdminCredentials -> screen = Screen.AccountSettings
       Screen.Sessions -> screen = Screen.AccountSettings
       Screen.ProfileSettings, Screen.AccountSettings, Screen.AppearanceSettings -> screen = Screen.Settings
       Screen.Settings, Screen.ServerSettings -> screen = Screen.Home
@@ -708,6 +965,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     val attachments = pendingUploads.mapNotNull { it.attachment }
     if (text.isEmpty() && attachments.isEmpty()) return
     if (pendingUploads.any { it.attachment == null && it.error == null }) return
+    val spoilers = pendingUploads
+      .mapNotNull { pending -> pending.attachment?.id?.takeIf { pending.spoiler }?.let { it to true } }
+      .toMap()
+      .ifEmpty { null }
     draft = ""
     drafts.set(chat.channelId, "")
     val replyId = replyTo?.id
@@ -724,6 +985,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
             nonce,
             replyToId = replyId,
             attachmentIds = attachments.map { it.id }.ifEmpty { null },
+            attachmentSpoilers = spoilers,
           )
         }
       }.onSuccess { message ->
@@ -772,6 +1034,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
 
   fun removePending(localId: String) {
     pendingUploads = pendingUploads.filterNot { it.localId == localId }
+  }
+
+  fun togglePendingSpoiler(localId: String) {
+    pendingUploads = pendingUploads.map { pending ->
+      if (pending.localId == localId) pending.copy(spoiler = !pending.spoiler) else pending
+    }
   }
 
   fun createServer() {
@@ -1435,7 +1703,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
             messages = messages.map { if (it.id == event.messageId) it.copy(reactions = event.reactions) else it }
           }
         },
-        onDmCreate = { conversation -> viewModelScope.launch { prependDm(conversation) } },
+        onDmCreate = { conversation -> viewModelScope.launch { upsertDm(conversation) } },
+        onDmUpdate = { conversation -> viewModelScope.launch { upsertDm(conversation) } },
+        onFriendIncoming = { event -> viewModelScope.launch { incomingFriendCount = event.count } },
+        onFriendAccepted = { event ->
+          viewModelScope.launch {
+            upsertDm(event.conversation)
+            refreshIncomingFriends()
+          }
+        },
         onReceipt = { event -> viewModelScope.launch { applyReceipt(event) } },
         onPresence = { event -> viewModelScope.launch { presence[event.userId] = event.status } },
         onTyping = { event ->
@@ -1463,13 +1739,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     messages = messages.map { if (it.id == updated.id) updated else it }
   }
 
-  private fun prependDm(conversation: DirectConversation) {
+  private fun prependDm(conversation: DirectConversation) = upsertDm(conversation)
+
+  private fun upsertDm(conversation: DirectConversation) {
     val rest = dms.filterNot { it.id == conversation.id }
-    dms = if (conversation.isSaved) {
-      listOf(conversation) + rest
-    } else {
-      rest.filter { it.isSaved } + listOf(conversation) + rest.filterNot { it.isSaved }
-    }
+    val merged = rest + conversation
+    dms = merged.sortedWith(
+      compareByDescending<DirectConversation> { it.isSaved }
+        .thenByDescending { it.pinned }
+        .thenByDescending { it.lastMessageAt.orEmpty() },
+    )
   }
 
   private fun applyReceipt(event: ReceiptUpdate) {

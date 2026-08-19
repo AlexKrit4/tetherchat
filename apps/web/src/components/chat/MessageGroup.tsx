@@ -1,5 +1,5 @@
 import { memo, useState } from 'react';
-import { Check, CheckCheck, CornerUpLeft, Forward, Pencil, Pin, Reply, SmilePlus, Trash2 } from 'lucide-react';
+import { Check, CheckCheck, CornerUpLeft, Flag, Forward, Pencil, Pin, Reply, SmilePlus, Trash2 } from 'lucide-react';
 import type { Message, ServerMember } from '@tetherchat/shared';
 import { cn } from '@/lib/cn';
 import { useT } from '@/i18n/useT';
@@ -41,6 +41,7 @@ export interface MessageGroupProps {
   onOpenProfile: (userId: string) => void;
   onJumpToMessage?: (messageId: string) => void;
   onForward?: (message: Message) => void;
+  onReport?: (message: Message) => void;
   receipt?: 'delivered' | 'read' | null;
 }
 
@@ -69,6 +70,7 @@ export const MessageGroup = memo(function MessageGroup({
   onOpenProfile,
   onJumpToMessage,
   onForward,
+  onReport,
   receipt,
 }: MessageGroupProps) {
   const t = useT();
@@ -252,6 +254,15 @@ export const MessageGroup = memo(function MessageGroup({
               size="sm"
               tone="danger"
               onClick={() => onDelete(message)}
+            />
+          ) : null}
+          {onReport && message.authorId ? (
+            <IconButton
+              icon={Flag}
+              label={t('report.title')}
+              size="sm"
+              tone="danger"
+              onClick={() => onReport(message)}
             />
           ) : null}
         </div>

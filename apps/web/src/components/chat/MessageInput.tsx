@@ -48,6 +48,7 @@ export function MessageInput() {
   const [mentionQuery, setMentionQuery] = useState<MentionQuery | null>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [pending, setPending] = useState<Attachment[]>([]);
+  const [spoilerIds, setSpoilerIds] = useState<Set<string>>(new Set());
   const [recording, setRecording] = useState(false);
   const [recordMs, setRecordMs] = useState(0);
   const [voicePreview, setVoicePreview] = useState<VoicePreview | null>(null);
@@ -276,12 +277,14 @@ export function MessageInput() {
       content,
       replyToId: replyTo?.id ?? null,
       attachmentIds: pending.map((attachment) => attachment.id),
+      attachmentSpoilers: Object.fromEntries(pending.map((attachment) => [attachment.id, spoilerIds.has(attachment.id)])),
       nonce: nonce(),
     });
 
     setDraft(channelId, '');
     setReplyDraft(channelId, null);
     setPending([]);
+    setSpoilerIds(new Set());
     setMentionQuery(null);
     stopTyping();
     keepComposerFocused();
@@ -353,6 +356,25 @@ export function MessageInput() {
                 <Paperclip size={20} className="text-text-muted" aria-hidden />
               )}
               <span className="truncate text-2xs text-text-muted">{attachment.filename}</span>
+              {attachment.contentType.startsWith('image/') ? (
+                <button
+                  type="button"
+                  className={cn(
+                    'rounded px-1 text-2xs',
+                    spoilerIds.has(attachment.id) ? 'bg-danger/20 text-danger' : 'text-text-muted hover:text-text',
+                  )}
+                  onClick={() =>
+                    setSpoilerIds((current) => {
+                      const next = new Set(current);
+                      if (next.has(attachment.id)) next.delete(attachment.id);
+                      else next.add(attachment.id);
+                      return next;
+                    })
+                  }
+                >
+                  {t('chat.markSpoiler')}
+                </button>
+              ) : null}
               <button
                 type="button"
                 aria-label={t('chat.removeFile', { name: attachment.filename })}

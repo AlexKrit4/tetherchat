@@ -1,4 +1,4 @@
-import { Copy, Forward, Pencil, Pin, Reply, SmilePlus, Trash2 } from 'lucide-react';
+import { Copy, Flag, Forward, Pencil, Pin, Reply, SmilePlus, Trash2 } from 'lucide-react';
 import type { Message } from '@tetherchat/shared';
 import { useT } from '@/i18n/useT';
 import { BottomSheet, SheetAction } from '@/components/ui/BottomSheet';
@@ -19,6 +19,7 @@ export interface MessageActionSheetProps {
   onTogglePin: (message: Message) => void;
   onReact: (message: Message, emoji: string) => void;
   onOpenEmojiPicker: (message: Message) => void;
+  onReport?: (message: Message) => void;
 }
 
 /**
@@ -38,6 +39,7 @@ export function MessageActionSheet({
   onTogglePin,
   onReact,
   onOpenEmojiPicker,
+  onReport,
 }: MessageActionSheetProps) {
   const t = useT();
 
@@ -117,6 +119,14 @@ export function MessageActionSheet({
                 label={t('chat.deleteMessage')}
                 tone="danger"
                 onSelect={() => run(() => onDelete(message))}
+              />
+            ) : null}
+            {onReport && message.authorId ? (
+              <SheetAction
+                icon={<Flag size={18} aria-hidden />}
+                label={t('report.title')}
+                tone="danger"
+                onSelect={() => run(() => onReport(message))}
               />
             ) : null}
           </div>

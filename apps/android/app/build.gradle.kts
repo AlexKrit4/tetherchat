@@ -14,8 +14,8 @@ android {
         applicationId = "ru.tetherchat.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 16
-        versionName = "1.2.8"
+        versionCode = 17
+        versionName = "1.2.9"
 
         buildConfigField("String", "API_URL", "\"https://tetherchat.ru\"")
 
@@ -65,6 +65,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("com.vanniktech:android-image-cropper:4.6.0")
     implementation("io.socket:socket.io-client:2.1.1") {
         exclude(group = "org.json", module = "json")
     }

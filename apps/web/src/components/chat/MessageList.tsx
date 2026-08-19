@@ -25,6 +25,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { MessageGroup } from './MessageGroup';
 import { MessageActionSheet } from './MessageActionSheet';
 import { ForwardDialog } from './ForwardDialog';
+import { ReportDialog } from './ReportDialog';
 import { EmojiPicker } from './EmojiPicker';
 import { UserProfileDialog } from '@/components/modals/UserProfileDialog';
 import { useAuthStore } from '@/stores/authStore';
@@ -56,6 +57,7 @@ export function MessageList() {
   const scrollBottomNonce = useUiStore((state) => state.scrollBottomNonce);
   const [actionSheetFor, setActionSheetFor] = useState<Message | null>(null);
   const [forwardFor, setForwardFor] = useState<Message | null>(null);
+  const [reportFor, setReportFor] = useState<Message | null>(null);
   const [emojiFor, setEmojiFor] = useState<Message | null>(null);
   const [profileFor, setProfileFor] = useState<string | null>(null);
 
@@ -257,6 +259,7 @@ export function MessageList() {
                 onOpenProfile={setProfileFor}
                 onJumpToMessage={jumpToMessage}
                 onForward={setForwardFor}
+                onReport={mine ? undefined : setReportFor}
                 receipt={
                   showReceipts && !message.pending && !message.failed
                     ? read
@@ -301,9 +304,13 @@ export function MessageList() {
         onTogglePin={(target) => togglePin.mutate({ messageId: target.id, pinned: !target.pinned })}
         onReact={(target, emoji) => toggleReaction.mutate({ messageId: target.id, emoji })}
         onOpenEmojiPicker={(target) => setEmojiFor(target)}
+        onReport={
+          actionSheetFor && actionSheetFor.authorId !== currentUser?.id ? setReportFor : undefined
+        }
       />
 
       <ForwardDialog message={forwardFor} onClose={() => setForwardFor(null)} />
+      <ReportDialog message={reportFor} onClose={() => setReportFor(null)} />
 
       {emojiFor ? (
         <EmojiPicker

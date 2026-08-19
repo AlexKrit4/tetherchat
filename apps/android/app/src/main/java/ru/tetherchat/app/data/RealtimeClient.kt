@@ -32,6 +32,9 @@ class RealtimeClient(
     next.on("message:deleted") { args -> decode<MessageDeletedEvent>(args)?.let(handlers.onMessageDeleted) }
     next.on("reaction:updated") { args -> decode<ReactionUpdatedEvent>(args)?.let(handlers.onReaction) }
     next.on("dm:create") { args -> decode<DirectConversation>(args)?.let(handlers.onDmCreate) }
+    next.on("dm:update") { args -> decode<DirectConversation>(args)?.let(handlers.onDmUpdate) }
+    next.on("friend:incoming") { args -> decode<FriendIncomingEvent>(args)?.let(handlers.onFriendIncoming) }
+    next.on("friend:accepted") { args -> decode<FriendAcceptedEvent>(args)?.let(handlers.onFriendAccepted) }
     next.on("receipt:update") { args -> decode<ReceiptUpdate>(args)?.let(handlers.onReceipt) }
     next.on("presence:update") { args -> decode<PresenceEvent>(args)?.let(handlers.onPresence) }
     next.on("typing:update") { args -> decode<TypingEvent>(args)?.let(handlers.onTyping) }
@@ -97,6 +100,9 @@ class RealtimeHandlers(
   val onMessageDeleted: (MessageDeletedEvent) -> Unit,
   val onReaction: (ReactionUpdatedEvent) -> Unit,
   val onDmCreate: (DirectConversation) -> Unit,
+  val onDmUpdate: (DirectConversation) -> Unit,
+  val onFriendIncoming: (FriendIncomingEvent) -> Unit,
+  val onFriendAccepted: (FriendAcceptedEvent) -> Unit,
   val onReceipt: (ReceiptUpdate) -> Unit,
   val onPresence: (PresenceEvent) -> Unit,
   val onTyping: (TypingEvent) -> Unit,

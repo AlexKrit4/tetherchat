@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { Message } from '@tetherchat/shared';
 
 /** Which single panel the phone layout is showing. */
-export type MobileView = 'servers' | 'channels' | 'chat' | 'dms' | 'settings' | 'members' | 'search';
+export type MobileView = 'servers' | 'channels' | 'chat' | 'dms' | 'settings' | 'members' | 'search' | 'friends';
 
 export interface ReplyDraft {
   channelId: string;
@@ -20,6 +20,7 @@ interface UiState {
   membersOverlayOpen: boolean;
   pinsOpen: boolean;
   searchOpen: boolean;
+  mediaOpen: boolean;
   collapsedCategories: Record<string, boolean>;
   replyDrafts: Record<string, Message | undefined>;
   editingMessageId: string | null;
@@ -35,6 +36,7 @@ interface UiState {
   setMembersOverlayOpen: (open: boolean) => void;
   setPinsOpen: (open: boolean) => void;
   setSearchOpen: (open: boolean) => void;
+  setMediaOpen: (open: boolean) => void;
   toggleCategory: (categoryId: string) => void;
   setReplyDraft: (channelId: string, message: Message | null) => void;
   setEditingMessage: (messageId: string | null) => void;
@@ -51,6 +53,7 @@ export const useUiStore = create<UiState>()(
   membersOverlayOpen: false,
   pinsOpen: false,
   searchOpen: false,
+  mediaOpen: false,
   collapsedCategories: {},
   replyDrafts: {},
   editingMessageId: null,
@@ -82,6 +85,7 @@ export const useUiStore = create<UiState>()(
   setMembersOverlayOpen: (open) => set({ membersOverlayOpen: open }),
   setPinsOpen: (open) => set({ pinsOpen: open }),
   setSearchOpen: (open) => set({ searchOpen: open }),
+  setMediaOpen: (open) => set({ mediaOpen: open }),
 
   toggleCategory: (categoryId) =>
     set((state) => ({

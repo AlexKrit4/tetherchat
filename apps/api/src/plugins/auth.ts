@@ -1,7 +1,9 @@
 import fp from 'fastify-plugin';
 import type { FastifyRequest } from 'fastify';
 import { ApiError } from '../errors.js';
-import { verifyAccessToken } from '../lib/tokens.js';
+import { mskDateKey } from '../lib/adminCredentials.js';
+import { activeSiteBan, banLoginMessage } from '../lib/platformAdmin.js';
+import { verifyAccessToken, verifyAdminToken } from '../lib/tokens.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -10,6 +12,7 @@ declare module 'fastify' {
   }
   interface FastifyInstance {
     requireAuth: (request: FastifyRequest) => Promise<void>;
+    requireAdmin: (request: FastifyRequest) => Promise<void>;
     /** Resolves the caller when a valid token is present, otherwise null. */
     optionalAuth: (request: FastifyRequest) => string | null;
   }
@@ -29,6 +32,17 @@ export const authPlugin = fp(async (app) => {
     const token = bearerToken(request);
     if (!token) throw ApiError.unauthorized('Missing bearer token');
     request.userId = verifyAccessToken(token).sub;
+    const ban = await activeSiteBan(request.userId);
+    if (ban) throw ApiError.banned(banLoginMessage(ban));
+  });
+
+  app.decorate('requireAdmin', async (request: FastifyRequest) => {
+    const token = bearerToken(request);
+    if (!token) throw ApiError.unauthorized('Нужна авторизация админки');
+    const payload = verifyAdminToken(token);
+    if (payload.dateKey !== mskDateKey()) {
+      throw ApiError.unauthorized('Сессия админки истекла, войдите снова');
+    }
   });
 
   app.decorate('optionalAuth', (request: FastifyRequest) => {

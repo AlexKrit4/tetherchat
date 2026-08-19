@@ -39,8 +39,21 @@ class TetherApi(private val session: SessionStore) {
 
   private val base = BuildConfig.API_URL.trimEnd('/')
 
-  fun login(login: String, password: String): AuthResponse =
-    post<LoginBody, AuthResponse>("/api/auth/login", LoginBody(login, password), authed = false).also(session::save)
+  fun login(login: String, password: String): AuthResponse {
+    val response = post<LoginBody, AuthResponse>("/api/auth/login", LoginBody(login, password), authed = false)
+    if (!response.requires2fa) session.save(response)
+    return response
+  }
+
+  fun loginTotp(ticket: String, code: String): AuthResponse =
+    post<TotpLoginBody, AuthResponse>("/api/auth/login/totp", TotpLoginBody(ticket, code), authed = false).also(session::save)
+
+  fun totpSetup(): TotpSetup = postRaw("/api/auth/2fa/setup", "{}")
+  fun totpEnable(code: String): SelfUser = post("/api/auth/2fa/enable", TotpCodeBody(code))
+  fun totpDisable(code: String, password: String): SelfUser =
+    post("/api/auth/2fa/disable", TotpDisableBody(code, password))
+  fun adminCredentials(code: String): AdminCredentials =
+    post("/api/auth/admin-credentials", TotpCodeBody(code))
 
   fun register(email: String, username: String, password: String): AuthResponse =
     post<RegisterBody, AuthResponse>(
@@ -137,6 +150,23 @@ class TetherApi(private val session: SessionStore) {
   fun openGroup(userIds: List<String>, name: String?): DirectConversation =
     post("/api/dms", CreateGroupDmBody(userIds, name))
   fun leaveGroup(id: String) = postRaw<Unit>("/api/dms/$id/leave", "{}")
+  fun pinConversation(id: String): DirectConversation = postRaw("/api/dms/$id/pin", "{}")
+  fun unpinConversation(id: String): DirectConversation = deleteJson("/api/dms/$id/pin")
+  fun chatMedia(channelId: String, dm: Boolean): List<ChatMediaItem> =
+    get(if (dm) "/api/dms/$channelId/media" else "/api/channels/$channelId/media")
+
+  fun friends(): List<PublicUser> = get("/api/friends")
+  fun incomingFriends(): List<FriendRequest> = get("/api/friends/incoming")
+  fun incomingFriendCount(): Int = get<CountBody>("/api/friends/incoming/count").count
+  fun sendFriendRequest(userId: String) {
+    post<FriendRequestBody, Unit>("/api/friends/requests", FriendRequestBody(userId = userId))
+  }
+  fun acceptFriend(id: String) = postRaw<Unit>("/api/friends/requests/$id/accept", "{}")
+  fun declineFriend(id: String) = postRaw<Unit>("/api/friends/requests/$id/decline", "{}")
+
+  fun reportMessage(messageId: String, comment: String) {
+    post<ReportBody, Unit>("/api/reports", ReportBody(messageId, comment))
+  }
   fun searchUsers(q: String): List<PublicUser> =
     get("/api/users?q=${URLEncoder.encode(q, "UTF-8")}")
 
@@ -213,12 +243,13 @@ class TetherApi(private val session: SessionStore) {
     replyToId: String? = null,
     attachmentIds: List<String>? = null,
     attachmentDurations: Map<String, Int>? = null,
+    attachmentSpoilers: Map<String, Boolean>? = null,
     forwardMessageId: String? = null,
   ): Message {
     val path = if (dm) "/api/dms/$channelId/messages" else "/api/channels/$channelId/messages"
     return post(
       path,
-      SendMessageBody(content, nonce, replyToId, attachmentIds, attachmentDurations, forwardMessageId),
+      SendMessageBody(content, nonce, replyToId, attachmentIds, attachmentDurations, attachmentSpoilers, forwardMessageId),
     )
   }
 
@@ -256,6 +287,7 @@ class TetherApi(private val session: SessionStore) {
   fun revokeOtherSessions() = postRaw<Unit>("/api/auth/sessions/revoke-others", "{}")
 
   fun ensureAccessToken(): String = session.accessToken ?: refresh().accessToken
+    ?: throw ApiException(401, "unauthorized", "Нет сессии")
 
   private inline fun <reified T> get(path: String, authed: Boolean = true): T =
     decode(request(path, "GET", null, authed))
@@ -275,6 +307,9 @@ class TetherApi(private val session: SessionStore) {
   private fun delete(path: String) {
     request(path, "DELETE", null, authed = true)
   }
+
+  private inline fun <reified T> deleteJson(path: String): T =
+    decode(request(path, "DELETE", null, authed = true))
 
   private inline fun <reified T> upload(
     path: String,

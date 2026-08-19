@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { DirectConversation, Message } from '@tetherchat/shared';
 import { prisma } from '../db.js';
-import { closeTestApp, createUser, testApp } from './harness.js';
+import { closeTestApp, createUser, linkFriends, testApp } from './harness.js';
 import type { TestUser } from './harness.js';
 
 let alice: TestUser;
@@ -12,6 +12,9 @@ beforeAll(async () => {
   alice = await createUser();
   bob = await createUser();
   carol = await createUser();
+  await linkFriends(alice, bob);
+  await linkFriends(alice, carol);
+  await linkFriends(bob, carol);
 });
 
 afterAll(async () => {

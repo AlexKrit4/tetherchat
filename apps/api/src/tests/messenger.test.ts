@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import type { DirectConversation, Message, Session } from '@tetherchat/shared';
 import { prisma } from '../db.js';
-import { closeTestApp, createServer, createUser, firstChannel, testApp } from './harness.js';
+import { closeTestApp, createServer, createUser, firstChannel, linkFriends, testApp } from './harness.js';
 import type { TestUser } from './harness.js';
 
 const created: TestUser[] = [];
@@ -32,6 +32,7 @@ describe('read receipts', () => {
     const alice = await createUser();
     const bob = await createUser();
     created.push(alice, bob);
+    await linkFriends(alice, bob);
     const app = await testApp();
 
     const conversation = (
@@ -83,6 +84,8 @@ describe('forward', () => {
     const bob = await createUser();
     const carol = await createUser();
     created.push(alice, bob, carol);
+    await linkFriends(alice, bob);
+    await linkFriends(alice, carol);
     const app = await testApp();
 
     const withBob = (

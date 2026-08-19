@@ -17,6 +17,8 @@ export interface SelfUser extends PublicUser {
   emailVerified: boolean;
   /** When false, Enter inserts a newline and an explicit send button is used. */
   enterToSend: boolean;
+  totpEnabled: boolean;
+  isPlatformAdmin: boolean;
 }
 
 export interface Role {
@@ -82,6 +84,7 @@ export interface Attachment {
   width: number | null;
   height: number | null;
   durationMs?: number | null;
+  spoiler?: boolean;
 }
 
 export interface Reaction {
@@ -146,6 +149,8 @@ export interface DirectConversation {
   /** Peer read cursor for 1:1 DMs only. Absent on groups, servers, and Saved Messages. */
   peerLastReadMessageId?: string | null;
   peerLastReadAt?: string | null;
+  /** Per-member pin in the DM list. Saved Messages stays above pinned chats. */
+  pinned?: boolean;
 }
 
 export interface Session {
@@ -211,6 +216,81 @@ export interface AuthTokens {
 
 export interface AuthResponse extends AuthTokens {
   user: SelfUser;
+}
+
+export interface TotpChallenge {
+  requires2fa: true;
+  ticket: string;
+}
+
+export interface TotpSetup {
+  secret: string;
+  otpauthUrl: string;
+  qrDataUrl: string;
+}
+
+export interface FriendRequest {
+  id: string;
+  createdAt: string;
+  from: PublicUser;
+  to: PublicUser;
+}
+
+export interface ChatMediaItem {
+  id: string;
+  messageId: string;
+  url: string;
+  filename: string;
+  contentType: string;
+  width: number | null;
+  height: number | null;
+  spoiler: boolean;
+  createdAt: string;
+}
+
+export interface ReportAttachmentSnapshot {
+  url: string;
+  filename: string;
+  contentType: string;
+  spoiler: boolean;
+}
+
+export type ReportStatus = 'pending' | 'pardoned' | 'banned';
+
+export interface MessageReport {
+  id: string;
+  messageId: string | null;
+  reporter: PublicUser;
+  target: PublicUser;
+  comment: string;
+  status: ReportStatus;
+  createdAt: string;
+  resolvedAt: string | null;
+  messageContent: string;
+  messageCreatedAt: string;
+  attachments: ReportAttachmentSnapshot[];
+  ban: SiteBan | null;
+}
+
+export interface SiteBan {
+  id: string;
+  user: PublicUser;
+  reason: string;
+  expiresAt: string | null;
+  createdAt: string;
+  liftedAt: string | null;
+}
+
+export interface AdminCredentials {
+  login: string;
+  password: string;
+  expiresAt: string;
+  dateKey: string;
+}
+
+export interface AdminSession {
+  accessToken: string;
+  expiresAt: string;
 }
 
 export interface ApiErrorBody {

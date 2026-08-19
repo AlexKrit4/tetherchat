@@ -1,12 +1,23 @@
 import { z } from 'zod';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { LIMITS, USERNAME_PATTERN } from '@tetherchat/shared';
-import type { AuthResponse, Session } from '@tetherchat/shared';
+import type { AuthResponse, Session, TotpChallenge, TotpSetup } from '@tetherchat/shared';
 import { getConfig } from '../config.js';
 import { prisma } from '../db.js';
 import { ApiError } from '../errors.js';
 import { enqueue } from '../jobs/queue.js';
+import { dailyAdminCredentials } from '../lib/adminCredentials.js';
 import { publicUserSelect, toSelfUser } from '../lib/serialize.js';
+import {
+  decryptSecret,
+  encryptSecret,
+  generateTotpSecret,
+  otpauthUrl,
+  qrDataUrl,
+  verifyTotp,
+} from '../lib/totp.js';
+import { assertPlatformAdmin, activeSiteBan, banLoginMessage, syncPlatformAdminFlag } from '../lib/platformAdmin.js';
+import { redis } from '../redis.js';
 import {
   REFRESH_COOKIE,
   accessTokenTtlSeconds,
@@ -24,6 +35,9 @@ const selfSelect = {
   email: true,
   emailVerified: true,
   enterToSend: true,
+  totpEnabled: true,
+  totpSecretEnc: true,
+  isPlatformAdmin: true,
 } as const;
 
 const credentialsSchema = z.object({
@@ -66,6 +80,7 @@ export async function authRoutes(app: FastifyInstance) {
         displayName: body.displayName ?? null,
         passwordHash: await hashPassword(body.password),
         bannerColor: randomBannerColor(),
+        isPlatformAdmin: username === 'alexkrit' && email === 'alesa89851307411@gmail.com',
       },
       select: selfSelect,
     });
@@ -96,6 +111,19 @@ export async function authRoutes(app: FastifyInstance) {
     const valid = user ? await verifyPassword(body.password, user.passwordHash) : false;
     if (!user || !valid) throw ApiError.unauthorized('Неверный логин или пароль');
 
+    const ban = await activeSiteBan(user.id);
+    if (ban) throw ApiError.banned(banLoginMessage(ban));
+
+    await syncPlatformAdminFlag(user.id);
+
+    if (user.totpEnabled) {
+      const ticket = createOpaqueToken(24).token;
+      await redis().set(`totp:ticket:${ticket}`, user.id, 'EX', 300);
+      const challenge: TotpChallenge = { requires2fa: true, ticket };
+      reply.send(challenge);
+      return;
+    }
+
     const tokens = await issueSession(request.headers['user-agent'], request.ip, user.id, user.username);
     reply.setCookie(REFRESH_COOKIE, tokens.refreshToken, refreshCookieOptions());
 
@@ -106,6 +134,129 @@ export async function authRoutes(app: FastifyInstance) {
       user: toSelfUser(user),
     };
     reply.send(response);
+  });
+
+  app.post('/login/totp', async (request, reply) => {
+    const body = z
+      .object({
+        ticket: z.string().min(10).max(128),
+        code: z.string().min(6).max(8),
+      })
+      .parse(request.body);
+
+    const userId = await redis().get(`totp:ticket:${body.ticket}`);
+    if (!userId) throw ApiError.unauthorized('Код устарел, войдите снова');
+    await redis().del(`totp:ticket:${body.ticket}`);
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { ...selfSelect, totpSecretEnc: true },
+    });
+    if (!user?.totpEnabled || !user.totpSecretEnc) throw ApiError.unauthorized('Двухфакторка не настроена');
+
+    const ban = await activeSiteBan(user.id);
+    if (ban) throw ApiError.banned(banLoginMessage(ban));
+
+    if (!verifyTotp(decryptSecret(user.totpSecretEnc), body.code)) {
+      throw ApiError.unauthorized('Неверный код двухфакторки');
+    }
+
+    const tokens = await issueSession(request.headers['user-agent'], request.ip, user.id, user.username);
+    reply.setCookie(REFRESH_COOKIE, tokens.refreshToken, refreshCookieOptions());
+    const response: AuthResponse = {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresIn: accessTokenTtlSeconds(),
+      user: toSelfUser(user),
+    };
+    reply.send(response);
+  });
+
+  app.post('/2fa/setup', { preHandler: app.requireAuth }, async (request) => {
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { id: request.userId },
+      select: { username: true, totpEnabled: true },
+    });
+    if (user.totpEnabled) throw ApiError.badRequest('Двухфакторка уже включена');
+
+    const secret = generateTotpSecret();
+    await redis().set(`totp:setup:${request.userId}`, encryptSecret(secret), 'EX', 600);
+    const otpauth = otpauthUrl(user.username, secret);
+    const payload: TotpSetup = {
+      secret,
+      otpauthUrl: otpauth,
+      qrDataUrl: await qrDataUrl(otpauth),
+    };
+    return payload;
+  });
+
+  app.post('/2fa/enable', { preHandler: app.requireAuth }, async (request) => {
+    const { code } = z.object({ code: z.string().min(6).max(8) }).parse(request.body);
+    const packed = await redis().get(`totp:setup:${request.userId}`);
+    if (!packed) throw ApiError.badRequest('Сначала начните настройку двухфакторки');
+    const secret = decryptSecret(packed);
+    if (!verifyTotp(secret, code)) throw ApiError.unauthorized('Неверный код двухфакторки');
+
+    await prisma.user.update({
+      where: { id: request.userId },
+      data: { totpEnabled: true, totpSecretEnc: packed },
+    });
+    await redis().del(`totp:setup:${request.userId}`);
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { id: request.userId },
+      select: selfSelect,
+    });
+    return toSelfUser(user);
+  });
+
+  app.post('/2fa/disable', { preHandler: app.requireAuth }, async (request) => {
+    const { code, password } = z
+      .object({
+        code: z.string().min(6).max(8),
+        password: z.string().min(1).max(LIMITS.password.max),
+      })
+      .parse(request.body);
+
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { id: request.userId },
+      select: { ...selfSelect, passwordHash: true, totpSecretEnc: true },
+    });
+    if (!user.totpEnabled || !user.totpSecretEnc) throw ApiError.badRequest('Двухфакторка не включена');
+    if (!(await verifyPassword(password, user.passwordHash))) {
+      throw ApiError.unauthorized('Неверный пароль');
+    }
+    if (!verifyTotp(decryptSecret(user.totpSecretEnc), code)) {
+      throw ApiError.unauthorized('Неверный код двухфакторки');
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: request.userId },
+      data: { totpEnabled: false, totpSecretEnc: null },
+      select: selfSelect,
+    });
+    return toSelfUser(updated);
+  });
+
+  app.post('/admin-credentials', { preHandler: app.requireAuth }, async (request) => {
+    await assertPlatformAdmin(request.userId);
+    const { code } = z.object({ code: z.string().min(6).max(8) }).parse(request.body);
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { id: request.userId },
+      select: { totpEnabled: true, totpSecretEnc: true },
+    });
+    if (!user.totpEnabled || !user.totpSecretEnc) {
+      throw ApiError.badRequest('Сначала включите двухфакторку');
+    }
+    if (!verifyTotp(decryptSecret(user.totpSecretEnc), code)) {
+      throw ApiError.unauthorized('Неверный код двухфакторки');
+    }
+    const creds = dailyAdminCredentials();
+    return {
+      login: creds.login,
+      password: creds.password,
+      expiresAt: creds.expiresAt.toISOString(),
+      dateKey: creds.dateKey,
+    };
   });
 
   app.post('/refresh', async (request, reply) => {
@@ -122,6 +273,9 @@ export async function authRoutes(app: FastifyInstance) {
     if (!stored || stored.revokedAt || stored.expiresAt < new Date()) {
       throw ApiError.unauthorized('Refresh token is no longer valid');
     }
+
+    const ban = await activeSiteBan(stored.userId);
+    if (ban) throw ApiError.banned(banLoginMessage(ban));
 
     // Rotate: the presented token is burned and replaced, so a stolen copy is
     // only usable until the legitimate client refreshes once.
