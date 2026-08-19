@@ -515,6 +515,12 @@ data class ChatMediaItem(
 }
 
 @Serializable
+data class MediaPage(
+  val items: List<ChatMediaItem> = emptyList(),
+  val hasMore: Boolean = false,
+)
+
+@Serializable
 data class ReportAttachmentSnapshot(
   val url: String = "",
   val filename: String = "",

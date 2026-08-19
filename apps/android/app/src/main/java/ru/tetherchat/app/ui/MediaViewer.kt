@@ -2,8 +2,11 @@ package ru.tetherchat.app.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -31,6 +34,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -61,19 +65,19 @@ fun MediaViewer(
   val pager = rememberPagerState(initialPage = start, pageCount = { items.size })
   var revealed by remember { mutableStateOf(setOf<String>()) }
   var scale by remember { mutableFloatStateOf(1f) }
-  var offset by remember { mutableStateOf(Offset.Zero) }
 
-  LaunchedEffect(pager.currentPage) {
-    scale = 1f
-    offset = Offset.Zero
-  }
+  LaunchedEffect(pager.currentPage) { scale = 1f }
 
-  Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+  Dialog(
+    onDismissRequest = onClose,
+    properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+  ) {
     Box(Modifier.fillMaxSize().background(Color.Black)) {
       HorizontalPager(
         state = pager,
         modifier = Modifier.fillMaxSize(),
-        userScrollEnabled = scale <= 1.01f,
+        userScrollEnabled = scale <= 1.05f,
+        beyondViewportPageCount = 1,
       ) { page ->
         val item = items[page]
         val hidden = item.spoiler && item.id !in revealed
@@ -83,10 +87,7 @@ fun MediaViewer(
               url = item.url,
               filename = item.filename,
               spoiler = hidden,
-              scale = scale,
-              offset = offset,
-              onScale = { scale = it },
-              onOffset = { offset = it },
+              onScaleChange = { scale = it },
               onReveal = { revealed = revealed + item.id },
             )
           } else {
@@ -122,34 +123,52 @@ private fun ZoomableImage(
   url: String,
   filename: String,
   spoiler: Boolean,
-  scale: Float,
-  offset: Offset,
-  onScale: (Float) -> Unit,
-  onOffset: (Offset) -> Unit,
+  onScaleChange: (Float) -> Unit,
   onReveal: () -> Unit,
 ) {
+  val scale = remember(url) { mutableFloatStateOf(1f) }
+  val offset = remember(url) { mutableStateOf(Offset.Zero) }
+
+  fun applyScale(next: Float) {
+    val clamped = next.coerceIn(1f, 6f)
+    scale.floatValue = clamped
+    onScaleChange(clamped)
+    if (clamped <= 1.01f) offset.value = Offset.Zero
+  }
+
   Box(
     modifier = Modifier
       .fillMaxSize()
+      .pointerInput(url) {
+        awaitEachGesture {
+          awaitFirstDown(requireUnconsumed = false)
+          do {
+            val event = awaitPointerEvent()
+            val pressed = event.changes.count { it.pressed }
+            val zoom = event.calculateZoom()
+            val pan = event.calculatePan()
+            if (pressed >= 2) {
+              applyScale(scale.floatValue * zoom)
+              if (scale.floatValue > 1f) offset.value += pan
+              event.changes.forEach { change ->
+                if (change.positionChanged()) change.consume()
+              }
+            } else if (pressed == 1 && scale.floatValue > 1.05f) {
+              offset.value += pan
+              event.changes.forEach { change ->
+                if (change.positionChanged()) change.consume()
+              }
+            }
+          } while (event.changes.any { it.pressed })
+        }
+      }
       .pointerInput(url, spoiler) {
         detectTapGestures(
           onTap = { if (spoiler) onReveal() },
           onDoubleTap = {
-            if (scale > 1.2f) {
-              onScale(1f)
-              onOffset(Offset.Zero)
-            } else {
-              onScale(2.5f)
-            }
+            if (scale.floatValue > 1.2f) applyScale(1f) else applyScale(2.8f)
           },
         )
-      }
-      .pointerInput(url) {
-        detectTransformGestures { _, pan, zoom, _ ->
-          val next = (scale * zoom).coerceIn(1f, 5f)
-          onScale(next)
-          onOffset(if (next > 1f) offset + pan else Offset.Zero)
-        }
       },
     contentAlignment = Alignment.Center,
   ) {
@@ -161,10 +180,10 @@ private fun ZoomableImage(
         .fillMaxWidth()
         .padding(8.dp)
         .graphicsLayer {
-          scaleX = scale
-          scaleY = scale
-          translationX = offset.x
-          translationY = offset.y
+          scaleX = scale.floatValue
+          scaleY = scale.floatValue
+          translationX = offset.value.x
+          translationY = offset.value.y
         }
         .then(if (spoiler) Modifier.blur(28.dp) else Modifier),
     )

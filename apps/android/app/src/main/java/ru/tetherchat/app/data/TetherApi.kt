@@ -153,7 +153,7 @@ class TetherApi(private val session: SessionStore) {
   fun pinConversation(id: String): DirectConversation = postRaw("/api/dms/$id/pin", "{}")
   fun unpinConversation(id: String): DirectConversation = deleteJson("/api/dms/$id/pin")
   fun chatMedia(channelId: String, dm: Boolean): List<ChatMediaItem> =
-    get(if (dm) "/api/dms/$channelId/media" else "/api/channels/$channelId/media")
+    get<MediaPage>(if (dm) "/api/dms/$channelId/media" else "/api/channels/$channelId/media").items
 
   fun friends(): List<PublicUser> = get("/api/friends")
   fun incomingFriends(): List<FriendRequest> = get("/api/friends/incoming")

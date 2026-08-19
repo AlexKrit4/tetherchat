@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { isImageMime, isVideoMime } from '@tetherchat/shared';
 import type { Attachment, ChatMediaItem } from '@tetherchat/shared';
@@ -21,9 +21,12 @@ export function MediaLightbox<T extends Media>({
   const t = useT();
   const [scale, setScale] = useState(1);
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
+  const stageRef = useRef<HTMLDivElement>(null);
+  const scaleRef = useRef(1);
 
   useEffect(() => {
     setScale(1);
+    scaleRef.current = 1;
   }, [current?.id]);
 
   useEffect(() => {
@@ -36,6 +39,47 @@ export function MediaLightbox<T extends Media>({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   });
+
+  useEffect(() => {
+    const node = stageRef.current;
+    if (!node || !current) return;
+    let startDistance = 0;
+    let startScale = 1;
+
+    const distance = (touches: TouchList) => {
+      const first = touches.item(0);
+      const second = touches.item(1);
+      if (!first || !second) return 0;
+      return Math.hypot(first.clientX - second.clientX, first.clientY - second.clientY);
+    };
+
+    const onStart = (event: TouchEvent) => {
+      if (event.touches.length < 2) return;
+      startDistance = distance(event.touches);
+      startScale = scaleRef.current;
+    };
+    const onMove = (event: TouchEvent) => {
+      if (event.touches.length < 2 || startDistance <= 0) return;
+      event.preventDefault();
+      const next = Math.min(5, Math.max(1, startScale * (distance(event.touches) / startDistance)));
+      scaleRef.current = next;
+      setScale(next);
+    };
+    const onEnd = () => {
+      startDistance = 0;
+    };
+
+    node.addEventListener('touchstart', onStart, { passive: true });
+    node.addEventListener('touchmove', onMove, { passive: false });
+    node.addEventListener('touchend', onEnd);
+    node.addEventListener('touchcancel', onEnd);
+    return () => {
+      node.removeEventListener('touchstart', onStart);
+      node.removeEventListener('touchmove', onMove);
+      node.removeEventListener('touchend', onEnd);
+      node.removeEventListener('touchcancel', onEnd);
+    };
+  }, [current?.id]);
 
   if (!current) return null;
   const index = Math.max(0, items.findIndex((item) => item.id === current.id));
@@ -55,7 +99,11 @@ export function MediaLightbox<T extends Media>({
       onClick={onClose}
       onWheel={(event) => {
         event.preventDefault();
-        setScale((value) => Math.min(5, Math.max(1, value + (event.deltaY < 0 ? 0.15 : -0.15))));
+        setScale((value) => {
+          const next = Math.min(5, Math.max(1, value + (event.deltaY < 0 ? 0.15 : -0.15)));
+          scaleRef.current = next;
+          return next;
+        });
       }}
     >
       <button
@@ -94,13 +142,14 @@ export function MediaLightbox<T extends Media>({
       ) : null}
 
       <div
-        className="flex max-h-full max-w-full items-center justify-center p-4"
+        ref={stageRef}
+        className="flex max-h-full max-w-full touch-none items-center justify-center p-4"
         onClick={(event) => event.stopPropagation()}
       >
         {isImageMime(current.contentType) ? (
           <button
             type="button"
-            className="relative"
+            className="relative touch-none"
             onClick={() => {
               if (spoiler) setRevealed((set) => new Set(set).add(current.id));
             }}
@@ -110,7 +159,7 @@ export function MediaLightbox<T extends Media>({
               alt={current.filename}
               style={{ transform: `scale(${scale})` }}
               className={cn(
-                'max-h-[90dvh] max-w-[90vw] rounded-lg object-contain transition',
+                'max-h-[90dvh] max-w-[90vw] rounded-lg object-contain',
                 spoiler && 'blur-2xl brightness-50',
               )}
               draggable={false}
