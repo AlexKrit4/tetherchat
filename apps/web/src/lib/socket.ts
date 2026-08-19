@@ -2,6 +2,7 @@ import { io } from 'socket.io-client';
 import type { Socket } from 'socket.io-client';
 import type { ClientToServerEvents, ServerToClientEvents } from '@tetherchat/shared';
 import { API_BASE, getAccessToken, refreshSession } from './api';
+import { isSessionParked } from './appForeground';
 
 export type AppSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
@@ -38,6 +39,7 @@ export function getSocket(): AppSocket {
 
 export function connectSocket(): AppSocket {
   const instance = getSocket();
+  if (isSessionParked()) return instance;
   if (!instance.connected) instance.connect();
   return instance;
 }

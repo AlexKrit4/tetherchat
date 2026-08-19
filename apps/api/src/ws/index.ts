@@ -1,7 +1,7 @@
 import { createAdapter } from '@socket.io/redis-adapter';
 import { Server as SocketServer } from 'socket.io';
 import type { FastifyInstance } from 'fastify';
-import { TYPING_TIMEOUT_MS, socketRooms } from '@tetherchat/shared';
+import { TYPING_TIMEOUT_MS, socketRooms, PRESENCE_STATUSES } from '@tetherchat/shared';
 import type { AckResult } from '@tetherchat/shared';
 import { getConfig } from '../config.js';
 import { prisma } from '../db.js';
@@ -18,6 +18,7 @@ import { ackChannel } from '../services/readStateService.js';
 import { broadcastPresence, registerSession, setStatus, unregisterSession } from './presence.js';
 import { setRealtimeServer } from './realtime.js';
 import type { SocketData, TypedServer } from './realtime.js';
+import { handshakeIsSilent } from './silent.js';
 
 interface TypingEntry {
   userId: string;
@@ -86,6 +87,7 @@ export async function attachSocketServer(app: FastifyInstance): Promise<TypedSer
       const data = socket.data as SocketData;
       data.userId = payload.sub;
       data.username = payload.username;
+      data.silent = handshakeIsSilent(socket.handshake.auth, socket.handshake.query);
       next();
     } catch {
       next(new Error('unauthorized'));
@@ -93,18 +95,21 @@ export async function attachSocketServer(app: FastifyInstance): Promise<TypedSer
   });
 
   io.on('connection', (socket) => {
-    const { userId } = socket.data;
+    const { userId, silent } = socket.data;
 
     void (async () => {
       const rooms = await roomsForUser(userId);
       await socket.join(rooms);
 
-      const sessions = await registerSession(userId, socket.id).catch(() => 1);
-      if (sessions === 1) {
-        const user = await prisma.user.findUnique({ where: { id: userId }, select: { status: true } });
-        const next = user?.status === 'invisible' ? 'invisible' : 'online';
-        await setStatus(userId, next);
-        await broadcastPresence(userId, next);
+      if (!silent) {
+        const sessions = await registerSession(userId, socket.id).catch(() => 1);
+        if (sessions === 1) {
+          const user = await prisma.user.findUnique({ where: { id: userId }, select: { status: true } });
+          const stored = user?.status ?? 'online';
+          const next = stored === 'offline' ? 'online' : stored;
+          await setStatus(userId, next);
+          await broadcastPresence(userId, next);
+        }
       }
 
       socket.emit('ready', { userId, sessionId: socket.id });
@@ -180,6 +185,8 @@ export async function attachSocketServer(app: FastifyInstance): Promise<TypedSer
     socket.on('typing:stop', ({ channelId }) => clearTyping(channelId, userId, io));
 
     socket.on('presence:update', ({ status }) => {
+      if (silent) return;
+      if (!PRESENCE_STATUSES.includes(status)) return;
       void (async () => {
         await setStatus(userId, status);
         await broadcastPresence(userId, status);
@@ -199,11 +206,15 @@ export async function attachSocketServer(app: FastifyInstance): Promise<TypedSer
     });
 
     socket.on('disconnect', () => {
+      if (silent) return;
       void (async () => {
         clearTyping(channelsOfSocket(socket.rooms), userId, io);
         const remaining = await unregisterSession(userId, socket.id).catch(() => 0);
         if (remaining === 0) {
-          await setStatus(userId, 'offline');
+          const user = await prisma.user.findUnique({ where: { id: userId }, select: { status: true } });
+          if (user?.status !== 'invisible') {
+            await setStatus(userId, 'offline');
+          }
           await broadcastPresence(userId, 'offline');
         }
       })();

@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { DirectConversation, Message, PresenceStatus, ReadState, ServerMember } from '@tetherchat/shared';
 import { queryKeys } from '@/lib/queryKeys';
 import { connectSocket, getSocket } from '@/lib/socket';
+import { isSessionParked } from '@/lib/appForeground';
 import { notifyIncomingMessage } from '@/lib/push';
 import { messageCache } from './useMessages';
 import { useAuthStore } from '@/stores/authStore';
@@ -28,8 +29,17 @@ export function useRealtime(): ConnectionState {
 
     const socket = connectSocket();
 
-    const onConnect = () => setConnection('connected');
-    const onDisconnect = () => setConnection('reconnecting');
+    const onConnect = () => {
+      setConnection('connected');
+      const preferred = useAuthStore.getState().user?.status;
+      if (preferred && preferred !== 'offline') {
+        socket.emit('presence:update', { status: preferred });
+      }
+    };
+    const onDisconnect = () => {
+      if (isSessionParked()) return;
+      setConnection('reconnecting');
+    };
     const onConnectError = () => setConnection('offline');
 
     const onMessageNew = (message: Message) => {

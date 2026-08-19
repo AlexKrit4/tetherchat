@@ -1,6 +1,7 @@
 import type { Message } from '@tetherchat/shared';
 import { api } from './api';
 import { isInstalledAndroidApp } from './androidApp';
+import { isAppInBackground } from './appForeground';
 
 export interface PushState {
   supported: boolean;
@@ -13,6 +14,7 @@ const SUBSCRIBED_KEY = 'tetherchat:push-subscribed';
 interface NativeNotifier {
   showNotification(title: string, body: string, url: string): void;
   notificationsAllowed(): boolean;
+  requestNotifications?(): void;
 }
 
 declare global {
@@ -44,12 +46,22 @@ export function pushState(): PushState {
   if (!pushSupported()) {
     return { supported: false, permission: 'unsupported', subscribed: false };
   }
+  const native = nativeNotifier();
   const permission: NotificationPermission | 'unsupported' =
-    typeof Notification === 'undefined' ? 'unsupported' : Notification.permission;
+    typeof Notification === 'undefined'
+      ? native
+        ? native.notificationsAllowed()
+          ? 'granted'
+          : 'default'
+        : 'unsupported'
+      : Notification.permission;
+  const subscribed =
+    localStorage.getItem(SUBSCRIBED_KEY) === '1' ||
+    (native?.notificationsAllowed() ?? false);
   return {
     supported: true,
     permission,
-    subscribed: localStorage.getItem(SUBSCRIBED_KEY) === '1',
+    subscribed,
   };
 }
 
@@ -68,48 +80,47 @@ export type EnablePushResult = 'enabled' | 'denied' | 'unsupported' | 'no-key';
 
 export async function enablePush(): Promise<EnablePushResult> {
   if (!pushSupported()) return 'unsupported';
+  nativeNotifier()?.requestNotifications?.();
 
   if (webPushSupported()) {
     const permission = await Notification.requestPermission();
-    if (permission !== 'granted') return 'denied';
+    if (permission === 'granted') {
+      const { publicKey } = await api
+        .get<{ publicKey: string | null }>('/api/push/public-key')
+        .catch(() => ({ publicKey: null }));
 
-    const { publicKey } = await api
-      .get<{ publicKey: string | null }>('/api/push/public-key')
-      .catch(() => ({ publicKey: null }));
+      const key = publicKey ?? import.meta.env.VITE_VAPID_PUBLIC_KEY;
+      if (key) {
+        try {
+          const registration = await navigator.serviceWorker.ready;
+          const existing = await registration.pushManager.getSubscription();
+          const subscription =
+            existing ??
+            (await registration.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlBase64ToBytes(key),
+            }));
 
-    const key = publicKey ?? import.meta.env.VITE_VAPID_PUBLIC_KEY;
-    if (!key) {
-      if (nativeNotifier()) {
-        localStorage.setItem(SUBSCRIBED_KEY, '1');
-        return 'enabled';
+          const payload = subscription.toJSON() as {
+            endpoint?: string;
+            keys?: { p256dh?: string; auth?: string };
+          };
+          if (payload.endpoint && payload.keys?.p256dh && payload.keys.auth) {
+            await api.post('/api/push/subscribe', {
+              endpoint: payload.endpoint,
+              keys: { p256dh: payload.keys.p256dh, auth: payload.keys.auth },
+            });
+            localStorage.setItem(SUBSCRIBED_KEY, '1');
+            return 'enabled';
+          }
+        } catch {
+          if (!nativeNotifier()) return 'unsupported';
+        }
+      } else if (!nativeNotifier()) {
+        return 'no-key';
       }
-      return 'no-key';
-    }
-
-    try {
-      const registration = await navigator.serviceWorker.ready;
-      const existing = await registration.pushManager.getSubscription();
-      const subscription =
-        existing ??
-        (await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToBytes(key),
-        }));
-
-      const payload = subscription.toJSON() as {
-        endpoint?: string;
-        keys?: { p256dh?: string; auth?: string };
-      };
-      if (payload.endpoint && payload.keys?.p256dh && payload.keys.auth) {
-        await api.post('/api/push/subscribe', {
-          endpoint: payload.endpoint,
-          keys: { p256dh: payload.keys.p256dh, auth: payload.keys.auth },
-        });
-        localStorage.setItem(SUBSCRIBED_KEY, '1');
-        return 'enabled';
-      }
-    } catch {
-      if (!nativeNotifier()) return 'unsupported';
+    } else if (!nativeNotifier()) {
+      return 'denied';
     }
   }
 
@@ -122,12 +133,16 @@ export async function enablePush(): Promise<EnablePushResult> {
 }
 
 /**
- * After login, subscribe without a toast. The permission prompt is the point:
- * without it, a closed Android app never hears about new messages.
+ * Re-subscribe when permission is already granted. Do not prompt here — browsers
+ * and Android WebView ignore (or deny) Notification.requestPermission() without
+ * a user gesture; the in-app banner owns that click.
  */
 export async function ensurePushSubscription(): Promise<void> {
   if (!pushSupported()) return;
+  const native = nativeNotifier();
+  if (native?.notificationsAllowed()) localStorage.setItem(SUBSCRIBED_KEY, '1');
   if (typeof Notification !== 'undefined' && Notification.permission === 'denied') return;
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
   await enablePush().catch(() => undefined);
 }
 
@@ -151,7 +166,7 @@ export function messageDeepLink(message: Message): string {
 /** Local banner when the page is hidden; Web Push covers the process-killed case. */
 export function notifyIncomingMessage(message: Message, currentUserId: string | undefined): void {
   if (!currentUserId || message.authorId === currentUserId) return;
-  if (typeof document === 'undefined' || document.visibilityState !== 'hidden') return;
+  if (!isAppInBackground()) return;
   if (localStorage.getItem(SUBSCRIBED_KEY) !== '1' && !isInstalledAndroidApp()) return;
 
   const title = message.author.displayName ?? message.author.username;

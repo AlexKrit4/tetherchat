@@ -5,6 +5,8 @@ import type { ClientToServerEvents, ServerToClientEvents } from '@tetherchat/sha
 export interface SocketData {
   userId: string;
   username: string;
+  /** Background notification client: receives events but does not count as "in the app". */
+  silent: boolean;
 }
 
 export type TypedServer = SocketServer<

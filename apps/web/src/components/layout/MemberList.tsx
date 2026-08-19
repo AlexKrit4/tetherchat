@@ -11,6 +11,7 @@ import { SidebarSkeleton } from '@/components/ui/Skeleton';
 import { UserProfileDialog } from '@/components/modals/UserProfileDialog';
 import { usePresenceStore } from '@/stores/presenceStore';
 import { useAuthStore } from '@/stores/authStore';
+import { isPresentOnline } from '@/lib/presence';
 
 interface MemberSection {
   key: string;
@@ -28,8 +29,8 @@ function buildSections(
   liveStatuses: Record<string, string>,
 ): MemberSection[] {
   const statusOf = (member: ServerMember) => liveStatuses[member.userId] ?? member.user.status;
-  const online = members.filter((member) => statusOf(member) !== 'offline');
-  const offline = members.filter((member) => statusOf(member) === 'offline');
+  const online = members.filter((member) => isPresentOnline(statusOf(member)));
+  const offline = members.filter((member) => !isPresentOnline(statusOf(member)));
 
   const hoisted = [...roles]
     .filter((role) => role.hoist && !role.isDefault)

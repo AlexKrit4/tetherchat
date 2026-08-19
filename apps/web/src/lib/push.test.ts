@@ -59,6 +59,11 @@ describe('notifyIncomingMessage', () => {
     notifyIncomingMessage(message(), 'u1');
     expect(showNotification).not.toHaveBeenCalled();
 
+    window.__tetherchatNativeBackground = true;
+    notifyIncomingMessage(message(), 'u1');
+    expect(showNotification).toHaveBeenCalledTimes(1);
+
     delete window.TetherChatNative;
+    delete window.__tetherchatNativeBackground;
   });
 });

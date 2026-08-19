@@ -12,6 +12,11 @@ class TetherChatBridge(private val activity: MainActivity) {
     fun notificationsAllowed(): Boolean = NotificationHelper.areEnabled(activity)
 
     @JavascriptInterface
+    fun requestNotifications() {
+        activity.runOnUiThread { activity.requestNotificationPermission() }
+    }
+
+    @JavascriptInterface
     fun showNotification(title: String?, body: String?, url: String?) {
         val safeTitle = title?.trim().orEmpty()
         val safeBody = body?.trim().orEmpty()

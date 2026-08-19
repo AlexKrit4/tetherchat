@@ -64,7 +64,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
         applySystemBarInsets()
 
-        NotificationHelper.ensureChannel(this)
+        NotificationHelper.ensureChannels(this)
         requestNotificationPermissionIfNeeded()
         setupWebView()
         setupBackPress()
@@ -326,9 +326,26 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    override fun onPause() {
-        super.onPause()
+    override fun onStart() {
+        super.onStart()
+        stopService(Intent(this, MessagePushService::class.java))
+        dispatchJsLifecycle(FOREGROUND_JS)
+    }
+
+    override fun onStop() {
         CookieManager.getInstance().flush()
+        dispatchJsLifecycle(BACKGROUND_JS)
+        if (!isChangingConfigurations && SessionRefresh.hasRefreshCookie(BuildConfig.WEB_URL)) {
+            ContextCompat.startForegroundService(this, Intent(this, MessagePushService::class.java))
+        }
+        super.onStop()
+    }
+
+    private fun dispatchJsLifecycle(script: String) {
+        if (!::binding.isInitialized) {
+            return
+        }
+        binding.webView.evaluateJavascript(script, null)
     }
 
     override fun onDestroy() {
@@ -338,9 +355,17 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
+    fun requestNotificationPermission() {
+        requestNotificationPermissionIfNeeded()
+    }
+
     companion object {
         const val REQUEST_FILE = 1001
 
         private val ALLOWED_SCHEMES = setOf("http", "https")
+        private const val BACKGROUND_JS =
+            "(function(){try{window.__tetherchatNativeBackground=true;if(typeof window.__tetherchatOnBackground==='function')window.__tetherchatOnBackground();}catch(e){}})();"
+        private const val FOREGROUND_JS =
+            "(function(){try{window.__tetherchatNativeBackground=false;if(typeof window.__tetherchatOnForeground==='function')window.__tetherchatOnForeground();}catch(e){}})();"
     }
 }
