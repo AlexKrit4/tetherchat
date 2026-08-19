@@ -127,6 +127,29 @@ describe('auth', () => {
     expect(replay.statusCode).toBe(401);
   });
 
+  it('returns a refresh token in JSON so native apps can persist a session', async () => {
+    const user = await createUser();
+    created.push(user);
+    const app = await testApp();
+
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { login: user.email, password: user.password },
+    });
+    const body = login.json<AuthResponse>();
+    expect(body.refreshToken).toBeTruthy();
+
+    const refreshed = await app.inject({
+      method: 'POST',
+      url: '/api/auth/refresh',
+      payload: { refreshToken: body.refreshToken },
+    });
+    expect(refreshed.statusCode).toBe(200);
+    expect(refreshed.json<AuthResponse>().accessToken).toBeTruthy();
+    expect(refreshed.json<AuthResponse>().refreshToken).toBeTruthy();
+  });
+
   it('revokes the session on logout', async () => {
     const user = await createUser();
     created.push(user);

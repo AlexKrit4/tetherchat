@@ -1,6 +1,5 @@
 package ru.tetherchat.app
 
-import android.app.Notification
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
@@ -12,6 +11,8 @@ import androidx.core.app.ServiceCompat
 import io.socket.client.IO
 import io.socket.client.Socket
 import org.json.JSONObject
+import ru.tetherchat.app.data.SessionStore
+import ru.tetherchat.app.data.TetherApi
 import java.net.URI
 
 class MessagePushService : Service() {
@@ -44,10 +45,6 @@ class MessagePushService : Service() {
     super.onDestroy()
   }
 
-  override fun onTaskRemoved(rootIntent: Intent?) {
-    super.onTaskRemoved(rootIntent)
-  }
-
   private fun enterForeground() {
     val notification = NotificationHelper.foregroundNotification(this)
     try {
@@ -71,7 +68,7 @@ class MessagePushService : Service() {
     val manager = getSystemService(POWER_SERVICE) as PowerManager
     wakeLock = manager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "tetherchat:push").apply {
       setReferenceCounted(false)
-      acquire(4 * 60 * 60 * 1000L)
+      acquire(6 * 60 * 60 * 1000L)
     }
   }
 
@@ -84,7 +81,13 @@ class MessagePushService : Service() {
   }
 
   private fun connectSocket() {
-    val token = SessionRefresh.accessToken(BuildConfig.WEB_URL)
+    val store = SessionStore.get(this)
+    if (!store.hasSession) {
+      stopSelf()
+      return
+    }
+    val api = TetherApi(store)
+    val token = runCatching { api.ensureAccessToken() }.getOrNull()
     if (token.isNullOrBlank()) {
       Log.w(TAG, "no session; stopping")
       stopSelf()
@@ -100,10 +103,10 @@ class MessagePushService : Service() {
       query = "silent=1"
       auth = hashMapOf("token" to token, "silent" to "true")
     }
-    val next = IO.socket(URI.create(BuildConfig.WEB_URL), options)
+    val next = IO.socket(URI.create(BuildConfig.API_URL), options)
     next.on("message:new") { args ->
       val message = args.firstOrNull() as? JSONObject ?: return@on
-      showIncoming(message, token)
+      showIncoming(message, store.userId)
     }
     next.on(Socket.EVENT_CONNECT_ERROR) { args ->
       Log.w(TAG, "socket error ${args.firstOrNull()}")
@@ -112,12 +115,11 @@ class MessagePushService : Service() {
     socket = next
   }
 
-  private fun showIncoming(message: JSONObject, token: String) {
+  private fun showIncoming(message: JSONObject, meId: String?) {
     val author = message.optJSONObject("author")
     val authorId = author?.optString("id").orEmpty()
-    if (authorId.isNotBlank() && authorId == currentUserId(token)) return
-    val title = author?.optString("displayName")
-      ?.ifBlank { null }
+    if (authorId.isNotBlank() && authorId == meId) return
+    val title = author?.optString("displayName")?.ifBlank { null }
       ?: author?.optString("username")
       ?: "TetherChat"
     val attachments = message.optJSONArray("attachments")?.length() ?: 0
@@ -125,30 +127,15 @@ class MessagePushService : Service() {
       if (attachments > 0) "Вложение" else "Новое сообщение"
     }
     val channelId = message.optString("channelId")
-    val serverId = message.optString("serverId")
-    val url = when {
-      channelId.isBlank() -> "/"
-      serverId.isNotBlank() && serverId != "null" -> "/channels/$serverId/$channelId"
-      else -> "/channels/@me/$channelId"
-    }
-    NotificationHelper.showMessage(this, title, body, url)
+    if (channelId.isBlank()) return
+    val serverId = message.optString("serverId").takeIf { it.isNotBlank() && it != "null" }
+    NotificationHelper.showMessage(this, title, body, channelId, serverId, title)
   }
 
   private fun disconnectSocket() {
     socket?.off()
     socket?.disconnect()
     socket = null
-  }
-
-  private fun currentUserId(token: String): String? {
-    return try {
-      val payload = token.split(".").getOrNull(1) ?: return null
-      val padded = payload + "=".repeat((4 - payload.length % 4) % 4)
-      val json = JSONObject(String(android.util.Base64.decode(padded, android.util.Base64.URL_SAFE)))
-      json.optString("sub").ifBlank { null }
-    } catch (_: Exception) {
-      null
-    }
   }
 
   companion object {

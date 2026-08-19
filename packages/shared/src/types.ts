@@ -189,6 +189,8 @@ export interface Paginated<T> {
 export interface AuthTokens {
   accessToken: string;
   expiresIn: number;
+  /** Native apps persist this; the website uses the httpOnly cookie instead. */
+  refreshToken?: string;
 }
 
 export interface AuthResponse extends AuthTokens {

@@ -77,6 +77,7 @@ export async function authRoutes(app: FastifyInstance) {
 
     const response: AuthResponse = {
       accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
       expiresIn: accessTokenTtlSeconds(),
       user: toSelfUser(user),
     };
@@ -100,6 +101,7 @@ export async function authRoutes(app: FastifyInstance) {
 
     const response: AuthResponse = {
       accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
       expiresIn: accessTokenTtlSeconds(),
       user: toSelfUser(user),
     };
@@ -143,6 +145,7 @@ export async function authRoutes(app: FastifyInstance) {
     reply.setCookie(REFRESH_COOKIE, next.token, refreshCookieOptions());
     const response: AuthResponse = {
       accessToken: signAccessToken({ sub: stored.userId, username: stored.user.username }),
+      refreshToken: next.token,
       expiresIn: accessTokenTtlSeconds(),
       user: toSelfUser(stored.user),
     };
@@ -150,7 +153,8 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   app.post('/logout', async (request, reply) => {
-    const presented = request.cookies[REFRESH_COOKIE];
+    const fromBody = (request.body as { refreshToken?: string } | undefined)?.refreshToken;
+    const presented = request.cookies[REFRESH_COOKIE] ?? fromBody;
     if (presented) {
       await prisma.refreshToken.updateMany({
         where: { tokenHash: hashToken(presented), revokedAt: null },

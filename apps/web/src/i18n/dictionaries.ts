@@ -326,7 +326,7 @@ export const ru = {
     avatarUpdated: 'Аватар обновлён',
     downloadApp: 'Приложение для Android',
     downloadAppHint:
-      'Поставьте TetherChat на телефон — тот же мессенджер, что в браузере. После скачивания разрешите установку из этого источника.',
+      'Поставьте нативное приложение TetherChat на телефон. Это не браузерная обёртка: свои экраны, вход и системные уведомления.',
     downloadApk: 'Скачать APK',
     downloadAppInstalled: 'Приложение уже установлено',
   },
@@ -689,7 +689,7 @@ export const en = {
     avatarUpdated: 'Avatar updated',
     downloadApp: 'Android app',
     downloadAppHint:
-      'Install TetherChat on your phone — the same messenger as in the browser. After downloading, allow installs from this source.',
+      'Install the native TetherChat Android app. It is not a browser wrapper: native screens, sign-in, and system notifications.',
     downloadApk: 'Download APK',
     downloadAppInstalled: 'The app is already installed',
   },
