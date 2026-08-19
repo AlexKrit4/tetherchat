@@ -142,6 +142,12 @@ class TetherApi(private val session: SessionStore) {
     post<FcmUnsubscribeBody, Unit>("/api/push/unsubscribe", FcmUnsubscribeBody(token))
   }
 
+  fun androidRelease(): AndroidRelease {
+    val bust = System.currentTimeMillis()
+    return runCatching { get<AndroidRelease>("/app/version.json?t=$bust", authed = false) }
+      .getOrElse { get("/api/app/android", authed = false) }
+  }
+
   fun messages(channelId: String, before: String? = null, dm: Boolean): MessagePage {
     val path = if (dm) "/api/dms/$channelId/messages" else "/api/channels/$channelId/messages"
     val query = if (before.isNullOrBlank()) "" else "?before=$before"

@@ -1,18 +1,25 @@
 package ru.tetherchat.app.ui
 
+import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import ru.tetherchat.app.BuildConfig
 
 @Composable
 fun TetherRoot(model: AppViewModel) {
@@ -55,5 +62,31 @@ fun TetherRoot(model: AppViewModel) {
       is Screen.Chat -> ChatScreen(model, screen)
     }
     SnackbarHost(snack, modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp))
+    val update = model.availableUpdate
+    if (update != null) {
+      val context = LocalContext.current
+      AlertDialog(
+        onDismissRequest = model::dismissUpdate,
+        title = { Text("Доступно обновление") },
+        text = {
+          Text("TetherChat ${update.versionName} уже вышла. Сейчас установлена ${BuildConfig.VERSION_NAME}. Скачайте новую версию, чтобы пользоваться последними возможностями.")
+        },
+        confirmButton = {
+          TextButton(
+            onClick = {
+              runCatching {
+                context.startActivity(
+                  Intent(Intent.ACTION_VIEW, Uri.parse(update.url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
+              }
+              model.dismissUpdate()
+            },
+          ) { Text("Скачать", color = Brand) }
+        },
+        dismissButton = {
+          TextButton(onClick = model::dismissUpdate) { Text("Позже", color = TextMuted) }
+        },
+      )
+    }
   }
 }

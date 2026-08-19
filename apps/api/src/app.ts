@@ -17,6 +17,7 @@ import { channelRoutes } from './routes/channels.js';
 import { dmRoutes } from './routes/dms.js';
 import { inviteRoutes } from './routes/invites.js';
 import { messageRoutes } from './routes/messages.js';
+import { appRoutes } from './routes/app.js';
 import { pushRoutes } from './routes/push.js';
 import { serverRoutes } from './routes/servers.js';
 import { uploadRoutes } from './routes/uploads.js';
@@ -90,6 +91,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(inviteRoutes, { prefix: '/api/invite' });
   await app.register(uploadRoutes, { prefix: '/api/upload' });
   await app.register(pushRoutes, { prefix: '/api/push' });
+  await app.register(appRoutes, { prefix: '/api/app' });
 
   return app;
 }

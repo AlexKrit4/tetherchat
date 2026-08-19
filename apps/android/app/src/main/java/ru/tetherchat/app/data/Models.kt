@@ -424,3 +424,10 @@ data class FcmSubscribeBody(val platform: String, val token: String)
 
 @Serializable
 data class FcmUnsubscribeBody(val token: String)
+
+@Serializable
+data class AndroidRelease(
+  val versionCode: Int,
+  val versionName: String = "",
+  val url: String = "",
+)

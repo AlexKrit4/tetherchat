@@ -16,6 +16,10 @@ cd apps/android
 cp app/build/outputs/apk/debug/app-debug.apk ../../apps/web/public/app/tetherchat.apk
 ```
 
+Bump `versionCode` / `versionName` in `app/build.gradle.kts`, then set the same numbers in
+`apps/web/public/app/version.json` and `apps/api/src/androidRelease.ts`. Older installs
+check those files on launch and offer to download the new APK.
+
 After deploy the file is served as https://tetherchat.ru/app/tetherchat.apk.
 
 ## What it includes
@@ -37,6 +41,6 @@ Firebase Android app.
 |---------|-------|
 | Package | `ru.tetherchat.app` |
 | minSdk | 26 |
-| version | 1.2.3 |
+| version | 1.2.4 |
 | API | `https://tetherchat.ru` (`BuildConfig.API_URL`) |
 | Debug SHA-1 | `D0:42:F0:3A:D3:5D:43:F4:8C:7C:3A:02:33:86:88:E9:BA:44:F4:98` |

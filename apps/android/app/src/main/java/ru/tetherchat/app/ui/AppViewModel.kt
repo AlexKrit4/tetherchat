@@ -17,9 +17,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import ru.tetherchat.app.BuildConfig
 import ru.tetherchat.app.ForegroundState
 import ru.tetherchat.app.NotificationHelper
 import ru.tetherchat.app.PushRegistrar
+import ru.tetherchat.app.data.AndroidRelease
 import ru.tetherchat.app.data.ApiException
 import ru.tetherchat.app.data.Ban
 import ru.tetherchat.app.data.Channel
@@ -81,6 +83,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   var error by mutableStateOf<String?>(null)
   var busy by mutableStateOf(false)
     private set
+  var availableUpdate by mutableStateOf<AndroidRelease?>(null)
+    private set
+  private var dismissedUpdateCode: Int? = null
+  private var updateCheckJob: Job? = null
 
   var servers by mutableStateOf<List<ServerSummary>>(emptyList())
     private set
@@ -157,6 +163,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   }
 
   fun bootstrap() {
+    checkForUpdate()
     viewModelScope.launch {
       if (!session.hasSession) {
         screen = Screen.Login
@@ -195,6 +202,27 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
 
   fun register(email: String, username: String, password: String) = authAction {
     api.register(email.trim(), username.trim(), password)
+  }
+
+  fun checkForUpdate() {
+    if (updateCheckJob?.isActive == true) return
+    updateCheckJob = viewModelScope.launch {
+      val release = withContext(Dispatchers.IO) { runCatching { api.androidRelease() }.getOrNull() } ?: return@launch
+      if (release.versionCode <= BuildConfig.VERSION_CODE) return@launch
+      if (dismissedUpdateCode == release.versionCode) return@launch
+      val rawUrl = release.url.trim()
+      val url = when {
+        rawUrl.startsWith("http://") || rawUrl.startsWith("https://") -> rawUrl
+        rawUrl.startsWith("/") -> BuildConfig.API_URL.trimEnd('/') + rawUrl
+        else -> "${BuildConfig.API_URL.trimEnd('/')}/app/tetherchat.apk"
+      }
+      availableUpdate = release.copy(url = url)
+    }
+  }
+
+  fun dismissUpdate() {
+    dismissedUpdateCode = availableUpdate?.versionCode
+    availableUpdate = null
   }
 
   private fun authAction(block: () -> ru.tetherchat.app.data.AuthResponse) {
@@ -1131,6 +1159,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   }
 
   override fun onStart(owner: LifecycleOwner) {
+    checkForUpdate()
     if (session.hasSession && screen !is Screen.Login && screen !is Screen.Register && screen !is Screen.Boot &&
       screen !is Screen.ForgotPassword
     ) {
