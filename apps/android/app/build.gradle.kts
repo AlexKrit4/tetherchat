@@ -11,8 +11,8 @@ android {
         applicationId = "ru.tetherchat.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.0.2"
+        versionCode = 4
+        versionName = "1.0.3"
 
         buildConfigField("String", "WEB_URL", "\"https://tetherchat.ru\"")
 
@@ -44,12 +44,6 @@ android {
     }
 }
 
-configurations.all {
-    resolutionStrategy {
-        force("androidx.browser:browser:1.8.0")
-    }
-}
-
 dependencies {
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.appcompat:appcompat:1.7.0")
@@ -58,5 +52,4 @@ dependencies {
     implementation("androidx.constraintlayout:constraintlayout:2.2.0")
     implementation("androidx.browser:browser:1.8.0")
     implementation("androidx.webkit:webkit:1.12.1")
-    implementation("com.google.androidbrowserhelper:androidbrowserhelper:2.6.1")
 }
