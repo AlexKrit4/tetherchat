@@ -17,6 +17,8 @@ export interface ClientToServerEvents {
       content: string;
       replyToId?: string | null;
       attachmentIds?: string[];
+      attachmentDurations?: Record<string, number>;
+      forwardMessageId?: string;
       nonce?: string;
     },
     ack?: (result: AckResult<Message>) => void,
@@ -64,6 +66,12 @@ export interface ServerToClientEvents {
   'category:delete': (payload: { categoryId: string; serverId: string }) => void;
   'role:update': (payload: { serverId: string; roles: Role[] }) => void;
   'dm:create': (payload: DirectConversation) => void;
+  'receipt:update': (payload: {
+    conversationId: string;
+    userId: string;
+    lastReadMessageId: string;
+    lastReadAt: string;
+  }) => void;
   error: (payload: { code: string; message: string }) => void;
 }
 

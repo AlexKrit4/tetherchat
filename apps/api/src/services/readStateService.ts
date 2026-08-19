@@ -1,5 +1,7 @@
 import type { ReadState } from '@tetherchat/shared';
+import { ApiError } from '../errors.js';
 import { prisma } from '../db.js';
+import { emitToConversation } from '../ws/realtime.js';
 
 /** Marks a channel as read up to a message and clears its mention counter. */
 export async function ackChannel(
@@ -26,6 +28,52 @@ export async function ackChannel(
     mentionCount: 0,
     unread: false,
   };
+}
+
+/** Acknowledges a DM. Emits read receipts only for 1:1 chats, never for servers or groups. */
+export async function ackConversation(
+  userId: string,
+  conversationId: string,
+  messageId: string,
+): Promise<{ conversationId: string; lastReadMessageId: string; lastReadAt: string }> {
+  const conversation = await prisma.directConversation.findUnique({
+    where: { id: conversationId },
+    include: { members: { where: { leftAt: null } } },
+  });
+  if (!conversation || !conversation.members.some((member) => member.userId === userId)) {
+    throw ApiError.forbidden('You are not part of this conversation');
+  }
+
+  const lastReadAt = new Date();
+  await prisma.directConversationMember.update({
+    where: { conversationId_userId: { conversationId, userId } },
+    data: { lastReadMessageId: messageId, lastReadAt },
+  });
+
+  const isOneToOne =
+    !conversation.isGroup && !conversation.isSaved && conversation.members.length === 2;
+  if (isOneToOne) {
+    emitToConversation(conversationId, 'receipt:update', {
+      conversationId,
+      userId,
+      lastReadMessageId: messageId,
+      lastReadAt: lastReadAt.toISOString(),
+    });
+  }
+
+  return { conversationId, lastReadMessageId: messageId, lastReadAt: lastReadAt.toISOString() };
+}
+
+/** Socket acks use one event for both guild channels and DMs. */
+export async function ackTarget(userId: string, targetId: string, messageId: string): Promise<void> {
+  const member = await prisma.directConversationMember.findUnique({
+    where: { conversationId_userId: { conversationId: targetId, userId } },
+  });
+  if (member && !member.leftAt) {
+    await ackConversation(userId, targetId, messageId);
+    return;
+  }
+  await ackChannel(userId, targetId, messageId);
 }
 
 export async function bumpMentionCounts(channelId: string, userIds: string[]): Promise<void> {

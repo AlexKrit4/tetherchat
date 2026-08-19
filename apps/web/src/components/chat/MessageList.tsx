@@ -23,6 +23,7 @@ import { MessageSkeletonList } from '@/components/ui/Skeleton';
 import { Spinner } from '@/components/ui/Spinner';
 import { MessageGroup } from './MessageGroup';
 import { MessageActionSheet } from './MessageActionSheet';
+import { ForwardDialog } from './ForwardDialog';
 import { EmojiPicker } from './EmojiPicker';
 import { UserProfileDialog } from '@/components/modals/UserProfileDialog';
 import { useAuthStore } from '@/stores/authStore';
@@ -37,7 +38,7 @@ const VIRTUOSO_START_INDEX = 1_000_000;
 export function MessageList() {
   const t = useT();
   const isMobile = useIsMobile();
-  const { channelId, isDm, server, serverId, title } = useChatTarget();
+  const { channelId, isDm, server, serverId, title, conversation } = useChatTarget();
   const currentUser = useAuthStore((state) => state.user);
   const { data: members } = useMembers(serverId);
   const readStates = useReadStateIndex();
@@ -50,6 +51,7 @@ export function MessageList() {
   const virtuoso = useRef<VirtuosoHandle>(null);
   const [atBottom, setAtBottom] = useState(true);
   const [actionSheetFor, setActionSheetFor] = useState<Message | null>(null);
+  const [forwardFor, setForwardFor] = useState<Message | null>(null);
   const [emojiFor, setEmojiFor] = useState<Message | null>(null);
   const [profileFor, setProfileFor] = useState<string | null>(null);
 
@@ -100,8 +102,8 @@ export function MessageList() {
     if (!channelId || !atBottom || messages.length === 0) return;
     const newest = messages[messages.length - 1];
     if (newest.pending) return;
-    ack(channelId, newest.id);
-  }, [ack, atBottom, channelId, messages]);
+    ack(channelId, newest.id, isDm);
+  }, [ack, atBottom, channelId, isDm, messages]);
 
   const jumpToBottom = useCallback(() => {
     virtuoso.current?.scrollToIndex({ index: entries.length - 1, behavior: 'auto' });
@@ -163,6 +165,13 @@ export function MessageList() {
         itemContent={(_index, entry) => {
           const { message } = entry;
           const mine = message.authorId === currentUser?.id;
+          const showReceipts =
+            Boolean(mine && isDm && conversation && !conversation.isGroup && !conversation.isSaved);
+          const read =
+            showReceipts &&
+            Boolean(
+              conversation?.peerLastReadAt && conversation.peerLastReadAt >= message.createdAt,
+            );
 
           return (
             <div>
@@ -211,6 +220,14 @@ export function MessageList() {
                 onOpenActions={setActionSheetFor}
                 onOpenProfile={setProfileFor}
                 onJumpToMessage={jumpToMessage}
+                onForward={setForwardFor}
+                receipt={
+                  showReceipts && !message.pending && !message.failed
+                    ? read
+                      ? 'read'
+                      : 'delivered'
+                    : null
+                }
               />
             </div>
           );
@@ -240,6 +257,7 @@ export function MessageList() {
         canDelete={actionSheetFor?.authorId === currentUser?.id || manageMessages}
         canPin={manageMessages && !isDm}
         onReply={(target) => setReplyDraft(channelId, target)}
+        onForward={setForwardFor}
         onEdit={(target) => setEditingMessage(target.id)}
         onDelete={(target) =>
           deleteMessage.mutate(target.id, { onError: (error) => toast.error(errorMessage(error)) })
@@ -248,6 +266,8 @@ export function MessageList() {
         onReact={(target, emoji) => toggleReaction.mutate({ messageId: target.id, emoji })}
         onOpenEmojiPicker={(target) => setEmojiFor(target)}
       />
+
+      <ForwardDialog message={forwardFor} onClose={() => setForwardFor(null)} />
 
       {emojiFor ? (
         <EmojiPicker

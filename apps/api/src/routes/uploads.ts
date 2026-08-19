@@ -16,6 +16,12 @@ export async function uploadRoutes(app: FastifyInstance) {
    * message is sent, so a failed send never leaves a half-written message.
    */
   app.post('/', async (request, reply) => {
+    const query = z
+      .object({
+        durationMs: z.coerce.number().int().min(1).max(15 * 60_000).optional(),
+      })
+      .parse(request.query);
+
     const file = await readMultipartFile(request, {
       maxBytes: LIMITS.attachmentBytes,
       allowedMime: ALLOWED_ATTACHMENT_MIME,
@@ -42,6 +48,7 @@ export async function uploadRoutes(app: FastifyInstance) {
         size: file.buffer.byteLength,
         width: dimensions.width,
         height: dimensions.height,
+        durationMs: query.durationMs ?? null,
       },
     });
 

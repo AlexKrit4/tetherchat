@@ -14,7 +14,7 @@ import {
   editMessage,
   toggleReaction,
 } from '../services/messageService.js';
-import { ackChannel } from '../services/readStateService.js';
+import { ackTarget } from '../services/readStateService.js';
 import { broadcastPresence, registerSession, setStatus, unregisterSession } from './presence.js';
 import { setRealtimeServer } from './realtime.js';
 import type { SocketData, TypedServer } from './realtime.js';
@@ -126,6 +126,8 @@ export async function attachSocketServer(app: FastifyInstance): Promise<TypedSer
             content: payload.content,
             replyToId: payload.replyToId ?? null,
             attachmentIds: payload.attachmentIds,
+            attachmentDurations: payload.attachmentDurations,
+            forwardMessageId: payload.forwardMessageId,
             nonce: payload.nonce,
           });
           clearTyping(payload.channelId, userId, io);
@@ -202,7 +204,7 @@ export async function attachSocketServer(app: FastifyInstance): Promise<TypedSer
     });
 
     socket.on('channel:ack', ({ channelId, messageId }) => {
-      void ackChannel(userId, channelId, messageId).catch(() => undefined);
+      void ackTarget(userId, channelId, messageId).catch(() => undefined);
     });
 
     socket.on('disconnect', () => {

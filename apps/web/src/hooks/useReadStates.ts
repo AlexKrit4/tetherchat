@@ -49,10 +49,13 @@ export function useAckChannel() {
   const client = useQueryClient();
 
   return useCallback(
-    (channelId: string, messageId: string) => {
+    (channelId: string, messageId: string, isDm = false) => {
       const socket = getSocket();
       if (socket.connected) socket.emit('channel:ack', { channelId, messageId });
-      else void api.post(`/api/channels/${channelId}/ack`, { messageId }).catch(() => undefined);
+      else {
+        const path = isDm ? `/api/dms/${channelId}/ack` : `/api/channels/${channelId}/ack`;
+        void api.post(path, { messageId }).catch(() => undefined);
+      }
 
       client.setQueryData<ReadState[]>(queryKeys.readStates, (current) => {
         if (!current) return current;

@@ -170,6 +170,10 @@ describe('direct messages', () => {
     });
 
     const list = await app.inject({ method: 'GET', url: '/api/dms', headers: alice.auth });
-    expect(list.json<DirectConversation[]>()[0].id).toBe(withCarol.id);
+    const ids = list
+      .json<DirectConversation[]>()
+      .filter((conversation) => !conversation.isSaved)
+      .map((conversation) => conversation.id);
+    expect(ids[0]).toBe(withCarol.id);
   });
 });

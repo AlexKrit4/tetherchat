@@ -30,6 +30,7 @@ fun TetherRoot(model: AppViewModel) {
     val toastable = screen is Screen.Home || screen is Screen.Chat || screen is Screen.Settings ||
       screen is Screen.Blacklist || screen is Screen.ServerSettings || screen is Screen.Members ||
       screen is Screen.ProfileSettings || screen is Screen.AccountSettings ||
+      screen is Screen.Sessions ||
       screen is Screen.AppearanceSettings || screen is Screen.UserProfile
     if (toastable) {
       snack.showSnackbar(text)
@@ -54,6 +55,7 @@ fun TetherRoot(model: AppViewModel) {
       Screen.Settings -> SettingsScreen(model)
       Screen.ProfileSettings -> ProfileSettingsScreen(model)
       Screen.AccountSettings -> AccountSettingsScreen(model)
+      Screen.Sessions -> SessionsScreen(model)
       Screen.AppearanceSettings -> AppearanceSettingsScreen(model)
       Screen.Blacklist -> BlacklistScreen(model)
       Screen.ServerSettings -> ServerSettingsScreen(model)

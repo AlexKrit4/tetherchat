@@ -121,6 +121,7 @@ class TetherApi(private val session: SessionStore) {
 
   fun dms(): List<DirectConversation> = get("/api/dms")
   fun conversation(id: String): DirectConversation = get("/api/dms/$id")
+  fun savedMessages(): DirectConversation = get("/api/dms/saved")
   fun openDm(userId: String): DirectConversation = post("/api/dms", CreateDmBody(listOf(userId)))
   fun openGroup(userIds: List<String>, name: String?): DirectConversation =
     post("/api/dms", CreateGroupDmBody(userIds, name))
@@ -168,9 +169,14 @@ class TetherApi(private val session: SessionStore) {
     nonce: String,
     replyToId: String? = null,
     attachmentIds: List<String>? = null,
+    attachmentDurations: Map<String, Int>? = null,
+    forwardMessageId: String? = null,
   ): Message {
     val path = if (dm) "/api/dms/$channelId/messages" else "/api/channels/$channelId/messages"
-    return post(path, SendMessageBody(content, nonce, replyToId, attachmentIds))
+    return post(
+      path,
+      SendMessageBody(content, nonce, replyToId, attachmentIds, attachmentDurations, forwardMessageId),
+    )
   }
 
   fun editMessage(messageId: String, content: String): Message =
@@ -197,8 +203,14 @@ class TetherApi(private val session: SessionStore) {
   fun setNotificationLevel(channelId: String, level: String): ChannelNotifications =
     put("/api/channels/$channelId/notifications", NotificationLevelBody(level = level))
 
-  fun uploadFile(bytes: ByteArray, filename: String, mime: String): Attachment =
-    upload("/api/upload", bytes, filename, mime)
+  fun uploadFile(bytes: ByteArray, filename: String, mime: String, durationMs: Int? = null): Attachment {
+    val query = if (durationMs != null) "?durationMs=$durationMs" else ""
+    return upload("/api/upload$query", bytes, filename, mime)
+  }
+
+  fun sessions(): List<DeviceSession> = get("/api/auth/sessions")
+  fun revokeSession(id: String) = delete("/api/auth/sessions/$id")
+  fun revokeOtherSessions() = postRaw<Unit>("/api/auth/sessions/revoke-others", "{}")
 
   fun ensureAccessToken(): String = session.accessToken ?: refresh().accessToken
 
@@ -285,6 +297,8 @@ class TetherApi(private val session: SessionStore) {
     if (authed) {
       val token = session.accessToken ?: runCatching { refresh().accessToken }.getOrNull()
       if (!token.isNullOrBlank()) builder.header("Authorization", "Bearer $token")
+      val refresh = session.refreshToken
+      if (!refresh.isNullOrBlank()) builder.header("X-Refresh-Token", refresh)
     }
     client.newCall(builder.build()).execute().use { response ->
       val text = response.body?.string().orEmpty()

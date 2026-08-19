@@ -27,6 +27,7 @@ export interface TestUser {
   username: string;
   password: string;
   accessToken: string;
+  refreshToken?: string;
   auth: { authorization: string };
 }
 
@@ -55,6 +56,7 @@ export async function createUser(overrides: Partial<TestUser> = {}): Promise<Tes
     username,
     password,
     accessToken: body.accessToken,
+    refreshToken: body.refreshToken,
     auth: { authorization: `Bearer ${body.accessToken}` },
   };
 }

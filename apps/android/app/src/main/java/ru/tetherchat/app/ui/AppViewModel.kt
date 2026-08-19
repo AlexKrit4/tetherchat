@@ -25,7 +25,12 @@ import ru.tetherchat.app.data.AndroidRelease
 import ru.tetherchat.app.data.ApiException
 import ru.tetherchat.app.data.Ban
 import ru.tetherchat.app.data.Channel
+import android.media.MediaRecorder
+import ru.tetherchat.app.data.DeviceSession
 import ru.tetherchat.app.data.DirectConversation
+import ru.tetherchat.app.data.DraftStore
+import ru.tetherchat.app.data.ReceiptUpdate
+import java.io.File
 import ru.tetherchat.app.data.Invite
 import ru.tetherchat.app.data.InvitePreview
 import ru.tetherchat.app.data.Message
@@ -58,6 +63,7 @@ sealed class Screen {
   data object Settings : Screen()
   data object ProfileSettings : Screen()
   data object AccountSettings : Screen()
+  data object Sessions : Screen()
   data object AppearanceSettings : Screen()
   data object Blacklist : Screen()
   data object ServerSettings : Screen()
@@ -71,8 +77,16 @@ sealed class Screen {
   ) : Screen()
 }
 
+data class ForwardTarget(
+  val id: String,
+  val title: String,
+  val subtitle: String,
+  val dm: Boolean,
+)
+
 class AppViewModel(application: Application) : AndroidViewModel(application), DefaultLifecycleObserver {
   private val session = SessionStore.get(application)
+  private val drafts = DraftStore.get(application)
   private val api = TetherApi(session)
   private val realtime = RealtimeClient(api, api.json)
 
@@ -104,6 +118,19 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   var messagesHasMore by mutableStateOf(false)
     private set
   var draft by mutableStateOf("")
+  var recording by mutableStateOf(false)
+    private set
+  var recordElapsedMs by mutableStateOf(0L)
+    private set
+  var forwarding by mutableStateOf<Message?>(null)
+  var forwardTargets by mutableStateOf<List<ForwardTarget>>(emptyList())
+    private set
+  var sessions by mutableStateOf<List<DeviceSession>>(emptyList())
+    private set
+  private var recorder: MediaRecorder? = null
+  private var recordFile: File? = null
+  private var recordStartedAt = 0L
+  private var recordTicker: Job? = null
   var searchQuery by mutableStateOf("")
   var searchResults by mutableStateOf<List<PublicUser>>(emptyList())
     private set
@@ -269,6 +296,35 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   fun openSettings() { screen = Screen.Settings }
   fun openProfileSettings() { screen = Screen.ProfileSettings }
   fun openAccountSettings() { screen = Screen.AccountSettings }
+
+  fun openSessions() {
+    screen = Screen.Sessions
+    loadSessions()
+  }
+
+  fun loadSessions() {
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.sessions() } }
+        .onSuccess { sessions = it }
+        .onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun revokeSession(id: String) {
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.revokeSession(id); api.sessions() } }
+        .onSuccess { sessions = it }
+        .onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun revokeOtherSessions() {
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.revokeOtherSessions(); api.sessions() } }
+        .onSuccess { sessions = it }
+        .onFailure { error = it.userMessage() }
+    }
+  }
   fun openAppearanceSettings() { screen = Screen.AppearanceSettings }
   fun openServerSettings() {
     val id = selectedServerId ?: return
@@ -364,6 +420,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   fun back() {
     when (screen) {
       is Screen.Chat -> {
+        saveCurrentDraft()
+        stopVoiceRecord(send = false)
         subscribedChannel?.let { realtime.unsubscribe(it) }
         subscribedChannel = null
         messages = emptyList()
@@ -375,9 +433,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
         typingLabel = null
         showPins = false
         showSearch = false
+        forwarding = null
         screen = Screen.Home
       }
       Screen.Blacklist -> screen = Screen.Settings
+      Screen.Sessions -> screen = Screen.AccountSettings
       Screen.ProfileSettings, Screen.AccountSettings, Screen.AppearanceSettings -> screen = Screen.Settings
       Screen.Settings, Screen.ServerSettings -> screen = Screen.Home
       Screen.Members -> screen = lastChat ?: Screen.Home
@@ -419,6 +479,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   }
 
   fun openChat(channelId: String, serverId: String?, title: String, dm: Boolean) {
+    saveCurrentDraft()
+    stopVoiceRecord(send = false)
     subscribedChannel?.let { realtime.unsubscribe(it) }
     val chat = Screen.Chat(channelId, serverId, title, dm)
     lastChat = chat
@@ -427,7 +489,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     pendingUploads = emptyList()
     replyTo = null
     editing = null
-    draft = ""
+    forwarding = null
+    draft = drafts.get(channelId)
     typingLabel = null
     viewModelScope.launch {
       runCatching {
@@ -478,7 +541,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     val text = draft.trim()
     if (editingMessage != null) {
       if (text.isEmpty()) return
-      draft = ""
+      draft = drafts.get(chat.channelId)
       editing = null
       viewModelScope.launch {
         runCatching { withContext(Dispatchers.IO) { api.editMessage(editingMessage.id, text) } }
@@ -495,6 +558,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     if (text.isEmpty() && attachments.isEmpty()) return
     if (pendingUploads.any { it.attachment == null && it.error == null }) return
     draft = ""
+    drafts.set(chat.channelId, "")
     val replyId = replyTo?.id
     replyTo = null
     pendingUploads = emptyList()
@@ -774,8 +838,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   }
 
   fun cancelComposerExtra() {
+    val chat = screen as? Screen.Chat
     replyTo = null
     editing = null
+    draft = chat?.let { drafts.get(it.channelId) }.orEmpty()
   }
 
   fun canPerm(flag: Int): Boolean = serverDetail?.permissions?.can(flag) == true
@@ -816,6 +882,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   fun updateDraft(text: String) {
     draft = text
     val chat = screen as? Screen.Chat ?: return
+    if (editing == null) drafts.set(chat.channelId, text)
     if (text.isBlank()) {
       realtime.typingStop(chat.channelId)
       typingJob?.cancel()
@@ -1218,6 +1285,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
           }
         },
         onDmCreate = { conversation -> viewModelScope.launch { prependDm(conversation) } },
+        onReceipt = { event -> viewModelScope.launch { applyReceipt(event) } },
         onPresence = { event -> viewModelScope.launch { presence[event.userId] = event.status } },
         onTyping = { event ->
           viewModelScope.launch {
@@ -1245,7 +1313,156 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   }
 
   private fun prependDm(conversation: DirectConversation) {
-    dms = listOf(conversation) + dms.filterNot { it.id == conversation.id }
+    val rest = dms.filterNot { it.id == conversation.id }
+    dms = if (conversation.isSaved) {
+      listOf(conversation) + rest
+    } else {
+      rest.filter { it.isSaved } + listOf(conversation) + rest.filterNot { it.isSaved }
+    }
+  }
+
+  private fun applyReceipt(event: ReceiptUpdate) {
+    if (event.userId == me?.id) return
+    fun patch(conversation: DirectConversation): DirectConversation {
+      if (conversation.id != event.conversationId) return conversation
+      return conversation.copy(
+        peerLastReadMessageId = event.lastReadMessageId,
+        peerLastReadAt = event.lastReadAt,
+      )
+    }
+    dms = dms.map(::patch)
+    currentConversation = currentConversation?.let(::patch)
+  }
+
+  private fun saveCurrentDraft() {
+    val chat = screen as? Screen.Chat ?: return
+    if (editing == null) drafts.set(chat.channelId, draft)
+  }
+
+  fun startForward(message: Message) {
+    forwarding = message
+    viewModelScope.launch {
+      runCatching {
+        withContext(Dispatchers.IO) {
+          val meId = me?.id.orEmpty()
+          val dmTargets = dms.map {
+            ForwardTarget(it.id, it.title(meId), if (it.isSaved) "Сохранённые" else "Личные сообщения", true)
+          }
+          val channelTargets = servers.flatMap { summary ->
+            val detail = if (serverDetail?.id == summary.id) serverDetail!! else api.server(summary.id)
+            val allowed = detail.ownerId == me?.id || detail.permissions.can(ru.tetherchat.app.data.Perm.SEND_MESSAGES)
+            if (!allowed) emptyList()
+            else detail.channels.map { channel ->
+              ForwardTarget(channel.id, "#${channel.name}", detail.name, false)
+            }
+          }
+          dmTargets + channelTargets
+        }
+      }.onSuccess { forwardTargets = it }.onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun forwardTo(channelId: String, dm: Boolean) {
+    val message = forwarding ?: return
+    forwarding = null
+    viewModelScope.launch {
+      runCatching {
+        withContext(Dispatchers.IO) {
+          api.send(
+            channelId,
+            "",
+            dm,
+            UUID.randomUUID().toString(),
+            forwardMessageId = message.id,
+          )
+        }
+      }.onSuccess {
+        error = "Сообщение переслано"
+        val chat = screen as? Screen.Chat
+        if (chat?.channelId == channelId && messages.none { row -> row.id == it.id }) {
+          messages = messages + it
+        }
+      }.onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun startVoiceRecord(): Boolean {
+    val chat = screen as? Screen.Chat ?: return false
+    if (recording) return true
+    val file = File(getApplication<Application>().cacheDir, "voice-${System.currentTimeMillis()}.m4a")
+    return runCatching {
+      @Suppress("DEPRECATION")
+      val next = MediaRecorder().apply {
+        setAudioSource(MediaRecorder.AudioSource.MIC)
+        setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+        setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+        setAudioSamplingRate(44_100)
+        setAudioEncodingBitRate(128_000)
+        setOutputFile(file.absolutePath)
+        prepare()
+        start()
+      }
+      recorder = next
+      recordFile = file
+      recordStartedAt = System.currentTimeMillis()
+      recording = true
+      recordElapsedMs = 0
+      recordTicker?.cancel()
+      recordTicker = viewModelScope.launch {
+        while (recording) {
+          delay(200)
+          recordElapsedMs = System.currentTimeMillis() - recordStartedAt
+        }
+      }
+      true
+    }.getOrElse {
+      error = "Не удалось начать запись"
+      file.delete()
+      false
+    }
+  }
+
+  fun stopVoiceRecord(send: Boolean) {
+    if (!recording && recorder == null) return
+    val file = recordFile
+    val duration = (System.currentTimeMillis() - recordStartedAt).toInt()
+    runCatching { recorder?.stop() }
+    runCatching { recorder?.release() }
+    recorder = null
+    recording = false
+    recordTicker?.cancel()
+    recordElapsedMs = 0
+    recordFile = null
+    if (!send || file == null || duration < 400) {
+      file?.delete()
+      return
+    }
+    val chat = screen as? Screen.Chat ?: return
+    viewModelScope.launch {
+      runCatching {
+        withContext(Dispatchers.IO) {
+          val bytes = file.readBytes()
+          val attachment = api.uploadFile(bytes, "voice.m4a", "audio/mp4", duration)
+          api.send(
+            chat.channelId,
+            "",
+            chat.dm,
+            UUID.randomUUID().toString(),
+            attachmentIds = listOf(attachment.id),
+            attachmentDurations = mapOf(attachment.id to duration),
+          )
+        }
+      }.onSuccess { message ->
+        if (messages.none { it.id == message.id }) messages = messages + message
+      }.onFailure { error = it.userMessage() }
+      file.delete()
+    }
+  }
+
+  override fun onCleared() {
+    stopVoiceRecord(send = false)
+    realtime.disconnect()
+    super.onCleared()
   }
 
   private suspend fun ensureDm(conversationId: String) {
@@ -1255,11 +1472,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
       .onFailure {
         runCatching { withContext(Dispatchers.IO) { api.dms() } }.onSuccess { dms = it }
       }
-  }
-
-  override fun onCleared() {
-    realtime.disconnect()
-    super.onCleared()
   }
 }
 

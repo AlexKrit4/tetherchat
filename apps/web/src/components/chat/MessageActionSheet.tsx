@@ -1,4 +1,4 @@
-import { Copy, Pencil, Pin, Reply, SmilePlus, Trash2 } from 'lucide-react';
+import { Copy, Forward, Pencil, Pin, Reply, SmilePlus, Trash2 } from 'lucide-react';
 import type { Message } from '@tetherchat/shared';
 import { useT } from '@/i18n/useT';
 import { BottomSheet, SheetAction } from '@/components/ui/BottomSheet';
@@ -13,6 +13,7 @@ export interface MessageActionSheetProps {
   canDelete: boolean;
   canPin: boolean;
   onReply: (message: Message) => void;
+  onForward?: (message: Message) => void;
   onEdit: (message: Message) => void;
   onDelete: (message: Message) => void;
   onTogglePin: (message: Message) => void;
@@ -31,6 +32,7 @@ export function MessageActionSheet({
   canDelete,
   canPin,
   onReply,
+  onForward,
   onEdit,
   onDelete,
   onTogglePin,
@@ -78,6 +80,13 @@ export function MessageActionSheet({
               label={t('chat.reply')}
               onSelect={() => run(() => onReply(message))}
             />
+            {onForward ? (
+              <SheetAction
+                icon={<Forward size={18} aria-hidden />}
+                label={t('chat.forward')}
+                onSelect={() => run(() => onForward(message))}
+              />
+            ) : null}
             <SheetAction
               icon={<Copy size={18} aria-hidden />}
               label={t('chat.copyText')}

@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { LIMITS, USERNAME_PATTERN } from '@tetherchat/shared';
-import type { AuthResponse } from '@tetherchat/shared';
+import type { AuthResponse, Session } from '@tetherchat/shared';
 import { getConfig } from '../config.js';
 import { prisma } from '../db.js';
 import { ApiError } from '../errors.js';
@@ -126,21 +126,16 @@ export async function authRoutes(app: FastifyInstance) {
     // Rotate: the presented token is burned and replaced, so a stolen copy is
     // only usable until the legitimate client refreshes once.
     const next = createRefreshToken();
-    await prisma.$transaction([
-      prisma.refreshToken.update({
-        where: { id: stored.id },
-        data: { revokedAt: new Date() },
-      }),
-      prisma.refreshToken.create({
-        data: {
-          userId: stored.userId,
-          tokenHash: next.tokenHash,
-          expiresAt: next.expiresAt,
-          userAgent: request.headers['user-agent'] ?? null,
-          ip: request.ip,
-        },
-      }),
-    ]);
+    await prisma.refreshToken.update({
+      where: { id: stored.id },
+      data: {
+        tokenHash: next.tokenHash,
+        expiresAt: next.expiresAt,
+        userAgent: request.headers['user-agent'] ?? stored.userAgent,
+        ip: request.ip,
+        lastUsedAt: new Date(),
+      },
+    });
 
     reply.setCookie(REFRESH_COOKIE, next.token, refreshCookieOptions());
     const response: AuthResponse = {
@@ -153,8 +148,7 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   app.post('/logout', async (request, reply) => {
-    const fromBody = (request.body as { refreshToken?: string } | undefined)?.refreshToken;
-    const presented = request.cookies[REFRESH_COOKIE] ?? fromBody;
+    const presented = presentedRefreshToken(request);
     if (presented) {
       await prisma.refreshToken.updateMany({
         where: { tokenHash: hashToken(presented), revokedAt: null },
@@ -162,6 +156,48 @@ export async function authRoutes(app: FastifyInstance) {
       });
     }
     reply.clearCookie(REFRESH_COOKIE, refreshCookieOptions());
+    reply.status(204).send();
+  });
+
+  app.get('/sessions', { preHandler: app.requireAuth }, async (request) => {
+    const currentHash = presentedRefreshToken(request);
+    const hashed = currentHash ? hashToken(currentHash) : null;
+    const rows = await prisma.refreshToken.findMany({
+      where: { userId: request.userId, revokedAt: null, expiresAt: { gt: new Date() } },
+      orderBy: { lastUsedAt: 'desc' },
+    });
+    const sessions: Session[] = rows.map((row) => ({
+      id: row.id,
+      userAgent: row.userAgent,
+      ip: row.ip,
+      current: hashed !== null && row.tokenHash === hashed,
+      createdAt: row.createdAt.toISOString(),
+      lastUsedAt: row.lastUsedAt.toISOString(),
+    }));
+    return sessions;
+  });
+
+  app.delete('/sessions/:id', { preHandler: app.requireAuth }, async (request, reply) => {
+    const { id } = z.object({ id: z.string().min(1) }).parse(request.params);
+    const updated = await prisma.refreshToken.updateMany({
+      where: { id, userId: request.userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    if (updated.count === 0) throw ApiError.notFound('Session not found');
+    reply.status(204).send();
+  });
+
+  app.post('/sessions/revoke-others', { preHandler: app.requireAuth }, async (request, reply) => {
+    const current = presentedRefreshToken(request);
+    if (!current) throw ApiError.unauthorized('Missing refresh token');
+    await prisma.refreshToken.updateMany({
+      where: {
+        userId: request.userId,
+        revokedAt: null,
+        tokenHash: { not: hashToken(current) },
+      },
+      data: { revokedAt: new Date() },
+    });
     reply.status(204).send();
   });
 
@@ -279,6 +315,14 @@ async function sendVerificationEmail(userId: string, email: string) {
     subject: 'Confirm your TetherChat email',
     text: `Welcome to TetherChat. Confirm your address: ${getConfig().PUBLIC_WEB_ORIGIN}/verify-email?token=${token}`,
   });
+}
+
+function presentedRefreshToken(request: FastifyRequest): string | undefined {
+  const cookie = request.cookies[REFRESH_COOKIE];
+  const header = request.headers['x-refresh-token'];
+  const fromBody = (request.body as { refreshToken?: string } | undefined)?.refreshToken;
+  if (typeof header === 'string' && header.length > 0) return header;
+  return cookie ?? fromBody;
 }
 
 const BANNER_COLORS = ['#5865f2', '#3ba55d', '#faa81a', '#ed4245', '#eb459e', '#9b59b6'];

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from '@/stores/toastStore';
+import { SessionSettings } from './SessionSettings';
 
 export function AccountSettings() {
   const t = useT();
@@ -91,6 +92,10 @@ export function AccountSettings() {
           {t('settings.sendReset')}
         </Button>
       </div>
+
+      <div className="h-px bg-divider" />
+
+      <SessionSettings />
     </div>
   );
 }

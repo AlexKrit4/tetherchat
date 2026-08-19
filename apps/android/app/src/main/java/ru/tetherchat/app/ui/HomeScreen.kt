@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AlternateEmail
+import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Tag
@@ -390,7 +391,14 @@ private fun DmRow(
     modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 8.dp),
     verticalAlignment = Alignment.CenterVertically,
   ) {
-    if (other != null) {
+    if (conversation.isSaved) {
+      Box(
+        Modifier.size(40.dp).clip(CircleShape).background(Brand),
+        contentAlignment = Alignment.Center,
+      ) {
+        Icon(Icons.Outlined.Bookmark, contentDescription = null, tint = Color.White)
+      }
+    } else if (other != null) {
       UserAvatar(other, 40.dp, model.statusOf(other.id, other.status))
     } else {
       Box(Modifier.size(40.dp).clip(CircleShape).background(Brand))

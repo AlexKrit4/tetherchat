@@ -1,5 +1,17 @@
 package ru.tetherchat.app.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.core.content.ContextCompat
+import android.media.MediaPlayer
+import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.DoneAll
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.outlined.Bookmark
+import androidx.compose.material.icons.automirrored.outlined.Forward
+import androidx.compose.runtime.DisposableEffect
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
@@ -110,6 +122,9 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
   var preview by remember { mutableStateOf<Attachment?>(null) }
   val pickFiles = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
     if (uris.isNotEmpty()) model.attachUris(uris)
+  }
+  val recordPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+    if (!granted) model.error = "Нужен доступ к микрофону"
   }
   val canSend = chat.dm || model.canPerm(Perm.SEND_MESSAGES) || model.isOwner()
   val canAttach = chat.dm || model.canPerm(Perm.ATTACH_FILES) || model.isOwner()
@@ -251,8 +266,42 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
           ),
         )
         val ready = model.draft.isNotBlank() || model.pendingUploads.any { it.attachment != null }
-        IconButton(onClick = model::send, enabled = ready && model.pendingUploads.none { it.attachment == null && it.error == null }) {
-          Icon(Icons.AutoMirrored.Outlined.Send, contentDescription = "Отправить", tint = Brand)
+        if (model.recording) {
+          Text(
+            "Запись ${maxOf(1, (model.recordElapsedMs / 1000).toInt())}с — отпустите",
+            color = Danger,
+            fontSize = 13.sp,
+            modifier = Modifier.padding(end = 8.dp),
+          )
+        }
+        if (!ready && canAttach && model.editing == null) {
+          Icon(
+            Icons.Filled.Mic,
+            contentDescription = "Голосовое сообщение",
+            tint = if (model.recording) Danger else Brand,
+            modifier = Modifier
+              .size(44.dp)
+              .pointerInput(chat.channelId) {
+                detectTapGestures(
+                  onPress = {
+                    val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+                      PackageManager.PERMISSION_GRANTED
+                    if (!granted) {
+                      recordPermission.launch(Manifest.permission.RECORD_AUDIO)
+                      return@detectTapGestures
+                    }
+                    model.startVoiceRecord()
+                    val released = tryAwaitRelease()
+                    model.stopVoiceRecord(send = released)
+                  },
+                )
+              }
+              .padding(10.dp),
+          )
+        } else {
+          IconButton(onClick = model::send, enabled = ready && model.pendingUploads.none { it.attachment == null && it.error == null }) {
+            Icon(Icons.AutoMirrored.Outlined.Send, contentDescription = "Отправить", tint = Brand)
+          }
         }
       }
     } else {
@@ -273,6 +322,7 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
       canManage = canManage,
       onDismiss = { selected = null },
       onReply = { model.startReply(selectedMessage); selected = null },
+      onForward = { model.startForward(selectedMessage); selected = null },
       onCopy = {
         context.getSystemService(ClipboardManager::class.java)
           ?.setPrimaryClip(ClipData.newPlainText("message", selectedMessage.content))
@@ -287,6 +337,10 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
         selected = null
       },
     )
+  }
+
+  if (model.forwarding != null) {
+    ForwardPickerSheet(model) { model.forwarding = null }
   }
 
   if (showSettings) {
@@ -484,6 +538,17 @@ private fun MessageRow(
         )
         Spacer(Modifier.width(8.dp))
         Text(formatTime(message.createdAt), color = TextMuted, fontSize = 12.sp)
+        val conversation = model.currentConversation
+        if (message.authorId == model.me?.id && conversation?.showsReceipts == true) {
+          val read = !conversation.peerLastReadAt.isNullOrBlank() &&
+            conversation.peerLastReadAt!! >= message.createdAt
+          Icon(
+            if (read) Icons.Filled.DoneAll else Icons.Filled.Done,
+            contentDescription = if (read) "Прочитано" else "Доставлено",
+            tint = if (read) Brand else TextMuted,
+            modifier = Modifier.padding(start = 4.dp).size(14.dp),
+          )
+        }
         if (message.editedAt != null) {
           Spacer(Modifier.width(6.dp))
           Text("изменено", color = TextMuted, fontSize = 11.sp)
@@ -501,6 +566,15 @@ private fun MessageRow(
           fontSize = 12.sp,
           maxLines = 1,
           overflow = TextOverflow.Ellipsis,
+          modifier = Modifier.padding(top = 2.dp),
+        )
+      }
+      val forwarded = message.forwardedFrom
+      if (forwarded != null) {
+        Text(
+          "Переслано от ${forwarded.author?.label ?: "пользователя"}",
+          color = TextMuted,
+          fontSize = 12.sp,
           modifier = Modifier.padding(top = 2.dp),
         )
       }
@@ -531,12 +605,7 @@ private fun MessageRow(
             )
           }
           attachment.isAudio -> {
-            Text(
-              "Аудио: ${attachment.filename.ifBlank { "файл" }}",
-              color = Brand,
-              fontSize = 13.sp,
-              modifier = Modifier.padding(top = 4.dp).clickable { onOpenAttachment(attachment) },
-            )
+            VoiceBubble(attachment)
           }
           else -> {
             Text(
@@ -610,6 +679,7 @@ private fun MessageActionSheet(
   canManage: Boolean,
   onDismiss: () -> Unit,
   onReply: () -> Unit,
+  onForward: () -> Unit,
   onCopy: () -> Unit,
   onEdit: () -> Unit,
   onPin: () -> Unit,
@@ -641,6 +711,7 @@ private fun MessageActionSheet(
     }
     HorizontalDivider(color = SurfaceDeep)
     SheetRow(Icons.AutoMirrored.Outlined.Reply, "Ответить", onReply)
+    SheetRow(Icons.AutoMirrored.Outlined.Forward, "Переслать", onForward)
     if (message.content.isNotBlank()) SheetRow(Icons.Outlined.ContentCopy, "Копировать текст", onCopy)
     if (own) SheetRow(Icons.Outlined.Edit, "Изменить сообщение", onEdit)
     if (!dm) SheetRow(Icons.Outlined.PushPin, if (message.pinned) "Открепить сообщение" else "Закрепить сообщение", onPin)
@@ -803,4 +874,83 @@ private val timeFmt = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.syste
 
 private fun formatTime(iso: String): String {
   return runCatching { timeFmt.format(Instant.parse(iso)) }.getOrElse { "" }
+}
+
+@Composable
+private fun VoiceBubble(attachment: Attachment) {
+  var playing by remember { mutableStateOf(false) }
+  val player = remember { MediaPlayer() }
+  DisposableEffect(attachment.url) {
+    runCatching {
+      player.setDataSource(attachment.url)
+      player.prepareAsync()
+    }
+    player.setOnCompletionListener { playing = false }
+    onDispose {
+      runCatching { player.stop() }
+      player.release()
+    }
+  }
+  val seconds = ((attachment.durationMs ?: 0) / 1000).coerceAtLeast(1)
+  Row(
+    modifier = Modifier
+      .padding(top = 6.dp)
+      .clip(RoundedCornerShape(16.dp))
+      .background(SurfaceDeep)
+      .clickable {
+        if (playing) {
+          runCatching { player.pause() }
+          playing = false
+        } else {
+          runCatching { player.start() }
+          playing = true
+        }
+      }
+      .padding(horizontal = 12.dp, vertical = 8.dp),
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    Text(if (playing) "❚❚" else "▶", color = Brand, fontSize = 16.sp)
+    Spacer(Modifier.width(8.dp))
+    Text("Голосовое · ${seconds}с", color = TextPrimary, fontSize = 14.sp)
+  }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ForwardPickerSheet(model: AppViewModel, onDismiss: () -> Unit) {
+  ModalBottomSheet(
+    onDismissRequest = onDismiss,
+    sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    containerColor = SurfacePanel,
+  ) {
+    Text(
+      "Переслать в…",
+      color = TextPrimary,
+      fontWeight = FontWeight.SemiBold,
+      fontSize = 16.sp,
+      modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+    )
+    model.forwardTargets.forEach { target ->
+      Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .clickable { model.forwardTo(target.id, target.dm) }
+          .padding(horizontal = 20.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        if (target.subtitle == "Сохранённые") {
+          Icon(Icons.Outlined.Bookmark, contentDescription = null, tint = Brand)
+          Spacer(Modifier.width(10.dp))
+        }
+        Column {
+          Text(target.title, color = TextPrimary, fontSize = 15.sp)
+          Text(target.subtitle, color = TextMuted, fontSize = 12.sp)
+        }
+      }
+    }
+    if (model.forwardTargets.isEmpty()) {
+      Text("Загрузка…", color = TextMuted, modifier = Modifier.padding(20.dp))
+    }
+    Spacer(Modifier.height(16.dp))
+  }
 }

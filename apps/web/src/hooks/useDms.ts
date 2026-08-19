@@ -52,9 +52,11 @@ export function useUserSearch(query: string) {
 export function conversationTitle(
   conversation: DirectConversation,
   currentUserId: string | undefined,
+  savedLabel = 'Избранное',
 ): string {
+  if (conversation.isSaved) return savedLabel;
   if (conversation.name) return conversation.name;
   const others = conversation.members.filter((member) => member.id !== currentUserId);
-  if (others.length === 0) return 'Just you';
+  if (others.length === 0) return savedLabel;
   return others.map((member) => member.displayName ?? member.username).join(', ');
 }

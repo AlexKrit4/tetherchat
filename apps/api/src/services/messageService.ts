@@ -30,6 +30,8 @@ export interface CreateMessageInput {
   content: string;
   replyToId?: string | null;
   attachmentIds?: string[];
+  attachmentDurations?: Record<string, number>;
+  forwardMessageId?: string;
   /**
    * Client-generated id echoed back in the broadcast so the sender can replace
    * its optimistic row instead of rendering the message twice.
@@ -101,9 +103,9 @@ async function resolveTarget(input: CreateMessageInput): Promise<Target> {
   throw ApiError.badRequest('Either channelId or conversationId is required');
 }
 
-function assertContent(content: string, attachmentCount: number): string {
+function assertContent(content: string, attachmentCount: number, hasForward = false): string {
   const trimmed = content.replace(/\s+$/g, '');
-  if (trimmed.length === 0 && attachmentCount === 0) {
+  if (trimmed.length === 0 && attachmentCount === 0 && !hasForward) {
     throw ApiError.badRequest('Message must contain text or an attachment');
   }
   if (trimmed.length > LIMITS.messageContent.max) {
@@ -125,8 +127,15 @@ export async function createMessage(input: CreateMessageInput): Promise<Message>
   await assertSendRate(input.authorId);
 
   const target = await resolveTarget(input);
+  const forwarded = input.forwardMessageId
+    ? await loadForwardSource(input.authorId, input.forwardMessageId)
+    : null;
   const attachmentIds = (input.attachmentIds ?? []).slice(0, LIMITS.attachmentsPerMessage);
-  const content = assertContent(input.content, attachmentIds.length);
+  const content = assertContent(
+    forwarded && !input.content.trim() ? forwarded.content : input.content,
+    attachmentIds.length + (forwarded?.attachments.length ?? 0),
+    Boolean(forwarded),
+  );
 
   if (input.replyToId) {
     const parent = await prisma.message.findUnique({
@@ -151,6 +160,7 @@ export async function createMessage(input: CreateMessageInput): Promise<Message>
 
   const mentionedUserIds = filterMentions(target, extractUserMentions(content));
   const mentionsEveryone = target.canMentionEveryone && detectEveryone(content);
+  const durations = input.attachmentDurations ?? {};
 
   const created = await prisma.$transaction(async (tx) => {
     const message = await tx.message.create({
@@ -159,7 +169,8 @@ export async function createMessage(input: CreateMessageInput): Promise<Message>
         conversationId: target.kind === 'conversation' ? target.id : null,
         authorId: input.authorId,
         content,
-        replyToId: input.replyToId ?? null,
+        replyToId: forwarded ? null : (input.replyToId ?? null),
+        forwardedFromId: forwarded?.id ?? null,
         mentionedUserIds,
         mentionsEveryone,
       },
@@ -171,6 +182,32 @@ export async function createMessage(input: CreateMessageInput): Promise<Message>
         where: { id: { in: attachmentIds } },
         data: { messageId: message.id },
       });
+      for (const [attachmentId, durationMs] of Object.entries(durations)) {
+        if (!attachmentIds.includes(attachmentId) || !Number.isFinite(durationMs) || durationMs <= 0) {
+          continue;
+        }
+        await tx.attachment.update({
+          where: { id: attachmentId },
+          data: { durationMs: Math.round(durationMs) },
+        });
+      }
+    }
+
+    if (forwarded?.attachments.length) {
+      await tx.attachment.createMany({
+        data: forwarded.attachments.map((attachment) => ({
+          uploaderId: input.authorId,
+          messageId: message.id,
+          storageKey: `${attachment.storageKey}#${message.id}:${attachment.id}`,
+          url: attachment.url,
+          filename: attachment.filename,
+          contentType: attachment.contentType,
+          size: attachment.size,
+          width: attachment.width,
+          height: attachment.height,
+          durationMs: attachment.durationMs,
+        })),
+      });
     }
 
     if (target.kind === 'conversation') {
@@ -178,14 +215,19 @@ export async function createMessage(input: CreateMessageInput): Promise<Message>
         where: { id: target.id },
         data: { lastMessageAt: message.createdAt },
       });
+      await tx.directConversationMember.updateMany({
+        where: { conversationId: target.id, userId: input.authorId, leftAt: null },
+        data: { lastReadMessageId: message.id, lastReadAt: message.createdAt },
+      });
     }
 
     return message;
   });
 
-  const full = attachmentIds.length
-    ? await prisma.message.findUniqueOrThrow({ where: { id: created.id }, include: messageInclude })
-    : created;
+  const full =
+    attachmentIds.length || forwarded?.attachments.length
+      ? await prisma.message.findUniqueOrThrow({ where: { id: created.id }, include: messageInclude })
+      : created;
 
   const payload: Message = {
     ...toMessage(full, null),
@@ -212,6 +254,24 @@ export async function createMessage(input: CreateMessageInput): Promise<Message>
   }
 
   return payload;
+}
+
+async function loadForwardSource(userId: string, messageId: string) {
+  const original = await prisma.message.findUnique({
+    where: { id: messageId },
+    include: { attachments: true },
+  });
+  if (!original || original.deletedAt) throw ApiError.notFound('Message not found');
+
+  if (original.channelId) {
+    await loadChannelContext(original.channelId, userId);
+  } else if (original.conversationId) {
+    await assertConversationMember(original.conversationId, userId);
+  } else {
+    throw ApiError.notFound('Message not found');
+  }
+
+  return original;
 }
 
 function filterMentions(target: Target, ids: string[]): string[] {

@@ -11,29 +11,52 @@ import {
   listMessages,
   searchMessages,
 } from '../services/messageService.js';
+import { ackConversation } from '../services/readStateService.js';
 import { emitToUser, joinUserToRoom } from '../ws/realtime.js';
 
 const conversationParam = z.object({ conversationId: z.string().min(1) });
+const messageBody = z.object({
+  content: z.string().max(LIMITS.messageContent.max).default(''),
+  replyToId: z.string().nullable().optional(),
+  attachmentIds: z.array(z.string()).max(LIMITS.attachmentsPerMessage).optional(),
+  attachmentDurations: z.record(z.string(), z.number().int().min(1).max(15 * 60_000)).optional(),
+  forwardMessageId: z.string().min(1).optional(),
+  nonce: z.string().max(64).optional(),
+});
 
 export async function dmRoutes(app: FastifyInstance) {
   app.addHook('preHandler', app.requireAuth);
 
   app.get('/', async (request) => {
+    await ensureSavedConversation(request.userId);
     const conversations = await prisma.directConversation.findMany({
       where: { members: { some: { userId: request.userId, leftAt: null } } },
       include: conversationInclude,
-      // Postgres sorts NULLs first on DESC, which would float conversations that
-      // have no messages yet above active ones.
-      orderBy: [{ lastMessageAt: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }],
+      orderBy: [
+        { isSaved: 'desc' },
+        { lastMessageAt: { sort: 'desc', nulls: 'last' } },
+        { createdAt: 'desc' },
+      ],
     });
     const blocked = await blockedPeerIds(request.userId);
     return conversations
-      .map(toConversation)
+      .map((row) => toConversation(row, request.userId))
       .filter(
         (conversation) =>
+          conversation.isSaved ||
           conversation.isGroup ||
           !conversation.members.some((member) => member.id !== request.userId && blocked.has(member.id)),
       );
+  });
+
+  app.get('/saved', async (request) => {
+    const conversation = await ensureSavedConversation(request.userId);
+    return toConversation(conversation, request.userId);
+  });
+
+  app.post('/saved', async (request, reply) => {
+    const conversation = await ensureSavedConversation(request.userId);
+    reply.send(toConversation(conversation, request.userId));
   });
 
   app.post('/', async (request, reply) => {
@@ -59,7 +82,7 @@ export async function dmRoutes(app: FastifyInstance) {
       }
       const existing = await findDirectConversation(request.userId, otherIds[0]);
       if (existing) {
-        reply.send(toConversation(existing));
+        reply.send(toConversation(existing, request.userId));
         return;
       }
     }
@@ -74,13 +97,12 @@ export async function dmRoutes(app: FastifyInstance) {
       include: conversationInclude,
     });
 
-    const payload = toConversation(conversation);
     for (const userId of memberIds) {
       await joinUserToRoom(userId, socketRooms.conversation(conversation.id));
-      emitToUser(userId, 'dm:create', payload);
+      emitToUser(userId, 'dm:create', toConversation(conversation, userId));
     }
 
-    reply.status(201).send(payload);
+    reply.status(201).send(toConversation(conversation, request.userId));
   });
 
   app.get('/:conversationId', async (request) => {
@@ -90,7 +112,7 @@ export async function dmRoutes(app: FastifyInstance) {
       where: { id: conversationId },
       include: conversationInclude,
     });
-    return toConversation(conversation);
+    return toConversation(conversation, request.userId);
   });
 
   app.get('/:conversationId/messages', async (request) => {
@@ -109,14 +131,7 @@ export async function dmRoutes(app: FastifyInstance) {
 
   app.post('/:conversationId/messages', async (request, reply) => {
     const { conversationId } = conversationParam.parse(request.params);
-    const body = z
-      .object({
-        content: z.string().max(LIMITS.messageContent.max).default(''),
-        replyToId: z.string().nullable().optional(),
-        attachmentIds: z.array(z.string()).max(LIMITS.attachmentsPerMessage).optional(),
-        nonce: z.string().max(64).optional(),
-      })
-      .parse(request.body);
+    const body = messageBody.parse(request.body);
 
     const message = await createMessage({
       authorId: request.userId,
@@ -124,6 +139,8 @@ export async function dmRoutes(app: FastifyInstance) {
       content: body.content,
       replyToId: body.replyToId ?? null,
       attachmentIds: body.attachmentIds,
+      attachmentDurations: body.attachmentDurations,
+      forwardMessageId: body.forwardMessageId,
       nonce: body.nonce,
     });
 
@@ -141,13 +158,7 @@ export async function dmRoutes(app: FastifyInstance) {
     const { conversationId } = conversationParam.parse(request.params);
     const { messageId } = z.object({ messageId: z.string().min(1) }).parse(request.body);
     await assertConversationMember(conversationId, request.userId);
-
-    await prisma.directConversationMember.update({
-      where: { conversationId_userId: { conversationId, userId: request.userId } },
-      data: { lastReadMessageId: messageId },
-    });
-
-    return { conversationId, lastReadMessageId: messageId };
+    return ackConversation(request.userId, conversationId, messageId);
   });
 
   app.post('/:conversationId/leave', async (request, reply) => {
@@ -156,9 +167,11 @@ export async function dmRoutes(app: FastifyInstance) {
 
     const conversation = await prisma.directConversation.findUniqueOrThrow({
       where: { id: conversationId },
-      select: { isGroup: true },
+      select: { isGroup: true, isSaved: true },
     });
-    if (!conversation.isGroup) throw ApiError.badRequest('Direct messages cannot be left');
+    if (!conversation.isGroup || conversation.isSaved) {
+      throw ApiError.badRequest('Direct messages cannot be left');
+    }
 
     await prisma.directConversationMember.update({
       where: { conversationId_userId: { conversationId, userId: request.userId } },
@@ -169,10 +182,35 @@ export async function dmRoutes(app: FastifyInstance) {
   });
 }
 
+async function ensureSavedConversation(userId: string) {
+  const existing = await prisma.directConversation.findUnique({
+    where: { savedForUserId: userId },
+    include: conversationInclude,
+  });
+  if (existing) {
+    await joinUserToRoom(userId, socketRooms.conversation(existing.id));
+    return existing;
+  }
+
+  const created = await prisma.directConversation.create({
+    data: {
+      isSaved: true,
+      savedForUserId: userId,
+      ownerId: userId,
+      members: { create: [{ userId }] },
+    },
+    include: conversationInclude,
+  });
+  await joinUserToRoom(userId, socketRooms.conversation(created.id));
+  emitToUser(userId, 'dm:create', toConversation(created, userId));
+  return created;
+}
+
 async function findDirectConversation(userA: string, userB: string) {
   return prisma.directConversation.findFirst({
     where: {
       isGroup: false,
+      isSaved: false,
       AND: [
         { members: { some: { userId: userA, leftAt: null } } },
         { members: { some: { userId: userB, leftAt: null } } },

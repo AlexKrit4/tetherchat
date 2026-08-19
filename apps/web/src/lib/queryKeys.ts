@@ -15,4 +15,5 @@ export const queryKeys = {
   userSearch: (query: string) => ['user-search', query] as const,
   invitePreview: (code: string) => ['invite-preview', code] as const,
   blocks: ['blocks'] as const,
+  sessions: ['sessions'] as const,
 };

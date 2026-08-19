@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CircleX, Paperclip, Plus, SendHorizonal, SmilePlus, X } from 'lucide-react';
+import { CircleX, Mic, Paperclip, Plus, SendHorizonal, SmilePlus, X } from 'lucide-react';
 import { LIMITS, Permission, can } from '@tetherchat/shared';
 import type { Attachment, Message } from '@tetherchat/shared';
 import { cn } from '@/lib/cn';
@@ -48,6 +48,13 @@ export function MessageInput() {
   const [mentionQuery, setMentionQuery] = useState<MentionQuery | null>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [pending, setPending] = useState<Attachment[]>([]);
+  const [recording, setRecording] = useState(false);
+  const [recordMs, setRecordMs] = useState(0);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const recordChunks = useRef<Blob[]>([]);
+  const recordStartedAt = useRef(0);
+  const recordTimer = useRef<number>(0);
+  const recordStream = useRef<MediaStream | null>(null);
 
   const nonce = useNonce();
   const send = useSendMessage(channelId ?? '', isDm);
@@ -97,6 +104,67 @@ export function MessageInput() {
 
   const keepComposerFocused = () => {
     textareaRef.current?.focus({ preventScroll: true });
+  };
+
+  const sendVoice = async (blob: Blob, durationMs: number) => {
+    if (!channelId || durationMs < 400) return;
+    const extension = blob.type.includes('mp4') ? 'm4a' : 'webm';
+    const file = new File([blob], `voice.${extension}`, { type: blob.type || 'audio/webm' });
+    try {
+      const attachment = await upload.mutateAsync({ file, durationMs });
+      send.mutate({
+        content: '',
+        attachmentIds: [attachment.id],
+        attachmentDurations: { [attachment.id]: durationMs },
+        nonce: nonce(),
+      });
+    } catch (error) {
+      toast.error(errorMessage(error, t('chat.voiceFailed')));
+    }
+  };
+
+  const stopRecording = (sendClip: boolean) => {
+    const recorder = recorderRef.current;
+    if (!recorder) return;
+    recorder.onstop = () => {
+      const durationMs = Date.now() - recordStartedAt.current;
+      const blob = new Blob(recordChunks.current, { type: recorder.mimeType || 'audio/webm' });
+      recordChunks.current = [];
+      recordStream.current?.getTracks().forEach((track) => track.stop());
+      recordStream.current = null;
+      recorderRef.current = null;
+      window.clearInterval(recordTimer.current);
+      setRecording(false);
+      setRecordMs(0);
+      if (sendClip) void sendVoice(blob, durationMs);
+    };
+    if (recorder.state !== 'inactive') recorder.stop();
+  };
+
+  const startRecording = async () => {
+    if (!canAttach || recording) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/webm')
+          ? 'audio/webm'
+          : '';
+      const recorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+      recordChunks.current = [];
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) recordChunks.current.push(event.data);
+      };
+      recorder.start();
+      recorderRef.current = recorder;
+      recordStream.current = stream;
+      recordStartedAt.current = Date.now();
+      setRecording(true);
+      setRecordMs(0);
+      recordTimer.current = window.setInterval(() => setRecordMs(Date.now() - recordStartedAt.current), 200);
+    } catch {
+      toast.error(t('chat.micDenied'));
+    }
   };
 
   const submit = () => {
@@ -302,12 +370,40 @@ export function MessageInput() {
             />
           </div>
 
-          {/* Touch layouts always show send; desktop relies on Enter. */}
-          {isMobile ? (
+          {/* Touch layouts always show send; hold the mic for a voice note when empty. */}
+          {recording ? (
+            <button
+              type="button"
+              className="mb-1 min-h-touch px-2 text-sm font-medium text-danger"
+              onPointerUp={() => stopRecording(true)}
+              onPointerCancel={() => stopRecording(false)}
+            >
+              {t('chat.recording', { seconds: Math.max(1, Math.round(recordMs / 1000)) })}
+            </button>
+          ) : draft.trim().length === 0 && pending.length === 0 && canAttach ? (
+            <button
+              type="button"
+              aria-label={t('chat.voice')}
+              disabled={!canSend}
+              onPointerDown={(event) => {
+                event.preventDefault();
+                void startRecording();
+              }}
+              onPointerUp={() => stopRecording(true)}
+              onPointerCancel={() => stopRecording(false)}
+              onContextMenu={(event) => event.preventDefault()}
+              className={cn(
+                'inline-flex shrink-0 items-center justify-center rounded text-text-subheading hover:text-text-heading',
+                isMobile ? 'h-touch w-touch' : 'mb-1.5 h-8 w-8',
+              )}
+            >
+              <Mic size={isMobile ? 22 : 20} strokeWidth={1.75} aria-hidden />
+            </button>
+          ) : isMobile || draft.trim().length > 0 || pending.length > 0 ? (
             <IconButton
               icon={SendHorizonal}
               label={t('chat.send')}
-              size="lg"
+              size={isMobile ? 'lg' : 'md'}
               showTooltip={false}
               disabled={!canSend || (draft.trim().length === 0 && pending.length === 0)}
               onPointerDown={(event) => event.preventDefault()}

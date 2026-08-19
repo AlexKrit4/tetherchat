@@ -41,7 +41,7 @@ export function useChatTarget(): ChatTarget {
 
   const title = isDm
     ? conversation
-      ? conversationTitle(conversation, currentUserId)
+      ? conversationTitle(conversation, currentUserId, t('dm.savedMessages'))
       : t('nav.directMessages')
     : (channel?.name ?? '');
 

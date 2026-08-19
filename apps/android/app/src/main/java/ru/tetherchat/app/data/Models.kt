@@ -139,6 +139,7 @@ data class Attachment(
   val size: Int = 0,
   val width: Int? = null,
   val height: Int? = null,
+  val durationMs: Int? = null,
 ) {
   val isImage: Boolean get() = contentType.startsWith("image/")
   val isVideo: Boolean get() = contentType.startsWith("video/")
@@ -184,6 +185,7 @@ data class Message(
   val pinned: Boolean = false,
   val system: Boolean = false,
   val replyTo: MessageReference? = null,
+  val forwardedFrom: MessageReference? = null,
   val attachments: List<Attachment> = emptyList(),
   val reactions: List<Reaction> = emptyList(),
   val previews: List<LinkPreview> = emptyList(),
@@ -200,18 +202,24 @@ data class MessagePage(
 data class DirectConversation(
   val id: String,
   val isGroup: Boolean = false,
+  val isSaved: Boolean = false,
   val name: String? = null,
   val iconUrl: String? = null,
   val ownerId: String? = null,
   val members: List<PublicUser> = emptyList(),
   val lastMessageAt: String? = null,
+  val peerLastReadMessageId: String? = null,
+  val peerLastReadAt: String? = null,
 ) {
   fun title(meId: String): String {
+    if (isSaved) return "Избранное"
     if (isGroup) return name?.takeIf { it.isNotBlank() } ?: members.joinToString { it.label }
     return members.firstOrNull { it.id != meId }?.label ?: "Личные сообщения"
   }
 
   fun peer(meId: String): PublicUser? = members.firstOrNull { it.id != meId }
+
+  val showsReceipts: Boolean get() = !isGroup && !isSaved
 }
 
 @Serializable
@@ -237,6 +245,8 @@ data class SendMessageBody(
   val nonce: String? = null,
   val replyToId: String? = null,
   val attachmentIds: List<String>? = null,
+  val attachmentDurations: Map<String, Int>? = null,
+  val forwardMessageId: String? = null,
 )
 
 @Serializable
@@ -430,4 +440,22 @@ data class AndroidRelease(
   val versionCode: Int,
   val versionName: String = "",
   val url: String = "",
+)
+
+@Serializable
+data class DeviceSession(
+  val id: String,
+  val userAgent: String? = null,
+  val ip: String? = null,
+  val current: Boolean = false,
+  val createdAt: String = "",
+  val lastUsedAt: String = "",
+)
+
+@Serializable
+data class ReceiptUpdate(
+  val conversationId: String,
+  val userId: String,
+  val lastReadMessageId: String = "",
+  val lastReadAt: String? = null,
 )

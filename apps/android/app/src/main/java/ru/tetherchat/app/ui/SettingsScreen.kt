@@ -28,6 +28,7 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.ColorLens
+import androidx.compose.material.icons.outlined.Devices
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.PersonOff
@@ -83,6 +84,7 @@ fun SettingsScreen(model: AppViewModel) {
     Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
       SettingsRow(Icons.Outlined.Person, "Профиль", "Имя, аватар, статус") { model.openProfileSettings() }
       SettingsRow(Icons.Outlined.Lock, "Аккаунт", "Имя пользователя и почта") { model.openAccountSettings() }
+      SettingsRow(Icons.Outlined.Devices, "Сессии", "Где выполнен вход") { model.openSessions() }
       SettingsRow(Icons.Outlined.ColorLens, "Оформление", "Отправка по Enter") { model.openAppearanceSettings() }
       SettingsRow(Icons.Outlined.PersonOff, "Чёрный список", "Заблокированные пользователи") { model.openBlacklist() }
       Spacer(Modifier.height(12.dp))
@@ -199,8 +201,76 @@ fun AccountSettingsScreen(model: AppViewModel) {
       TextButton(onClick = model::requestPasswordReset) {
         Text("Отправить ссылку сброса пароля", color = Brand)
       }
+      Spacer(Modifier.height(8.dp))
+      Button(
+        onClick = model::openSessions,
+        colors = ButtonDefaults.buttonColors(containerColor = SurfacePanel),
+        modifier = Modifier.fillMaxWidth(),
+      ) { Text("Устройства и сессии", color = TextPrimary) }
     }
   }
+}
+
+@Composable
+fun SessionsScreen(model: AppViewModel) {
+  Column(
+    modifier = Modifier
+      .fillMaxSize()
+      .background(SurfaceDeep)
+      .statusBarsPadding()
+      .navigationBarsPadding(),
+  ) {
+    SettingsHeader("Сессии", model::back)
+    Text(
+      "Устройства, где выполнен вход. Завершите чужой сеанс, если это не вы.",
+      color = TextMuted,
+      fontSize = 13.sp,
+      modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+    )
+    Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+      model.sessions.forEach { session ->
+        Column(
+          Modifier
+            .fillMaxWidth()
+            .background(SurfacePanel, RoundedCornerShape(12.dp))
+            .padding(12.dp),
+        ) {
+          Text(
+            describeAgent(session.userAgent) + if (session.current) " · это устройство" else "",
+            color = TextPrimary,
+            fontWeight = FontWeight.Medium,
+          )
+          Text(
+            listOfNotNull(session.ip, session.lastUsedAt.takeIf { it.isNotBlank() }).joinToString(" · "),
+            color = TextMuted,
+            fontSize = 12.sp,
+          )
+          if (!session.current) {
+            TextButton(onClick = { model.revokeSession(session.id) }) {
+              Text("Завершить", color = Danger)
+            }
+          }
+        }
+      }
+      Button(
+        onClick = model::revokeOtherSessions,
+        enabled = model.sessions.any { !it.current },
+        colors = ButtonDefaults.buttonColors(containerColor = Brand),
+        modifier = Modifier.fillMaxWidth(),
+      ) { Text("Выйти на других устройствах") }
+    }
+  }
+}
+
+private fun describeAgent(userAgent: String?): String {
+  val ua = userAgent.orEmpty()
+  if (ua.contains("okhttp", true) || ua.contains("TetherChat", true)) return "Android"
+  if (ua.contains("iPhone") || ua.contains("iPad")) return "iOS"
+  if (ua.contains("Android")) return "Android"
+  if (ua.contains("Windows")) return "Windows"
+  if (ua.contains("Mac OS")) return "macOS"
+  if (ua.contains("Linux")) return "Linux"
+  return ua.ifBlank { "Неизвестное устройство" }.take(64)
 }
 
 @Composable

@@ -81,6 +81,7 @@ export interface Attachment {
   size: number;
   width: number | null;
   height: number | null;
+  durationMs?: number | null;
 }
 
 export interface Reaction {
@@ -120,6 +121,7 @@ export interface Message {
   pinned: boolean;
   system: boolean;
   replyTo: MessageReference | null;
+  forwardedFrom?: MessageReference | null;
   attachments: Attachment[];
   reactions: Reaction[];
   previews: LinkPreview[];
@@ -134,11 +136,25 @@ export interface Message {
 export interface DirectConversation {
   id: string;
   isGroup: boolean;
+  /** Telegram-style Saved Messages: a private self-chat, pinned at the top of the DM list. */
+  isSaved?: boolean;
   name: string | null;
   iconUrl: string | null;
   ownerId: string | null;
   members: PublicUser[];
   lastMessageAt: string | null;
+  /** Peer read cursor for 1:1 DMs only. Absent on groups, servers, and Saved Messages. */
+  peerLastReadMessageId?: string | null;
+  peerLastReadAt?: string | null;
+}
+
+export interface Session {
+  id: string;
+  userAgent: string | null;
+  ip: string | null;
+  current: boolean;
+  createdAt: string;
+  lastUsedAt: string;
 }
 
 export interface Invite {

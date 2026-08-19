@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Users, X } from 'lucide-react';
+import { Plus, Bookmark, Users, X } from 'lucide-react';
 import type { DirectConversation } from '@tetherchat/shared';
 import { cn } from '@/lib/cn';
 import { DM_ROUTE } from '@/hooks/useChatTarget';
@@ -46,7 +46,7 @@ export function DirectMessageList({
         {conversations?.map((conversation) => {
           const active = conversation.id === activeConversationId;
           const others = conversation.members.filter((member) => member.id !== currentUserId);
-          const title = conversationTitle(conversation, currentUserId);
+          const title = conversationTitle(conversation, currentUserId, t('dm.savedMessages'));
 
           return (
             <li key={conversation.id} className="group/dm relative">
@@ -66,7 +66,11 @@ export function DirectMessageList({
                     : 'text-text-muted hover:bg-surface-hover hover:text-text-subheading',
                 )}
               >
-                {conversation.isGroup ? (
+                {conversation.isSaved ? (
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-white">
+                    <Bookmark size={16} aria-hidden />
+                  </span>
+                ) : conversation.isGroup ? (
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-tertiary text-text-subheading">
                     <Users size={16} aria-hidden />
                   </span>

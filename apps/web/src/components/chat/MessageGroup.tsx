@@ -1,5 +1,5 @@
 import { memo, useState } from 'react';
-import { CornerUpLeft, Pencil, Pin, Reply, SmilePlus, Trash2 } from 'lucide-react';
+import { Check, CheckCheck, CornerUpLeft, Forward, Pencil, Pin, Reply, SmilePlus, Trash2 } from 'lucide-react';
 import type { Message, ServerMember } from '@tetherchat/shared';
 import { cn } from '@/lib/cn';
 import { useT } from '@/i18n/useT';
@@ -40,6 +40,8 @@ export interface MessageGroupProps {
   onOpenActions: (message: Message) => void;
   onOpenProfile: (userId: string) => void;
   onJumpToMessage?: (messageId: string) => void;
+  onForward?: (message: Message) => void;
+  receipt?: 'delivered' | 'read' | null;
 }
 
 /**
@@ -66,6 +68,8 @@ export const MessageGroup = memo(function MessageGroup({
   onOpenActions,
   onOpenProfile,
   onJumpToMessage,
+  onForward,
+  receipt,
 }: MessageGroupProps) {
   const t = useT();
   const isMobile = useIsMobile();
@@ -102,6 +106,20 @@ export const MessageGroup = memo(function MessageGroup({
     >
       {mentionsMe ? (
         <span aria-hidden className="absolute inset-y-0 left-0 w-0.5 bg-mention-text" />
+      ) : null}
+
+      {message.forwardedFrom ? (
+        <div className={cn('mb-1 flex items-center gap-1.5 text-sm text-text-muted', textIndent)}>
+          <Forward size={14} className="shrink-0 text-text-faint" aria-hidden />
+          <span className="truncate">
+            {t('chat.forwardedFrom', {
+              name:
+                message.forwardedFrom.author?.displayName ??
+                message.forwardedFrom.author?.username ??
+                t('common.unknown'),
+            })}
+          </span>
+        </div>
       ) : null}
 
       {message.replyTo ? (
@@ -157,7 +175,10 @@ export const MessageGroup = memo(function MessageGroup({
                 {displayName}
               </button>
               <Tooltip content={messageTimestamp(message.createdAt)}>
-                <span className="text-xs text-text-muted">{messageTimestamp(message.createdAt)}</span>
+                <span className="inline-flex items-center gap-1 text-xs text-text-muted">
+                  {messageTimestamp(message.createdAt)}
+                  <ReceiptMark receipt={receipt} />
+                </span>
               </Tooltip>
             </div>
           ) : null}
@@ -184,6 +205,7 @@ export const MessageGroup = memo(function MessageGroup({
                   {message.failed ? (
                     <span className="text-2xs text-danger">{t('chat.failed')}</span>
                   ) : null}
+                  {!isGroupStart ? <ReceiptMark receipt={receipt} /> : null}
                 </div>
               ) : null}
 
@@ -208,6 +230,9 @@ export const MessageGroup = memo(function MessageGroup({
             <IconButton icon={SmilePlus} label={t('chat.addReaction')} size="sm" onClick={onOpenEmojiPicker} />
           ) : null}
           <IconButton icon={Reply} label={t('chat.reply')} size="sm" onClick={() => onReply(message)} />
+          {onForward ? (
+            <IconButton icon={Forward} label={t('chat.forward')} size="sm" onClick={() => onForward(message)} />
+          ) : null}
           {actions.canEdit ? (
             <IconButton icon={Pencil} label={t('chat.edit')} size="sm" onClick={() => onEdit(message)} />
           ) : null}
@@ -234,3 +259,15 @@ export const MessageGroup = memo(function MessageGroup({
     </div>
   );
 });
+
+function ReceiptMark({ receipt }: { receipt?: 'delivered' | 'read' | null }) {
+  if (!receipt) return null;
+  const Icon = receipt === 'read' ? CheckCheck : Check;
+  return (
+    <Icon
+      size={14}
+      className={receipt === 'read' ? 'text-brand' : 'text-text-faint'}
+      aria-hidden
+    />
+  );
+}

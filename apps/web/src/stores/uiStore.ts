@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type { Message } from '@tetherchat/shared';
 
 /** Which single panel the phone layout is showing. */
@@ -39,7 +40,9 @@ interface UiState {
   setDraft: (channelId: string, value: string) => void;
 }
 
-export const useUiStore = create<UiState>((set, get) => ({
+export const useUiStore = create<UiState>()(
+  persist(
+    (set, get) => ({
   mobileView: 'chat',
   mobileHistory: [],
   membersOpen: true,
@@ -94,4 +97,13 @@ export const useUiStore = create<UiState>((set, get) => ({
 
   setDraft: (channelId, value) =>
     set((state) => ({ drafts: { ...state.drafts, [channelId]: value } })),
-}));
+    }),
+    {
+      name: 'tetherchat-ui',
+      partialize: (state) => ({
+        drafts: state.drafts,
+        collapsedCategories: state.collapsedCategories,
+      }),
+    },
+  ),
+);

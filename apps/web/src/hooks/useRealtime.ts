@@ -134,6 +134,27 @@ export function useRealtime(): ConnectionState {
       );
     };
 
+    const onReceipt = (payload: {
+      conversationId: string;
+      userId: string;
+      lastReadMessageId: string;
+      lastReadAt: string;
+    }) => {
+      if (payload.userId === currentUserId) return;
+      const patch = (conversation: DirectConversation): DirectConversation =>
+        conversation.id === payload.conversationId
+          ? {
+              ...conversation,
+              peerLastReadMessageId: payload.lastReadMessageId,
+              peerLastReadAt: payload.lastReadAt,
+            }
+          : conversation;
+      client.setQueryData<DirectConversation[]>(queryKeys.dms, (current) => current?.map(patch));
+      client.setQueryData<DirectConversation>(queryKeys.dm(payload.conversationId), (current) =>
+        current ? patch(current) : current,
+      );
+    };
+
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
     socket.on('connect_error', onConnectError);
@@ -158,6 +179,7 @@ export function useRealtime(): ConnectionState {
     socket.on('server:delete', () => void client.invalidateQueries({ queryKey: queryKeys.servers }));
     socket.on('server:join', () => void client.invalidateQueries({ queryKey: queryKeys.servers }));
     socket.on('dm:create', onDmCreate);
+    socket.on('receipt:update', onReceipt);
 
     return () => {
       socket.off('connect', onConnect);
@@ -184,6 +206,7 @@ export function useRealtime(): ConnectionState {
       socket.removeAllListeners('server:delete');
       socket.removeAllListeners('server:join');
       socket.removeAllListeners('dm:create');
+      socket.removeAllListeners('receipt:update');
     };
   }, [client, currentUserId, setPresence, setTyping, status]);
 

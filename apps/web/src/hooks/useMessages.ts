@@ -105,6 +105,8 @@ export function useSendMessage(channelId: string, isDm: boolean) {
       content: string;
       replyToId?: string | null;
       attachmentIds?: string[];
+      attachmentDurations?: Record<string, number>;
+      forwardMessageId?: string;
       nonce: string;
     }) => {
       const socket = getSocket();
@@ -143,6 +145,7 @@ export function useSendMessage(channelId: string, isDm: boolean) {
         pinned: false,
         system: false,
         replyTo: null,
+        forwardedFrom: null,
         attachments: [],
         reactions: [],
         previews: [],
@@ -305,10 +308,13 @@ export function useMessageSearch(channelId: string | undefined, query: string, i
 
 export function useUploadAttachment() {
   return useMutation({
-    mutationFn: (file: File) => {
+    mutationFn: (input: File | { file: File; durationMs?: number }) => {
+      const payload = input instanceof File ? { file: input, durationMs: undefined } : input;
       const form = new FormData();
-      form.append('file', file);
-      return api.post<Attachment>('/api/upload', form);
+      form.append('file', payload.file);
+      return api.post<Attachment>('/api/upload', form, {
+        query: payload.durationMs ? { durationMs: payload.durationMs } : undefined,
+      });
     },
   });
 }

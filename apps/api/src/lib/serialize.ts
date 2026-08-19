@@ -67,6 +67,7 @@ export const messageInclude = {
   reactions: true,
   previews: true,
   replyTo: { include: { author: { select: publicUserSelect } } },
+  forwardedFrom: { include: { author: { select: publicUserSelect } } },
 } satisfies Prisma.MessageInclude;
 
 export type MessageRow = Prisma.MessageGetPayload<{ include: typeof messageInclude }>;
@@ -80,6 +81,7 @@ export function toAttachment(row: MessageRow['attachments'][number]): Attachment
     size: row.size,
     width: row.width,
     height: row.height,
+    durationMs: row.durationMs ?? null,
   };
 }
 
@@ -111,6 +113,22 @@ export function toReactions(
   }));
 }
 
+function toReference(
+  row:
+    | NonNullable<MessageRow['replyTo']>
+    | NonNullable<MessageRow['forwardedFrom']>
+    | null,
+): Message['replyTo'] {
+  if (!row) return null;
+  return {
+    id: row.id,
+    authorId: row.authorId,
+    author: row.author ? toPublicUser(row.author) : null,
+    content: row.deletedAt ? '' : row.content,
+    deleted: Boolean(row.deletedAt),
+  };
+}
+
 export function toMessage(row: MessageRow, currentUserId: string | null): Message {
   return {
     id: row.id,
@@ -123,15 +141,8 @@ export function toMessage(row: MessageRow, currentUserId: string | null): Messag
     editedAt: row.editedAt?.toISOString() ?? null,
     pinned: row.pinned,
     system: row.system,
-    replyTo: row.replyTo
-      ? {
-          id: row.replyTo.id,
-          authorId: row.replyTo.authorId,
-          author: row.replyTo.author ? toPublicUser(row.replyTo.author) : null,
-          content: row.replyTo.deletedAt ? '' : row.replyTo.content,
-          deleted: Boolean(row.replyTo.deletedAt),
-        }
-      : null,
+    replyTo: toReference(row.replyTo),
+    forwardedFrom: toReference(row.forwardedFrom),
     attachments: row.attachments.map(toAttachment),
     reactions: toReactions(row.reactions, currentUserId),
     previews: row.previews.map(toLinkPreview),
@@ -222,15 +233,24 @@ export type ConversationRow = Prisma.DirectConversationGetPayload<{
   include: typeof conversationInclude;
 }>;
 
-export function toConversation(row: ConversationRow): DirectConversation {
+export function toConversation(row: ConversationRow, currentUserId?: string): DirectConversation {
+  const active = row.members.filter((member) => !member.leftAt);
+  const isSaved = row.isSaved;
+  const isOneToOne = !row.isGroup && !isSaved && active.length === 2;
+  const peer =
+    currentUserId && isOneToOne ? active.find((member) => member.userId !== currentUserId) : undefined;
+
   return {
     id: row.id,
     isGroup: row.isGroup,
+    isSaved,
     name: row.name,
     iconUrl: row.iconUrl,
     ownerId: row.ownerId,
-    members: row.members.filter((member) => !member.leftAt).map((member) => toPublicUser(member.user)),
+    members: active.map((member) => toPublicUser(member.user)),
     lastMessageAt: row.lastMessageAt?.toISOString() ?? null,
+    peerLastReadMessageId: isOneToOne ? (peer?.lastReadMessageId ?? null) : null,
+    peerLastReadAt: isOneToOne ? (peer?.lastReadAt?.toISOString() ?? null) : null,
   };
 }
 
