@@ -95,6 +95,10 @@ export function MessageInput() {
     if (socket.connected) socket.emit('typing:stop', { channelId });
   };
 
+  const keepComposerFocused = () => {
+    textareaRef.current?.focus({ preventScroll: true });
+  };
+
   const submit = () => {
     if (!channelId) return;
     const content = draft.trim();
@@ -116,6 +120,7 @@ export function MessageInput() {
     setPending([]);
     setMentionQuery(null);
     stopTyping();
+    keepComposerFocused();
   };
 
   const applyMention = (replacement: { text: string; start: number; length: number }) => {
@@ -305,6 +310,8 @@ export function MessageInput() {
               size="lg"
               showTooltip={false}
               disabled={!canSend || (draft.trim().length === 0 && pending.length === 0)}
+              onPointerDown={(event) => event.preventDefault()}
+              onMouseDown={(event) => event.preventDefault()}
               onClick={submit}
               className="text-brand disabled:text-text-faint"
             />
