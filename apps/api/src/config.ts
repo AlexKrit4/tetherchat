@@ -50,6 +50,13 @@ const schema = z.object({
   VAPID_PRIVATE_KEY: z.string().optional(),
   VAPID_SUBJECT: z.string().default('mailto:admin@tetherchat.ru'),
 
+  /** Firebase service account JSON (raw or base64) for Android FCM. */
+  FCM_SERVICE_ACCOUNT_JSON: z.string().optional(),
+  FCM_PROJECT_ID: z.string().optional(),
+  FCM_APPLICATION_ID: z.string().optional(),
+  FCM_API_KEY: z.string().optional(),
+  FCM_SENDER_ID: z.string().optional(),
+
   SMTP_URL: z.string().optional(),
   MAIL_FROM: z.string().default('TetherChat <no-reply@tetherchat.ru>'),
 

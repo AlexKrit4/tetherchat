@@ -265,6 +265,9 @@ async function notifyRecipients(
       icon: message.author.avatarUrl ?? undefined,
       url,
       tag: `channel:${target.id}`,
+      channelId: target.id,
+      serverId: target.serverId ?? undefined,
+      messageId: message.id,
     },
   });
 }

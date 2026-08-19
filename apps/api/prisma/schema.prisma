@@ -405,9 +405,12 @@ model ChannelNotificationSetting {
 model PushSubscription {
   id        String   @id @default(cuid())
   userId    String
+  /** Web Push endpoint URL, or the raw FCM device token. */
   endpoint  String   @unique
-  p256dh    String
-  auth      String
+  p256dh    String   @default("")
+  auth      String   @default("")
+  /** `web` (VAPID) or `fcm` (native Android). */
+  platform  String   @default("web")
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

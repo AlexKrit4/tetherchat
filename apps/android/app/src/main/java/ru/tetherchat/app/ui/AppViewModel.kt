@@ -19,6 +19,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ru.tetherchat.app.ForegroundState
 import ru.tetherchat.app.NotificationHelper
+import ru.tetherchat.app.PushRegistrar
 import ru.tetherchat.app.data.ApiException
 import ru.tetherchat.app.data.Ban
 import ru.tetherchat.app.data.Channel
@@ -166,6 +167,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
         .onSuccess {
           screen = Screen.Home
           connectRealtime()
+          PushRegistrar.sync(getApplication())
           consumePendingDeepLink()
         }
         .onFailure {
@@ -204,6 +206,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
       result.onSuccess {
         screen = Screen.Home
         connectRealtime()
+        PushRegistrar.sync(getApplication())
         consumePendingDeepLink()
         pendingInviteCode?.let { code ->
           dialogText = code
@@ -215,7 +218,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
 
   fun logout() {
     viewModelScope.launch {
-      withContext(Dispatchers.IO) { runCatching { api.logout() } }
+      withContext(Dispatchers.IO) {
+        runCatching { PushRegistrar.unregister(getApplication()) }
+        runCatching { api.logout() }
+      }
       realtime.disconnect()
       me = null
       servers = emptyList()

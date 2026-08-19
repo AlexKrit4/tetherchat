@@ -407,3 +407,20 @@ data class CreateGroupDmBody(val userIds: List<String>, val name: String? = null
 
 @Serializable
 data class NotificationLevelBody(val muted: Boolean? = null, val level: String? = null)
+
+@Serializable
+data class FcmClientConfig(
+  val projectId: String = "",
+  val applicationId: String = "",
+  val apiKey: String = "",
+  val senderId: String = "",
+) {
+  val ready: Boolean get() =
+    projectId.isNotBlank() && applicationId.isNotBlank() && apiKey.isNotBlank() && senderId.isNotBlank()
+}
+
+@Serializable
+data class FcmSubscribeBody(val platform: String, val token: String)
+
+@Serializable
+data class FcmUnsubscribeBody(val token: String)

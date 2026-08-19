@@ -106,7 +106,8 @@ presence, счётчики rate limit, очереди BullMQ и служит а�
 **Личные сообщения.** Диалоги один на один и группы до 10 человек.
 
 **Уведомления.** Счётчики непрочитанного, подсветка упоминаний, настройка на
-каждый канал (все / только упоминания / ничего) и Web Push через service worker.
+каждый канал (все / только упоминания / ничего). В браузере — Web Push через
+service worker. На Android — FCM, чтобы пуш приходил и когда процесс убит.
 
 **PWA.** Устанавливается на домашний экран, работает в standalone-режиме, шелл
 кэшируется, обновление предлагается кнопкой, а не перезагружает страницу под
@@ -188,7 +189,11 @@ npm run test:e2e       # Playwright: seed + desktop + mobile
    ```
 
    Ключи для Web Push: `npx web-push generate-vapid-keys` → `VAPID_PUBLIC_KEY`
-   и `VAPID_PRIVATE_KEY`.
+   и `VAPID_PRIVATE_KEY`. Для Android, когда приложение закрыто, нужны
+   `FCM_SERVICE_ACCOUNT_JSON` (JSON сервис-аккаунта, лучше в base64) и публичные
+   `FCM_PROJECT_ID`, `FCM_APPLICATION_ID`, `FCM_API_KEY`, `FCM_SENDER_ID` из
+   Firebase Console (приложение с пакетом `ru.tetherchat.app`, SHA-1 дебаг-ключа
+   в `apps/android/README.md`).
 
 3. Стек поднимается по HTTP сразу (`nginx/tetherchat.ru.http.conf`). Когда DNS
    уже смотрит на сервер, выпустите сертификаты и переключите edge на TLS:
@@ -217,9 +222,11 @@ npm run test:e2e       # Playwright: seed + desktop + mobile
 APK скачивается из **Настройки пользователя → Мой профиль → Скачать APK**
 (https://tetherchat.ru/app/tetherchat.apk).
 
-Исходники Android Studio — в `apps/android`. Это оболочка WebView над сайтом:
-тот же дизайн и тот же функционал. Сборка: `./gradlew assembleDebug`, затем
-скопируйте APK в `apps/web/public/app/tetherchat.apk`. Подробности — в
+Исходники Android Studio — в `apps/android`. Это нативное приложение на Jetpack
+Compose: тот же API, что и у сайта. Сборка: `./gradlew assembleDebug`, затем
+скопируйте APK в `apps/web/public/app/tetherchat.apk`. Уведомления при закрытом
+приложении идут через FCM (ключи Firebase на сервере, клиентские id приложение
+забирает с `GET /api/push/android-config`). Подробности — в
 [apps/android/README.md](apps/android/README.md).
 
 Язык интерфейса по умолчанию — **русский**. Английский включается в Настройки → Оформление.

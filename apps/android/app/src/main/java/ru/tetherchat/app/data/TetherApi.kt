@@ -132,6 +132,16 @@ class TetherApi(private val session: SessionStore) {
   fun blockUser(userId: String): PublicUser = put("/api/users/@me/blocks/$userId", EmptyBody)
   fun unblockUser(userId: String) = delete("/api/users/@me/blocks/$userId")
 
+  fun fcmConfig(): FcmClientConfig = get("/api/push/android-config", authed = false)
+
+  fun subscribeFcm(token: String) {
+    post<FcmSubscribeBody, Unit>("/api/push/subscribe", FcmSubscribeBody(platform = "fcm", token = token))
+  }
+
+  fun unsubscribeFcm(token: String) {
+    post<FcmUnsubscribeBody, Unit>("/api/push/unsubscribe", FcmUnsubscribeBody(token))
+  }
+
   fun messages(channelId: String, before: String? = null, dm: Boolean): MessagePage {
     val path = if (dm) "/api/dms/$channelId/messages" else "/api/channels/$channelId/messages"
     val query = if (before.isNullOrBlank()) "" else "?before=$before"

@@ -18,6 +18,10 @@ class SessionStore(context: Context) {
     get() = prefs.getString(KEY_USER, null)
     set(value) = prefs.edit { putString(KEY_USER, value) }
 
+  var fcmToken: String?
+    get() = prefs.getString(KEY_FCM, null)
+    set(value) = prefs.edit { putString(KEY_FCM, value) }
+
   val hasSession: Boolean get() = !refreshToken.isNullOrBlank()
 
   fun save(auth: AuthResponse) {
@@ -35,6 +39,7 @@ class SessionStore(context: Context) {
     private const val KEY_ACCESS = "access"
     private const val KEY_REFRESH = "refresh"
     private const val KEY_USER = "user"
+    private const val KEY_FCM = "fcm"
     private const val LOCK = "session-store"
 
     @Volatile private var instance: SessionStore? = null

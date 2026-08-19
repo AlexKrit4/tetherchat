@@ -21,7 +21,9 @@ class MainActivity : ComponentActivity() {
 
   private val notificationPermissionLauncher = registerForActivityResult(
     ActivityResultContracts.RequestPermission(),
-  ) { }
+  ) { granted ->
+    if (granted) PushRegistrar.sync(this)
+  }
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -30,6 +32,7 @@ class MainActivity : ComponentActivity() {
     lifecycle.addObserver(model)
     NotificationHelper.ensureChannels(this)
     requestNotificationPermissionIfNeeded()
+    PushRegistrar.sync(this)
     applyDeepLink(intent)
     setContent {
       TetherTheme { TetherRoot(model) }
@@ -72,6 +75,7 @@ class MainActivity : ComponentActivity() {
     if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
       PackageManager.PERMISSION_GRANTED
     ) {
+      PushRegistrar.sync(this)
       return
     }
     notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
