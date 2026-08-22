@@ -128,6 +128,8 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+private const val MESSAGE_GROUP_WINDOW_MS = 5 * 60 * 1000L
+
 private val QuickReactions = listOf("👍", "❤️", "😂", "🎉", "👀", "🔥")
 private val EmojiGrid = listOf(
   "😀", "😂", "😍", "🥰", "😎", "🤔", "😢", "😭", "😤", "🤗",
@@ -279,6 +281,7 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
         }
         MessageRow(
           message = message,
+          isGroupStart = isMessageGroupStart(reversedMessages, index),
           model = model,
           onLongPress = { selected = message },
           onOpenProfile = { model.openProfile(message.authorId) },
@@ -640,50 +643,66 @@ private fun ComposerExtras(model: AppViewModel) {
 @Composable
 private fun MessageRow(
   message: Message,
+  isGroupStart: Boolean,
   model: AppViewModel,
   onLongPress: () -> Unit,
   onOpenProfile: () -> Unit,
   onOpenAttachment: (Attachment) -> Unit,
 ) {
+  val conversation = model.currentConversation
+  val showReceipt =
+    message.authorId == model.me?.id &&
+      conversation?.showsReceipts == true &&
+      !message.system
+  val readReceipt = showReceipt &&
+    !conversation.peerLastReadAt.isNullOrBlank() &&
+    conversation.peerLastReadAt!! >= message.createdAt
+
   Row(
     modifier = Modifier
       .fillMaxWidth()
       .combinedClickable(onClick = {}, onLongClick = onLongPress)
-      .padding(horizontal = 12.dp, vertical = 6.dp),
+      .padding(
+        horizontal = 12.dp,
+        vertical = if (isGroupStart) 6.dp else 1.dp,
+      ),
     horizontalArrangement = Arrangement.spacedBy(10.dp),
   ) {
-    Box(Modifier.clickable(onClick = onOpenProfile)) {
-      UserAvatar(message.author, 40.dp, model.statusOf(message.authorId, message.author.status))
+    if (isGroupStart) {
+      Box(Modifier.clickable(onClick = onOpenProfile)) {
+        UserAvatar(message.author, 40.dp, model.statusOf(message.authorId, message.author.status))
+      }
+    } else {
+      Spacer(Modifier.width(40.dp))
     }
     Column(Modifier.weight(1f)) {
-      Row(verticalAlignment = Alignment.Bottom) {
-        Text(
-          message.author.label,
-          color = TextPrimary,
-          fontWeight = FontWeight.SemiBold,
-          fontSize = 15.sp,
-          modifier = Modifier.clickable(onClick = onOpenProfile),
-        )
-        Spacer(Modifier.width(8.dp))
-        Text(formatTime(message.createdAt), color = TextMuted, fontSize = 12.sp)
-        val conversation = model.currentConversation
-        if (message.authorId == model.me?.id && conversation?.showsReceipts == true) {
-          val read = !conversation.peerLastReadAt.isNullOrBlank() &&
-            conversation.peerLastReadAt!! >= message.createdAt
-          Icon(
-            if (read) Icons.Filled.DoneAll else Icons.Filled.Done,
-            contentDescription = if (read) "Прочитано" else "Доставлено",
-            tint = if (read) Brand else TextMuted,
-            modifier = Modifier.padding(start = 4.dp).size(14.dp),
+      if (isGroupStart) {
+        Row(verticalAlignment = Alignment.Bottom) {
+          Text(
+            message.author.label,
+            color = TextPrimary,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 15.sp,
+            modifier = Modifier.clickable(onClick = onOpenProfile),
           )
-        }
-        if (message.editedAt != null) {
-          Spacer(Modifier.width(6.dp))
-          Text("изменено", color = TextMuted, fontSize = 11.sp)
-        }
-        if (message.pinned) {
-          Spacer(Modifier.width(6.dp))
-          Icon(Icons.Outlined.PushPin, contentDescription = null, tint = TextMuted, modifier = Modifier.size(12.dp))
+          Spacer(Modifier.width(8.dp))
+          Text(formatTime(message.createdAt), color = TextMuted, fontSize = 12.sp)
+          if (showReceipt) {
+            Icon(
+              if (readReceipt) Icons.Filled.DoneAll else Icons.Filled.Done,
+              contentDescription = if (readReceipt) "Прочитано" else "Доставлено",
+              tint = if (readReceipt) Brand else TextMuted,
+              modifier = Modifier.padding(start = 4.dp).size(14.dp),
+            )
+          }
+          if (message.editedAt != null) {
+            Spacer(Modifier.width(6.dp))
+            Text("изменено", color = TextMuted, fontSize = 11.sp)
+          }
+          if (message.pinned) {
+            Spacer(Modifier.width(6.dp))
+            Icon(Icons.Outlined.PushPin, contentDescription = null, tint = TextMuted, modifier = Modifier.size(12.dp))
+          }
         }
       }
       val reply = message.replyTo
@@ -707,7 +726,27 @@ private fun MessageRow(
         )
       }
       if (message.content.isNotBlank()) {
-        MessageBody(message.content)
+        Row(verticalAlignment = Alignment.Bottom) {
+          Box(modifier = if (isGroupStart) Modifier else Modifier.padding(top = 1.dp)) {
+            MessageBody(message.content)
+          }
+          if (!isGroupStart && showReceipt) {
+            Icon(
+              if (readReceipt) Icons.Filled.DoneAll else Icons.Filled.Done,
+              contentDescription = if (readReceipt) "Прочитано" else "Доставлено",
+              tint = if (readReceipt) Brand else TextMuted,
+              modifier = Modifier.padding(start = 4.dp).size(14.dp),
+            )
+          }
+          if (!isGroupStart && message.editedAt != null) {
+            Spacer(Modifier.width(6.dp))
+            Text("изменено", color = TextMuted, fontSize = 11.sp)
+          }
+          if (!isGroupStart && message.pinned) {
+            Spacer(Modifier.width(6.dp))
+            Icon(Icons.Outlined.PushPin, contentDescription = null, tint = TextMuted, modifier = Modifier.size(12.dp))
+          }
+        }
       }
       message.attachments.forEach { attachment ->
         when {
@@ -1010,6 +1049,22 @@ private fun dayKey(iso: String): String {
   return runCatching {
     Instant.parse(iso).atZone(ZoneId.systemDefault()).toLocalDate().toString()
   }.getOrElse { "" }
+}
+
+/** True when the row should show avatar, name, and time (first message in a burst). */
+private fun isMessageGroupStart(reversedMessages: List<Message>, index: Int): Boolean {
+  if (index >= reversedMessages.lastIndex) return true
+  val message = reversedMessages[index]
+  val older = reversedMessages[index + 1]
+  if (older.authorId != message.authorId) return true
+  if (dayKey(older.createdAt) != dayKey(message.createdAt)) return true
+  val gap = runCatching {
+    Instant.parse(message.createdAt).toEpochMilli() - Instant.parse(older.createdAt).toEpochMilli()
+  }.getOrElse { MESSAGE_GROUP_WINDOW_MS }
+  if (gap >= MESSAGE_GROUP_WINDOW_MS) return true
+  if (message.system || older.system) return true
+  if (message.replyTo != null) return true
+  return false
 }
 
 private fun formatDayLabel(iso: String): String {
