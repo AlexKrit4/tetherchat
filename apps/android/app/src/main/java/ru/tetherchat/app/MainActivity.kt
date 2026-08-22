@@ -63,6 +63,13 @@ class MainActivity : ComponentActivity() {
     val path = data.path.orEmpty()
     val token = data.getQueryParameter("token")
     val parts = data.pathSegments.orEmpty()
+    if (parts.getOrNull(0) == "qr-login" || path == "/qr-login") {
+      val ticket = data.getQueryParameter("ticket")
+      if (!ticket.isNullOrBlank()) {
+        model.promptQrLogin(ticket)
+      }
+      return
+    }
     if (parts.getOrNull(0) == "channels") {
       val first = parts.getOrNull(1) ?: return
       val second = parts.getOrNull(2)

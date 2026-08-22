@@ -477,6 +477,12 @@ data class ReceiptUpdate(
 data class TotpLoginBody(val ticket: String, val code: String)
 
 @Serializable
+data class QrApproveBody(val ticket: String)
+
+@Serializable
+data class QrApproveResponse(val ok: Boolean = true)
+
+@Serializable
 data class TotpCodeBody(val code: String)
 
 @Serializable

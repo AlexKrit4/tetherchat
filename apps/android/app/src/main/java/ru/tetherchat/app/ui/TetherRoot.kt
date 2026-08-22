@@ -33,7 +33,7 @@ fun TetherRoot(model: AppViewModel) {
     val toastable = screen is Screen.Home || screen is Screen.Chat || screen is Screen.Settings ||
       screen is Screen.Blacklist || screen is Screen.ServerSettings || screen is Screen.Members ||
       screen is Screen.ProfileSettings || screen is Screen.AccountSettings ||
-      screen is Screen.Sessions || screen is Screen.IncomingFriends || screen is Screen.AdminCredentials ||
+      screen is Screen.Sessions || screen is Screen.QrScanner || screen is Screen.IncomingFriends || screen is Screen.AdminCredentials ||
       screen is Screen.AppearanceSettings || screen is Screen.UserProfile
     if (toastable) {
       snack.showSnackbar(text)
@@ -62,6 +62,7 @@ fun TetherRoot(model: AppViewModel) {
       Screen.ProfileSettings -> ProfileSettingsScreen(model)
       Screen.AccountSettings -> AccountSettingsScreen(model)
       Screen.Sessions -> SessionsScreen(model)
+      Screen.QrScanner -> QrScannerScreen(model)
       Screen.AppearanceSettings -> AppearanceSettingsScreen(model)
       Screen.Blacklist -> BlacklistScreen(model)
       Screen.IncomingFriends -> IncomingFriendsScreen(model)
@@ -72,6 +73,7 @@ fun TetherRoot(model: AppViewModel) {
       is Screen.Chat -> ChatScreen(model, screen)
     }
     SnackbarHost(snack, modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp))
+    QrLoginPromptDialog(model)
     UpdateDialog(model)
   }
 }
