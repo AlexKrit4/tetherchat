@@ -274,11 +274,8 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
       contentPadding = PaddingValues(vertical = 12.dp),
     ) {
       itemsIndexed(reversedMessages, key = { _, message -> message.id }) { index, message ->
-        val showDayDivider = index == reversedMessages.lastIndex ||
+        val showDayDivider = index >= reversedMessages.lastIndex ||
           dayKey(message.createdAt) != dayKey(reversedMessages[index + 1].createdAt)
-        if (showDayDivider) {
-          DayDivider(label = formatDayLabel(message.createdAt))
-        }
         MessageRow(
           message = message,
           isGroupStart = isMessageGroupStart(reversedMessages, index),
@@ -294,6 +291,11 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
             }
           },
         )
+        // reverseLayout inverts sibling order within an item — render the divider after
+        // the row so it appears above the message in the chat.
+        if (showDayDivider) {
+          DayDivider(label = formatDayLabel(message.createdAt))
+        }
       }
     }
     model.typingLabel?.let { label ->
