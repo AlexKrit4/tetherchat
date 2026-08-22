@@ -1,8 +1,9 @@
 /** Keep in sync with apps/android versionCode/versionName and public/app/version.json. */
 export const ANDROID_RELEASE = {
-  versionCode: 22,
-  versionName: '1.2.14',
+  versionCode: 23,
+  versionName: '1.2.15',
   url: 'https://tetherchat.ru/app/tetherchat.apk',
   requiresReinstall: false,
-  releaseNotes: 'Вход на компьютер по QR-коду из настроек → Сессии.',
+  releaseNotes:
+    'Сообщения одного автора в течение 5 минут группируются без повторения аватарки, ника и времени.',
 } as const;
