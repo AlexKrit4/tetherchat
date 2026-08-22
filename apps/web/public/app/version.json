@@ -1,0 +1,7 @@
+{
+  "versionCode": 22,
+  "versionName": "1.2.14",
+  "url": "https://tetherchat.ru/app/tetherchat.apk",
+  "requiresReinstall": false,
+  "releaseNotes": "Вход на компьютер по QR-коду из настроек → Сессии."
+}
