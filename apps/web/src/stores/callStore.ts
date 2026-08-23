@@ -15,10 +15,15 @@ interface CallState {
   peer: CallParticipant | null;
   muted: boolean;
   error: string | null;
+  connectedAt: number | null;
+  minimized: boolean;
   needsAudioUnlock: boolean;
   unlockRemoteAudio: (() => Promise<void>) | null;
   setNeedsAudioUnlock: (value: boolean) => void;
   setUnlockRemoteAudio: (fn: (() => Promise<void>) | null) => void;
+  setConnectedAt: (value: number | null) => void;
+  minimize: () => void;
+  expand: () => void;
   startOutgoing: (conversationId: string) => Promise<void>;
   handleRing: (payload: CallRingPayload) => void;
   handleAccepted: (payload: CallSignalPayload) => Promise<void>;
@@ -41,6 +46,8 @@ const initial = {
   peer: null,
   muted: false,
   error: null,
+  connectedAt: null,
+  minimized: false,
   needsAudioUnlock: false,
   unlockRemoteAudio: null,
 };
@@ -59,6 +66,18 @@ export const useCallStore = create<CallState>((set, get) => ({
 
   setUnlockRemoteAudio(fn) {
     set({ unlockRemoteAudio: fn });
+  },
+
+  setConnectedAt(value) {
+    set({ connectedAt: value });
+  },
+
+  minimize() {
+    if (get().phase === 'active') set({ minimized: true });
+  },
+
+  expand() {
+    set({ minimized: false });
   },
 
   async startOutgoing(conversationId) {

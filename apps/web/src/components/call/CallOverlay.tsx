@@ -1,6 +1,6 @@
-import { Mic, MicOff, Phone, PhoneOff } from 'lucide-react';
+import { ArrowLeft, Mic, MicOff, Phone, PhoneOff } from 'lucide-react';
 import { useCallStore } from '@/stores/callStore';
-import { useLiveKitRoom } from '@/hooks/useLiveKitRoom';
+import { useCallDuration } from '@/hooks/useCallDuration';
 import { useT } from '@/i18n/useT';
 import { Avatar } from '@/components/ui/Avatar';
 import { cn } from '@/lib/cn';
@@ -11,16 +11,17 @@ export function CallOverlay() {
   const peer = useCallStore((state) => state.peer);
   const muted = useCallStore((state) => state.muted);
   const error = useCallStore((state) => state.error);
+  const minimized = useCallStore((state) => state.minimized);
+  const minimize = useCallStore((state) => state.minimize);
   const acceptIncoming = useCallStore((state) => state.acceptIncoming);
   const declineIncoming = useCallStore((state) => state.declineIncoming);
   const endCall = useCallStore((state) => state.endCall);
   const setMuted = useCallStore((state) => state.setMuted);
   const needsAudioUnlock = useCallStore((state) => state.needsAudioUnlock);
   const unlockRemoteAudio = useCallStore((state) => state.unlockRemoteAudio);
+  const duration = useCallDuration();
 
-  useLiveKitRoom();
-
-  if (phase === 'idle' && !error) return null;
+  if ((phase === 'idle' && !error) || minimized) return null;
 
   const label =
     phase === 'outgoing'
@@ -30,12 +31,22 @@ export function CallOverlay() {
         : phase === 'connecting'
           ? t('call.connecting')
           : phase === 'active'
-            ? t('call.active')
+            ? (duration ?? t('call.active'))
             : t('call.ended');
 
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm">
       <div className="flex w-full max-w-sm flex-col items-center gap-6 rounded-2xl bg-surface p-8 shadow-floating">
+        {phase === 'active' ? (
+          <button
+            type="button"
+            onClick={minimize}
+            className="absolute left-4 top-4 flex h-11 w-11 items-center justify-center rounded-full bg-surface-active text-text-heading"
+            aria-label={t('call.minimize')}
+          >
+            <ArrowLeft size={22} aria-hidden />
+          </button>
+        ) : null}
         {peer ? (
           <Avatar
             user={{ ...peer, status: 'online' }}

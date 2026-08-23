@@ -15,6 +15,7 @@ export function useLiveKitRoom(): void {
   const token = useCallStore((state) => state.token);
   const livekitUrl = useCallStore((state) => state.livekitUrl);
   const muted = useCallStore((state) => state.muted);
+  const setConnectedAt = useCallStore((state) => state.setConnectedAt);
   const setNeedsAudioUnlock = useCallStore((state) => state.setNeedsAudioUnlock);
   const setUnlockRemoteAudio = useCallStore((state) => state.setUnlockRemoteAudio);
   const roomRef = useRef<Room | null>(null);
@@ -68,6 +69,7 @@ export function useLiveKitRoom(): void {
 
       try {
         await room.localParticipant.setMicrophoneEnabled(!muted);
+        setConnectedAt(Date.now());
       } catch {
         useCallStore.setState({ error: 'Не удалось включить микрофон' });
       }
@@ -82,10 +84,11 @@ export function useLiveKitRoom(): void {
       cancelled = true;
       setNeedsAudioUnlock(false);
       setUnlockRemoteAudio(null);
+      setConnectedAt(null);
       room?.disconnect();
       roomRef.current = null;
     };
-  }, [phase, token, livekitUrl, setNeedsAudioUnlock, setUnlockRemoteAudio]);
+  }, [phase, token, livekitUrl, setConnectedAt, setNeedsAudioUnlock, setUnlockRemoteAudio]);
 
   useEffect(() => {
     const room = roomRef.current;

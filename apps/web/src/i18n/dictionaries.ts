@@ -229,6 +229,8 @@ export const ru = {
     mute: 'Выключить микрофон',
     unmute: 'Включить микрофон',
     enableSound: 'Включить звук',
+    minimize: 'Свернуть звонок',
+    expand: 'Вернуться к звонку',
     unknown: 'Контакт',
   },
   typing: {
@@ -698,6 +700,8 @@ export const en = {
     mute: 'Mute microphone',
     unmute: 'Unmute microphone',
     enableSound: 'Enable sound',
+    minimize: 'Minimize call',
+    expand: 'Return to call',
     unknown: 'Contact',
   },
   typing: {
