@@ -167,7 +167,7 @@ services:
         condition: service_healthy
     command: --config /etc/livekit.yaml --node-ip ${LIVEKIT_NODE_IP:-}
     environment:
-      LIVEKIT_KEYS: "${LIVEKIT_API_KEY:-devkey}: ${LIVEKIT_API_SECRET:-secret}"
+      LIVEKIT_KEYS: "${LIVEKIT_API_KEY:-devkey}:${LIVEKIT_API_SECRET:-secret}"
     volumes:
       - ./docker/livekit.yaml:/etc/livekit.yaml:ro
     ports:

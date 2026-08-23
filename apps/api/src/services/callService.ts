@@ -79,7 +79,7 @@ async function mintLiveKitToken(userId: string, displayName: string, roomName: s
     canPublish: true,
     canSubscribe: true,
   });
-  return token.toJwt();
+  return await token.toJwt();
 }
 
 async function loadCall(callId: string) {
