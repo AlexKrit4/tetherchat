@@ -957,6 +957,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   fun openDm(conversation: DirectConversation) {
     val title = conversation.title(me?.id.orEmpty())
     currentConversation = conversation
+    if (conversation.isSecret) {
+      discardVoiceDraft()
+      replyTo = null
+      editing = null
+    }
     openChat(conversation.id, null, title, dm = true)
   }
 
@@ -1092,6 +1097,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   }
 
   fun attachUris(uris: List<Uri>) {
+    if (currentConversation?.isSecret == true) {
+      error = "В секретном чате пока доступны только текстовые сообщения"
+      return
+    }
     val remaining = 5 - pendingUploads.size
     if (remaining <= 0) {
       error = "Не больше 5 файлов в сообщении"
@@ -2040,6 +2049,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   }
 
   fun sendVoiceDraft() {
+    if (currentConversation?.isSecret == true) {
+      error = "Голосовые сообщения пока недоступны в секретном чате"
+      return
+    }
     val clip = voiceDraft ?: return
     val chat = screen as? Screen.Chat ?: return
     voiceDraft = null

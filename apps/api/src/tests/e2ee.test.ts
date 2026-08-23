@@ -15,7 +15,8 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await prisma.user.deleteMany({ where: { id: { in: [alice.id, bob.id] } } });
+  const ids = [alice?.id, bob?.id].filter((id): id is string => Boolean(id));
+  if (ids.length > 0) await prisma.user.deleteMany({ where: { id: { in: ids } } });
   await closeTestApp();
 });
 

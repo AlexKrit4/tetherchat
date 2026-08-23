@@ -78,6 +78,9 @@ export function ChatHeader() {
         )}
 
         <h1 className="truncate text-lg font-semibold text-text-heading">{title || '…'}</h1>
+        {conversation?.isSecret ? (
+          <span className="hidden text-xs font-medium text-success sm:inline">E2EE · ключи только на устройствах</span>
+        ) : null}
 
         {topic ? (
           <>

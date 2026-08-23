@@ -257,7 +257,9 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
           maxLines = 1,
           overflow = TextOverflow.Ellipsis,
         )
-        if (!topic.isNullOrBlank()) {
+        if (model.currentConversation?.isSecret == true) {
+          Text("E2EE · ключи только на устройствах", color = Online, fontSize = 11.sp, maxLines = 1)
+        } else if (!topic.isNullOrBlank()) {
           Text(topic, color = TextMuted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
       }

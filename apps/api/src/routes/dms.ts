@@ -31,7 +31,7 @@ const messageBody = z.object({
     .object({
       version: z.literal(1),
       iv: z.string().min(12).max(64),
-      ciphertext: z.string().min(1).max(16_000),
+      ciphertext: z.string().min(1).max(32_000),
     })
     .optional(),
 });
