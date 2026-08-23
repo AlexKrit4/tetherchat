@@ -33,6 +33,10 @@ import ru.tetherchat.app.data.AdminCredentials
 import ru.tetherchat.app.data.AndroidRelease
 import ru.tetherchat.app.data.ApiException
 import ru.tetherchat.app.data.Ban
+import ru.tetherchat.app.data.CallManager
+import ru.tetherchat.app.data.CallPhase
+import ru.tetherchat.app.data.CallRingPayload
+import ru.tetherchat.app.data.CallSignalPayload
 import ru.tetherchat.app.data.Channel
 import ru.tetherchat.app.data.ChatMediaItem
 import ru.tetherchat.app.data.DeviceSession
@@ -108,6 +112,19 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   private val drafts = DraftStore.get(application)
   private val api = TetherApi(session)
   private val realtime = RealtimeClient(api, api.json)
+  private val callManager = CallManager(application)
+
+  var callPhase by mutableStateOf(CallPhase.Idle)
+    private set
+  var callPeer by mutableStateOf<PublicUser?>(null)
+    private set
+  var callMuted by mutableStateOf(false)
+    private set
+  var callError by mutableStateOf<String?>(null)
+    private set
+  private var activeCallId: String? = null
+  private var activeConversationId: String? = null
+  private var connectCallJob: Job? = null
 
   var screen by mutableStateOf<Screen>(Screen.Boot)
     private set
@@ -1752,6 +1769,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
           }
         },
         onReceipt = { event -> viewModelScope.launch { applyReceipt(event) } },
+        onCallRing = { payload -> viewModelScope.launch { handleCallRing(payload) } },
+        onCallAccepted = { payload -> viewModelScope.launch { handleCallAccepted(payload) } },
+        onCallEnded = { viewModelScope.launch { resetCallState() } },
         onPresence = { event -> viewModelScope.launch { presence[event.userId] = event.status } },
         onTyping = { event ->
           viewModelScope.launch {
@@ -1980,8 +2000,142 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
 
   override fun onCleared() {
     cancelVoiceRecord()
+    callManager.disconnect()
     realtime.disconnect()
     super.onCleared()
+  }
+
+  fun startOutgoingCall(conversationId: String) {
+    if (callPhase != CallPhase.Idle) return
+    viewModelScope.launch {
+      callPhase = CallPhase.Outgoing
+      callError = null
+      callPeer = currentConversation?.peer(me?.id.orEmpty())
+      runCatching {
+        withContext(Dispatchers.IO) { api.startCall(conversationId) }
+      }.onSuccess { response ->
+        activeCallId = response.callId
+        activeConversationId = conversationId
+        callPeer = response.callee.asPublicUser()
+      }.onFailure {
+        resetCallState()
+        callError = it.userMessage()
+      }
+    }
+  }
+
+  fun acceptIncomingCall() {
+    val callId = activeCallId ?: return
+    if (callPhase != CallPhase.Ringing) return
+    viewModelScope.launch {
+      callPhase = CallPhase.Connecting
+      callError = null
+      runCatching {
+        withContext(Dispatchers.IO) {
+          api.acceptCall(callId)
+          api.callToken(callId)
+        }
+      }.onSuccess { tokenData ->
+        connectLiveKit(tokenData.livekitUrl, tokenData.token)
+      }.onFailure {
+        resetCallState()
+        callError = it.userMessage()
+      }
+    }
+  }
+
+  fun declineIncomingCall() {
+    val callId = activeCallId ?: run {
+      resetCallState()
+      return
+    }
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.declineCall(callId) } }
+      resetCallState()
+    }
+  }
+
+  fun endActiveCall() {
+    val callId = activeCallId
+    viewModelScope.launch {
+      if (!callId.isNullOrBlank()) {
+        runCatching { withContext(Dispatchers.IO) { api.endCall(callId) } }
+      }
+      resetCallState()
+    }
+  }
+
+  fun toggleCallMute() {
+    callMuted = !callMuted
+    viewModelScope.launch {
+      runCatching { callManager.setMuted(callMuted) }
+    }
+  }
+
+  fun handleIncomingCallDeepLink(callId: String, conversationId: String?) {
+    if (callPhase != CallPhase.Idle) return
+    if (!conversationId.isNullOrBlank()) {
+      val conversation = dms.firstOrNull { it.id == conversationId }
+      if (conversation != null) {
+        openDm(conversation)
+      } else {
+        openChat(conversationId, null, "Чат", dm = true)
+      }
+    }
+    activeCallId = callId
+    activeConversationId = conversationId
+    callPhase = CallPhase.Ringing
+  }
+
+  private suspend fun handleCallRing(payload: CallRingPayload) {
+    if (callPhase != CallPhase.Idle) return
+    activeCallId = payload.callId
+    activeConversationId = payload.conversationId
+    callPeer = payload.caller.asPublicUser()
+    callPhase = CallPhase.Ringing
+    callError = null
+    NotificationHelper.cancelCall(getApplication(), payload.callId)
+  }
+
+  private suspend fun handleCallAccepted(payload: CallSignalPayload) {
+    val callId = activeCallId ?: return
+    if (payload.callId != callId) return
+    callPhase = CallPhase.Connecting
+    runCatching {
+      withContext(Dispatchers.IO) { api.callToken(callId) }
+    }.onSuccess { tokenData ->
+      connectLiveKit(tokenData.livekitUrl, tokenData.token)
+    }.onFailure {
+      resetCallState()
+      callError = it.userMessage()
+    }
+  }
+
+  private fun connectLiveKit(livekitUrl: String, token: String) {
+    connectCallJob?.cancel()
+    connectCallJob = viewModelScope.launch {
+      runCatching { callManager.connect(livekitUrl, token) }
+        .onSuccess {
+          callPhase = CallPhase.Active
+          callMuted = false
+        }
+        .onFailure {
+          resetCallState()
+          callError = it.userMessage()
+        }
+    }
+  }
+
+  private fun resetCallState() {
+    connectCallJob?.cancel()
+    connectCallJob = null
+    callManager.disconnect()
+    activeCallId = null
+    activeConversationId = null
+    callPhase = CallPhase.Idle
+    callPeer = null
+    callMuted = false
+    callError = null
   }
 
   private suspend fun ensureDm(conversationId: String) {

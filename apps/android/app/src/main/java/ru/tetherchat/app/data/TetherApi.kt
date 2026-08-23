@@ -289,6 +289,22 @@ class TetherApi(private val session: SessionStore) {
   fun approveQrLogin(ticket: String) =
     post<QrApproveBody, QrApproveResponse>("/api/auth/qr/approve", QrApproveBody(ticket))
 
+  fun startCall(conversationId: String): CallStartResponse =
+    post("/api/calls/start", CallStartBody(conversationId))
+
+  fun acceptCall(callId: String): CallSignalPayload =
+    postRaw("/api/calls/$callId/accept", "{}")
+
+  fun declineCall(callId: String) {
+    postRaw<Unit>("/api/calls/$callId/decline", "{}")
+  }
+
+  fun endCall(callId: String) {
+    postRaw<Unit>("/api/calls/$callId/end", "{}")
+  }
+
+  fun callToken(callId: String): CallTokenResponse = get("/api/calls/$callId/token")
+
   fun ensureAccessToken(): String = session.accessToken ?: refresh().accessToken
     ?: throw ApiException(401, "unauthorized", "Нет сессии")
 

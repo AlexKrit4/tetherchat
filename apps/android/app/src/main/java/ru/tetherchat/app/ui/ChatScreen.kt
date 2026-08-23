@@ -80,6 +80,7 @@ import androidx.compose.material.icons.outlined.EmojiEmotions
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.People
 import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.VisibilityOff
@@ -183,6 +184,11 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
   val canAttach = chat.dm || model.canPerm(Perm.ATTACH_FILES) || model.isOwner()
   val canManage = !chat.dm && (model.canPerm(Perm.MANAGE_MESSAGES) || model.isOwner())
   val topic = model.serverDetail?.channels?.firstOrNull { it.id == chat.channelId }?.topic
+  val canCall = chat.dm &&
+    model.currentConversation?.isSaved != true &&
+    model.currentConversation?.isAi != true &&
+    model.currentConversation?.isGroup != true &&
+    model.callPhase == ru.tetherchat.app.data.CallPhase.Idle
 
   LaunchedEffect(listState, chat.channelId) {
     snapshotFlow {
@@ -250,6 +256,11 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
       }
       IconButton(onClick = { model.showSearch = true }) {
         Icon(Icons.Outlined.Search, contentDescription = "Поиск", tint = TextMuted)
+      }
+      if (canCall) {
+        IconButton(onClick = { model.startOutgoingCall(chat.channelId) }) {
+          Icon(Icons.Outlined.Phone, contentDescription = "Позвонить", tint = TextMuted)
+        }
       }
       IconButton(onClick = { model.loadChatMedia(); model.showMedia = true }) {
         Icon(Icons.Outlined.Collections, contentDescription = "Медиа", tint = TextMuted)

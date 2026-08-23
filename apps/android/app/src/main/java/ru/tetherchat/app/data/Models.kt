@@ -593,3 +593,63 @@ data class FriendIncomingEvent(val count: Int = 0)
 
 @Serializable
 data class FriendAcceptedEvent(val conversation: DirectConversation)
+
+enum class CallPhase {
+  Idle,
+  Outgoing,
+  Ringing,
+  Connecting,
+  Active,
+}
+
+@Serializable
+data class CallParticipant(
+  val id: String,
+  val username: String,
+  val displayName: String? = null,
+  val avatarUrl: String? = null,
+) {
+  val label: String get() = displayName?.takeIf { it.isNotBlank() } ?: username
+
+  fun asPublicUser(): PublicUser = PublicUser(
+    id = id,
+    username = username,
+    displayName = displayName,
+    avatarUrl = avatarUrl,
+  )
+}
+
+@Serializable
+data class CallStartBody(val conversationId: String)
+
+@Serializable
+data class CallStartResponse(
+  val callId: String,
+  val roomName: String,
+  val livekitUrl: String,
+  val callee: CallParticipant,
+)
+
+@Serializable
+data class CallSignalPayload(
+  val callId: String,
+  val conversationId: String,
+  val roomName: String,
+  val livekitUrl: String,
+)
+
+@Serializable
+data class CallRingPayload(
+  val callId: String,
+  val conversationId: String,
+  val roomName: String,
+  val caller: CallParticipant,
+  val startedAt: String = "",
+)
+
+@Serializable
+data class CallTokenResponse(
+  val token: String,
+  val roomName: String,
+  val livekitUrl: String,
+)

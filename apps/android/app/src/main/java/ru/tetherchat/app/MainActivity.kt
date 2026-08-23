@@ -34,6 +34,11 @@ class MainActivity : ComponentActivity() {
     requestNotificationPermissionIfNeeded()
     PushRegistrar.sync(this)
     applyDeepLink(intent)
+    intent.getStringExtra(EXTRA_ACCEPT_CALL_ID)?.let { callId ->
+      val channelId = intent.getStringExtra(EXTRA_CHANNEL_ID)
+      model.handleIncomingCallDeepLink(callId, channelId)
+      model.acceptIncomingCall()
+    }
     setContent {
       TetherTheme { TetherRoot(model) }
     }
@@ -73,8 +78,12 @@ class MainActivity : ComponentActivity() {
     if (parts.getOrNull(0) == "channels") {
       val first = parts.getOrNull(1) ?: return
       val second = parts.getOrNull(2)
+      val callId = data.getQueryParameter("call")
       when {
-        first == "@me" && !second.isNullOrBlank() -> model.openChat(second, null, "Чат", true)
+        first == "@me" && !second.isNullOrBlank() -> {
+          model.openChat(second, null, "Чат", true)
+          if (!callId.isNullOrBlank()) model.handleIncomingCallDeepLink(callId, second)
+        }
         !second.isNullOrBlank() -> model.openChat(second, first, "Чат", false)
       }
       return
@@ -101,5 +110,6 @@ class MainActivity : ComponentActivity() {
     const val EXTRA_CHANNEL_ID = "channelId"
     const val EXTRA_SERVER_ID = "serverId"
     const val EXTRA_CHAT_TITLE = "chatTitle"
+    const val EXTRA_ACCEPT_CALL_ID = "acceptCallId"
   }
 }

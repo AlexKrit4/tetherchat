@@ -14,11 +14,14 @@ import ru.tetherchat.app.data.SessionStore
 
 object NotificationHelper {
   const val CHANNEL_ID = "tetherchat.messages"
+  const val CALLS_CHANNEL_ID = "tetherchat.calls"
   const val KEY_REPLY = "reply_text"
   const val EXTRA_MESSAGE_ID = "messageId"
+  const val EXTRA_CALL_ID = "callId"
   const val EXTRA_DM = "dm"
   const val EXTRA_NOTIFICATION_ID = "notificationId"
   private const val CHANNEL_NAME = "Сообщения"
+  private const val CALLS_CHANNEL_NAME = "Звонки"
 
   fun areEnabled(context: Context): Boolean = NotificationManagerCompat.from(context).areNotificationsEnabled()
 
@@ -37,6 +40,86 @@ object NotificationHelper {
         },
       )
     }
+    if (manager.getNotificationChannel(CALLS_CHANNEL_ID) == null) {
+      manager.createNotificationChannel(
+        NotificationChannel(CALLS_CHANNEL_ID, CALLS_CHANNEL_NAME, NotificationManager.IMPORTANCE_HIGH).apply {
+          description = "Входящие голосовые звонки"
+          enableVibration(true)
+          setBypassDnd(true)
+        },
+      )
+    }
+  }
+
+  fun callNotificationId(callId: String): Int = (callId.hashCode() and 0x7fffffff).let { if (it == 42) it + 1 else it }
+
+  fun showIncomingCall(
+    context: Context,
+    callId: String,
+    conversationId: String,
+    callerName: String,
+  ) {
+    if (!SessionStore.get(context).notificationsEnabled) return
+    if (!areEnabled(context)) return
+    ensureChannels(context)
+    val id = callNotificationId(callId)
+    val open = Intent(context, MainActivity::class.java).apply {
+      flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+      data = android.net.Uri.parse("https://tetherchat.ru/channels/@me/$conversationId?call=$callId")
+    }
+    val pending = PendingIntent.getActivity(
+      context,
+      callId.hashCode(),
+      open,
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
+
+    val acceptIntent = Intent(context, NotificationActionReceiver::class.java).apply {
+      action = NotificationActionReceiver.ACTION_ACCEPT_CALL
+      putExtra(EXTRA_CALL_ID, callId)
+      putExtra(MainActivity.EXTRA_CHANNEL_ID, conversationId)
+      putExtra(EXTRA_NOTIFICATION_ID, id)
+    }
+    val acceptPending = PendingIntent.getBroadcast(
+      context,
+      callId.hashCode() + 3,
+      acceptIntent,
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
+    val declineIntent = Intent(context, NotificationActionReceiver::class.java).apply {
+      action = NotificationActionReceiver.ACTION_DECLINE_CALL
+      putExtra(EXTRA_CALL_ID, callId)
+      putExtra(EXTRA_NOTIFICATION_ID, id)
+    }
+    val declinePending = PendingIntent.getBroadcast(
+      context,
+      callId.hashCode() + 7,
+      declineIntent,
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
+
+    val notification = NotificationCompat.Builder(context, CALLS_CHANNEL_ID)
+      .setSmallIcon(R.drawable.ic_stat_notify)
+      .setColor(ContextCompat.getColor(context, R.color.brand))
+      .setContentTitle("Входящий звонок")
+      .setContentText(callerName.ifBlank { context.getString(R.string.app_name) })
+      .setContentIntent(pending)
+      .setAutoCancel(true)
+      .setOngoing(true)
+      .setPriority(NotificationCompat.PRIORITY_MAX)
+      .setCategory(NotificationCompat.CATEGORY_CALL)
+      .setDefaults(NotificationCompat.DEFAULT_ALL)
+      .addAction(R.drawable.ic_stat_notify, "Принять", acceptPending)
+      .addAction(R.drawable.ic_stat_notify, "Отклонить", declinePending)
+      .build()
+    try {
+      NotificationManagerCompat.from(context).notify(id, notification)
+    } catch (_: SecurityException) {
+    }
+  }
+
+  fun cancelCall(context: Context, callId: String) {
+    cancel(context, callNotificationId(callId))
   }
 
   fun showMessage(

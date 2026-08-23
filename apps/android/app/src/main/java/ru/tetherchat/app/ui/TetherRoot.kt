@@ -75,6 +75,7 @@ fun TetherRoot(model: AppViewModel) {
     SnackbarHost(snack, modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp))
     QrLoginPromptDialog(model)
     UpdateDialog(model)
+    CallOverlay(model)
   }
 }
 
