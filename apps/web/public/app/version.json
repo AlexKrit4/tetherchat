@@ -1,7 +1,7 @@
 {
-  "versionCode": 29,
-  "versionName": "1.2.21",
+  "versionCode": 30,
+  "versionName": "1.3.0",
   "url": "https://tetherchat.ru/app/tetherchat.apk",
   "requiresReinstall": false,
-  "releaseNotes": "Исправлены кнопки «Принять» и «Отклонить» в уведомлении входящего звонка."
+  "releaseNotes": "Список друзей и секретные E2EE-чаты с ключами только на устройствах собеседников."
 }
