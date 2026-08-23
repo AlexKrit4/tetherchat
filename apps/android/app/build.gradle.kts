@@ -22,8 +22,8 @@ android {
         applicationId = "ru.tetherchat.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 30
-        versionName = "1.3.0"
+        versionCode = 31
+        versionName = "1.3.1"
 
         buildConfigField("String", "API_URL", "\"https://tetherchat.ru\"")
         buildConfigField("String", "LIVEKIT_URL", "\"wss://tetherchat.ru/livekit\"")

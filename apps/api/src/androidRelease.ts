@@ -1,9 +1,9 @@
 /** Keep in sync with apps/android versionCode/versionName and public/app/version.json. */
 export const ANDROID_RELEASE = {
-  versionCode: 30,
-  versionName: '1.3.0',
+  versionCode: 31,
+  versionName: '1.3.1',
   url: 'https://tetherchat.ru/app/tetherchat.apk',
   requiresReinstall: false,
   releaseNotes:
-    'Список друзей и секретные E2EE-чаты с ключами только на устройствах собеседников.',
+    'Исправлена отправка секретных сообщений; добавлена отдельная вкладка друзей и новый выбор по кнопке «+».',
 } as const;
