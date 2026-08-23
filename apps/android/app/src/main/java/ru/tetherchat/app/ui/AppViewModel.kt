@@ -26,6 +26,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ru.tetherchat.app.BuildConfig
+import ru.tetherchat.app.CallActionBus
+import ru.tetherchat.app.CallForegroundService
 import ru.tetherchat.app.ForegroundState
 import ru.tetherchat.app.NotificationHelper
 import ru.tetherchat.app.PushRegistrar
@@ -119,6 +121,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   var callPeer by mutableStateOf<PublicUser?>(null)
     private set
   var callMuted by mutableStateOf(false)
+    private set
+  var callSpeakerOn by mutableStateOf(true)
+    private set
+  var callConnectedAt by mutableStateOf<Long?>(null)
+    private set
+  var callUiExpanded by mutableStateOf(true)
     private set
   var callError by mutableStateOf<String?>(null)
     private set
@@ -256,6 +264,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   private val channelServerIds = mutableMapOf<String, String>()
 
   init {
+    CallActionBus.register(::toggleCallMute, ::endActiveCall)
     bootstrap()
   }
 
@@ -2001,6 +2010,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
 
   override fun onCleared() {
     cancelVoiceRecord()
+    CallActionBus.clear()
+    CallForegroundService.stop(getApplication())
     callManager.disconnect()
     realtime.disconnect()
     super.onCleared()
@@ -2011,6 +2022,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     ensureMicPermission {
       viewModelScope.launch {
         callPhase = CallPhase.Outgoing
+        callUiExpanded = true
         callError = null
         callPeer = currentConversation?.peer(me?.id.orEmpty())
         runCatching {
@@ -2036,6 +2048,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     ensureMicPermission {
       viewModelScope.launch {
         callPhase = CallPhase.Connecting
+        callUiExpanded = true
         callError = null
         runCatching {
           withContext(Dispatchers.IO) {
@@ -2077,7 +2090,21 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     callMuted = !callMuted
     viewModelScope.launch {
       runCatching { callManager.setMuted(callMuted) }
+      refreshCallNotification()
     }
+  }
+
+  fun toggleCallSpeaker() {
+    callSpeakerOn = !callSpeakerOn
+    callManager.setSpeakerphone(callSpeakerOn)
+  }
+
+  fun minimizeCall() {
+    if (callPhase == CallPhase.Active) callUiExpanded = false
+  }
+
+  fun expandCall() {
+    if (callPhase != CallPhase.Idle) callUiExpanded = true
   }
 
   fun handleIncomingCallDeepLink(callId: String, conversationId: String?) {
@@ -2093,6 +2120,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     activeCallId = callId
     activeConversationId = conversationId
     callPhase = CallPhase.Ringing
+    callUiExpanded = true
   }
 
   private suspend fun handleCallRing(payload: CallRingPayload) {
@@ -2101,6 +2129,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     activeConversationId = payload.conversationId
     callPeer = payload.caller.asPublicUser()
     callPhase = CallPhase.Ringing
+    callUiExpanded = true
     callError = null
     NotificationHelper.cancelCall(getApplication(), payload.callId)
   }
@@ -2129,7 +2158,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
         .onSuccess {
           callPhase = CallPhase.Active
           callMuted = false
+          callSpeakerOn = true
+          callConnectedAt = System.currentTimeMillis()
           callError = null
+          refreshCallNotification()
         }
         .onFailure { error ->
           if (error is CancellationException) return@launch
@@ -2156,17 +2188,35 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     connectCallJob?.cancel()
     connectCallJob = null
     callManager.disconnect()
+    CallForegroundService.stop(getApplication())
+    if (callId != null) NotificationHelper.cancelCall(getApplication(), callId)
     activeCallId = null
     activeConversationId = null
     callPhase = CallPhase.Idle
     callPeer = null
     callMuted = false
+    callSpeakerOn = true
+    callConnectedAt = null
+    callUiExpanded = true
     callError = null
     if (shouldEnd && callId != null) {
       viewModelScope.launch(Dispatchers.IO) {
         runCatching { api.endCall(callId) }.onFailure { runCatching { api.abandonCall() } }
       }
     }
+  }
+
+  private fun refreshCallNotification() {
+    val callId = activeCallId ?: return
+    val connectedAt = callConnectedAt ?: return
+    CallForegroundService.start(
+      getApplication(),
+      callId,
+      activeConversationId.orEmpty(),
+      callPeer?.label.orEmpty(),
+      connectedAt,
+      callMuted,
+    )
   }
 
   private suspend fun ensureDm(conversationId: String) {

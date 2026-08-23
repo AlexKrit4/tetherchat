@@ -1,6 +1,7 @@
 package ru.tetherchat.app
 
 import android.app.NotificationChannel
+import android.app.Notification
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
@@ -120,6 +121,67 @@ object NotificationHelper {
 
   fun cancelCall(context: Context, callId: String) {
     cancel(context, callNotificationId(callId))
+  }
+
+  fun ongoingCallNotification(
+    context: Context,
+    callId: String,
+    conversationId: String,
+    peerName: String,
+    connectedAt: Long,
+    muted: Boolean,
+  ): Notification {
+    ensureChannels(context)
+    val id = callNotificationId(callId)
+    val open = Intent(context, MainActivity::class.java).apply {
+      flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+      putExtra(MainActivity.EXTRA_CHANNEL_ID, conversationId)
+      putExtra(MainActivity.EXTRA_RESTORE_CALL, true)
+    }
+    val openPending = PendingIntent.getActivity(
+      context,
+      callId.hashCode() + 19,
+      open,
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
+    fun actionPending(action: String, offset: Int): PendingIntent {
+      val actionIntent = Intent(context, NotificationActionReceiver::class.java).apply {
+        this.action = action
+        putExtra(EXTRA_CALL_ID, callId)
+        putExtra(MainActivity.EXTRA_CHANNEL_ID, conversationId)
+        putExtra(EXTRA_NOTIFICATION_ID, id)
+      }
+      return PendingIntent.getBroadcast(
+        context,
+        callId.hashCode() + offset,
+        actionIntent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+      )
+    }
+    return NotificationCompat.Builder(context, CALLS_CHANNEL_ID)
+      .setSmallIcon(R.drawable.ic_stat_notify)
+      .setColor(ContextCompat.getColor(context, R.color.brand))
+      .setContentTitle("Текущий вызов")
+      .setContentText(peerName.ifBlank { context.getString(R.string.app_name) })
+      .setContentIntent(openPending)
+      .setWhen(connectedAt)
+      .setShowWhen(true)
+      .setUsesChronometer(true)
+      .setOngoing(true)
+      .setOnlyAlertOnce(true)
+      .setPriority(NotificationCompat.PRIORITY_HIGH)
+      .setCategory(NotificationCompat.CATEGORY_CALL)
+      .addAction(
+        R.drawable.ic_stat_notify,
+        if (muted) "Включить микрофон" else "Выключить микрофон",
+        actionPending(NotificationActionReceiver.ACTION_MUTE_CALL, 23),
+      )
+      .addAction(
+        R.drawable.ic_stat_notify,
+        "Завершить",
+        actionPending(NotificationActionReceiver.ACTION_HANGUP_CALL, 29),
+      )
+      .build()
   }
 
   fun showMessage(

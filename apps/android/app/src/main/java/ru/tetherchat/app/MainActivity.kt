@@ -52,6 +52,7 @@ class MainActivity : ComponentActivity() {
     }
     PushRegistrar.sync(this)
     applyDeepLink(intent)
+    if (intent.getBooleanExtra(EXTRA_RESTORE_CALL, false)) model.expandCall()
     intent.getStringExtra(EXTRA_ACCEPT_CALL_ID)?.let { callId ->
       val channelId = intent.getStringExtra(EXTRA_CHANNEL_ID)
       model.handleIncomingCallDeepLink(callId, channelId)
@@ -71,6 +72,12 @@ class MainActivity : ComponentActivity() {
     super.onNewIntent(intent)
     setIntent(intent)
     applyDeepLink(intent)
+    if (intent.getBooleanExtra(EXTRA_RESTORE_CALL, false)) model.expandCall()
+    intent.getStringExtra(EXTRA_ACCEPT_CALL_ID)?.let { callId ->
+      val channelId = intent.getStringExtra(EXTRA_CHANNEL_ID)
+      model.handleIncomingCallDeepLink(callId, channelId)
+      model.acceptIncomingCall()
+    }
   }
 
   private fun applyDeepLink(intent: Intent?) {
@@ -129,5 +136,6 @@ class MainActivity : ComponentActivity() {
     const val EXTRA_SERVER_ID = "serverId"
     const val EXTRA_CHAT_TITLE = "chatTitle"
     const val EXTRA_ACCEPT_CALL_ID = "acceptCallId"
+    const val EXTRA_RESTORE_CALL = "restoreCall"
   }
 }

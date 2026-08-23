@@ -5,6 +5,7 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
+import android.media.AudioDeviceInfo
 import android.os.Build
 import io.livekit.android.LiveKit
 import io.livekit.android.room.Room
@@ -26,13 +27,25 @@ class CallManager(private val app: Application) {
       room = next
       next.connect(url, token)
       next.localParticipant.setMicrophoneEnabled(true)
-      audioManager.isSpeakerphoneOn = true
+      setSpeakerphone(true)
     }
   }
 
   suspend fun setMuted(muted: Boolean) {
     withContext(Dispatchers.Main) {
       room?.localParticipant?.setMicrophoneEnabled(!muted)
+    }
+  }
+
+  fun setSpeakerphone(enabled: Boolean) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      val type = if (enabled) AudioDeviceInfo.TYPE_BUILTIN_SPEAKER else AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
+      audioManager.availableCommunicationDevices
+        .firstOrNull { it.type == type }
+        ?.let(audioManager::setCommunicationDevice)
+    } else {
+      @Suppress("DEPRECATION")
+      audioManager.isSpeakerphoneOn = enabled
     }
   }
 
@@ -46,7 +59,7 @@ class CallManager(private val app: Application) {
     previousMode = audioManager.mode
     previousSpeaker = audioManager.isSpeakerphoneOn
     audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-    audioManager.isSpeakerphoneOn = true
+    setSpeakerphone(true)
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       val focusRequest =
@@ -79,7 +92,12 @@ class CallManager(private val app: Application) {
       audioManager.abandonAudioFocus(null)
     }
     audioManager.mode = previousMode ?: AudioManager.MODE_NORMAL
-    audioManager.isSpeakerphoneOn = previousSpeaker ?: false
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      audioManager.clearCommunicationDevice()
+    } else {
+      @Suppress("DEPRECATION")
+      run { audioManager.isSpeakerphoneOn = previousSpeaker ?: false }
+    }
     previousMode = null
     previousSpeaker = null
   }

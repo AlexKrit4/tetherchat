@@ -73,6 +73,9 @@ fun TetherRoot(model: AppViewModel) {
       is Screen.Chat -> ChatScreen(model, screen)
     }
     SnackbarHost(snack, modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp))
+    Box(Modifier.align(Alignment.TopCenter)) {
+      CallBanner(model)
+    }
     QrLoginPromptDialog(model)
     UpdateDialog(model)
     CallOverlay(model)

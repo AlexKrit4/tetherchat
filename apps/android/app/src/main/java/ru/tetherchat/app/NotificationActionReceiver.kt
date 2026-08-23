@@ -45,6 +45,17 @@ class NotificationActionReceiver : BroadcastReceiver() {
         runCatching { api.declineCall(callId) }
         NotificationHelper.cancelCall(context, callId)
       }
+      ACTION_MUTE_CALL -> {
+        CallActionBus.mute()
+      }
+      ACTION_HANGUP_CALL -> {
+        val callId = intent.getStringExtra(NotificationHelper.EXTRA_CALL_ID) ?: return
+        if (!CallActionBus.hangup()) {
+          runCatching { api.endCall(callId) }
+          NotificationHelper.cancelCall(context, callId)
+          CallForegroundService.stop(context)
+        }
+      }
       ACTION_REPLY -> {
         val text = RemoteInput.getResultsFromIntent(intent)
           ?.getCharSequence(NotificationHelper.KEY_REPLY)
@@ -70,5 +81,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
     const val ACTION_MARK_READ = "ru.tetherchat.app.MARK_READ"
     const val ACTION_ACCEPT_CALL = "ru.tetherchat.app.ACCEPT_CALL"
     const val ACTION_DECLINE_CALL = "ru.tetherchat.app.DECLINE_CALL"
+    const val ACTION_MUTE_CALL = "ru.tetherchat.app.MUTE_CALL"
+    const val ACTION_HANGUP_CALL = "ru.tetherchat.app.HANGUP_CALL"
   }
 }
