@@ -23,4 +23,4 @@ room:
   max_participants: 2
 
 turn:
-  enabled: true
+  enabled: false
