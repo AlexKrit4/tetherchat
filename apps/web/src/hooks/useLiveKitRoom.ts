@@ -66,11 +66,16 @@ export function useLiveKitRoom(): void {
         }
       }
 
-      await room.localParticipant.setMicrophoneEnabled(!muted);
+      try {
+        await room.localParticipant.setMicrophoneEnabled(!muted);
+      } catch {
+        useCallStore.setState({ error: 'Не удалось включить микрофон' });
+      }
+
       await room.startAudio().catch(() => undefined);
       syncPlaybackGate();
     })().catch(() => {
-      void useCallStore.getState().abandonCall();
+      if (!cancelled) void useCallStore.getState().abandonCall();
     });
 
     return () => {
