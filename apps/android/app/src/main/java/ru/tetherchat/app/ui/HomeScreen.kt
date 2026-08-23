@@ -376,6 +376,40 @@ private fun ChannelRow(
 private fun DmList(model: AppViewModel) {
   val meId = model.me?.id.orEmpty()
   LazyColumn(contentPadding = PaddingValues(bottom = 12.dp)) {
+    item {
+      Text(
+        "ДРУЗЬЯ · ${model.friends.size}",
+        color = TextMuted,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+      )
+    }
+    items(model.friends, key = { "friend-${it.id}" }) { friend ->
+      Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .clickable { model.startDm(friend) }
+          .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        UserAvatar(friend, 36.dp, model.statusOf(friend.id, friend.status))
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+          Text(friend.label, color = TextPrimary, fontWeight = FontWeight.Medium, maxLines = 1)
+          Text("@${friend.username}", color = TextMuted, fontSize = 12.sp, maxLines = 1)
+        }
+      }
+    }
+    item {
+      Text(
+        "СООБЩЕНИЯ",
+        color = TextMuted,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+      )
+    }
     items(model.dms, key = { it.id }) { conversation ->
       DmRow(conversation, meId, model) { model.openDm(conversation) }
     }

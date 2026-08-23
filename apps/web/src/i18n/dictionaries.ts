@@ -330,6 +330,8 @@ export const ru = {
     searchHintShort: 'Введите хотя бы два символа для поиска.',
   },
   friends: {
+    title: 'Друзья',
+    empty: 'В списке друзей пока никого нет.',
     sendRequest: 'Отправить заявку',
     sendRequestHint: 'Найдите человека по имени и отправьте заявку в друзья.',
     requestSent: 'Заявка отправлена',
@@ -801,6 +803,8 @@ export const en = {
     searchHintShort: 'Type at least two characters to search.',
   },
   friends: {
+    title: 'Friends',
+    empty: 'Your friends list is empty.',
     sendRequest: 'Send friend request',
     sendRequestHint: 'Find someone by name and send a friend request.',
     requestSent: 'Friend request sent',

@@ -241,6 +241,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     private set
   var incomingFriends by mutableStateOf<List<FriendRequest>>(emptyList())
     private set
+  var friends by mutableStateOf<List<PublicUser>>(emptyList())
+    private set
   var totpTicket by mutableStateOf<String?>(null)
   var totpSetup by mutableStateOf<TotpSetup?>(null)
   var adminCredentials by mutableStateOf<AdminCredentials?>(null)
@@ -295,6 +297,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     me = api.me()
     servers = api.servers()
     dms = api.dms()
+    friends = api.friends()
     incomingFriendCount = runCatching { api.incomingFriendCount() }.getOrDefault(0)
     api.readStates().forEach { readStates[it.channelId] = it }
     val current = selectedServerId
@@ -537,6 +540,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
       messages = emptyList()
       blockedUsers = emptyList()
       incomingFriends = emptyList()
+      friends = emptyList()
       incomingFriendCount = 0
       totpTicket = null
       totpSetup = null
@@ -736,12 +740,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
       runCatching {
         withContext(Dispatchers.IO) {
           api.acceptFriend(request.id)
-          api.incomingFriends() to api.dms()
+          Triple(api.incomingFriends(), api.dms(), api.friends())
         }
-      }.onSuccess { (list, conversations) ->
+      }.onSuccess { (list, conversations, acceptedFriends) ->
         incomingFriends = list
         incomingFriendCount = list.size
         dms = conversations
+        friends = acceptedFriends
       }.onFailure { error = it.userMessage() }
     }
   }
@@ -1776,6 +1781,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
           viewModelScope.launch {
             upsertDm(event.conversation)
             refreshIncomingFriends()
+            runCatching { withContext(Dispatchers.IO) { api.friends() } }.onSuccess { friends = it }
           }
         },
         onReceipt = { event -> viewModelScope.launch { applyReceipt(event) } },
