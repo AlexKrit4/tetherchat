@@ -184,6 +184,23 @@ object NotificationHelper {
       .build()
   }
 
+  fun updateOngoingCall(
+    context: Context,
+    callId: String,
+    conversationId: String,
+    peerName: String,
+    connectedAt: Long,
+    muted: Boolean,
+  ) {
+    try {
+      NotificationManagerCompat.from(context).notify(
+        callNotificationId(callId),
+        ongoingCallNotification(context, callId, conversationId, peerName, connectedAt, muted),
+      )
+    } catch (_: SecurityException) {
+    }
+  }
+
   fun showMessage(
     context: Context,
     title: String,

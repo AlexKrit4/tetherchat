@@ -2090,7 +2090,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     callMuted = !callMuted
     viewModelScope.launch {
       runCatching { callManager.setMuted(callMuted) }
-      refreshCallNotification()
+      updateCallNotification()
     }
   }
 
@@ -2161,7 +2161,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
           callSpeakerOn = true
           callConnectedAt = System.currentTimeMillis()
           callError = null
-          refreshCallNotification()
+          startCallNotification()
         }
         .onFailure { error ->
           if (error is CancellationException) return@launch
@@ -2206,10 +2206,23 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     }
   }
 
-  private fun refreshCallNotification() {
+  private fun startCallNotification() {
     val callId = activeCallId ?: return
     val connectedAt = callConnectedAt ?: return
     CallForegroundService.start(
+      getApplication(),
+      callId,
+      activeConversationId.orEmpty(),
+      callPeer?.label.orEmpty(),
+      connectedAt,
+      callMuted,
+    )
+  }
+
+  private fun updateCallNotification() {
+    val callId = activeCallId ?: return
+    val connectedAt = callConnectedAt ?: return
+    NotificationHelper.updateOngoingCall(
       getApplication(),
       callId,
       activeConversationId.orEmpty(),
