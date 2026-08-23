@@ -2100,28 +2100,33 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   private suspend fun handleCallAccepted(payload: CallSignalPayload) {
     val callId = activeCallId ?: return
     if (payload.callId != callId) return
+    if (callPhase == CallPhase.Connecting || callPhase == CallPhase.Active) return
     callPhase = CallPhase.Connecting
     runCatching {
       withContext(Dispatchers.IO) { api.callToken(callId) }
     }.onSuccess { tokenData ->
       connectLiveKit(tokenData.livekitUrl, tokenData.token)
-    }.onFailure {
+    }.onFailure { error ->
+      if (error is CancellationException) return
       resetCallState()
-      callError = it.userMessage()
+      callError = error.userMessage()
     }
   }
 
   private fun connectLiveKit(livekitUrl: String, token: String) {
+    if (callPhase == CallPhase.Active) return
     connectCallJob?.cancel()
     connectCallJob = viewModelScope.launch {
       runCatching { callManager.connect(livekitUrl, token) }
         .onSuccess {
           callPhase = CallPhase.Active
           callMuted = false
+          callError = null
         }
-        .onFailure {
+        .onFailure { error ->
+          if (error is CancellationException) return@launch
           resetCallState()
-          callError = it.userMessage()
+          callError = error.userMessage()
         }
     }
   }
