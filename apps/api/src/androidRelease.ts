@@ -1,9 +1,9 @@
 /** Keep in sync with apps/android versionCode/versionName and public/app/version.json. */
 export const ANDROID_RELEASE = {
-  versionCode: 27,
-  versionName: '1.2.19',
+  versionCode: 28,
+  versionName: '1.2.20',
   url: 'https://tetherchat.ru/app/tetherchat.apk',
   requiresReinstall: false,
   releaseNotes:
-    'Исправлено двустороннее аудио в звонках: микрофон и динамик на Android, звук в браузере.',
+    'Таймер звонка, сворачивание в мини-плашку, управление звонком из уведомления и выбор динамика.',
 } as const;
