@@ -45,11 +45,11 @@ function bytesToBase64(bytes: ArrayBuffer | Uint8Array): string {
   return btoa(binary);
 }
 
-function base64ToBytes(value: string): Uint8Array {
+function base64ToBytes(value: string): ArrayBuffer {
   const binary = atob(value);
   const bytes = new Uint8Array(binary.length);
   for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
-  return bytes;
+  return bytes.buffer;
 }
 
 function deviceStorageKey(userId: string): string {

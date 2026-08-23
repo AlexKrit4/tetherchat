@@ -95,7 +95,7 @@ class E2eeManager(
     conversationKeys[conversationId]?.let { return it }
     val deviceId = ensureDevice(userId)
     val wrapped = api.secretConversationKey(conversationId, deviceId)
-    val privateKey = ensureIdentityKey(userId).key
+    val privateKey = ensureIdentityKey(userId).privateKey
     val raw = rsaCipher(Cipher.DECRYPT_MODE, privateKey).doFinal(decode(wrapped.wrappedKey))
     conversationKeys[conversationId] = raw
     return raw

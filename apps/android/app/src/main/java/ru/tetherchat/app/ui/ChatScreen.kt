@@ -244,7 +244,7 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
       IconButton(onClick = model::back) {
         Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Назад", tint = TextPrimary)
       }
-      if (conversation?.isSecret == true) {
+      if (model.currentConversation?.isSecret == true) {
         Icon(Icons.Outlined.Lock, contentDescription = "Секретный чат", tint = Online, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
       }
@@ -261,7 +261,7 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
           Text(topic, color = TextMuted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
       }
-      if (conversation?.isSecret != true) {
+      if (model.currentConversation?.isSecret != true) {
         IconButton(onClick = { model.showSearch = true }) {
           Icon(Icons.Outlined.Search, contentDescription = "Поиск", tint = TextMuted)
         }
@@ -271,7 +271,7 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
           Icon(Icons.Outlined.Phone, contentDescription = "Позвонить", tint = TextMuted)
         }
       }
-      if (conversation?.isSecret != true) {
+      if (model.currentConversation?.isSecret != true) {
         IconButton(onClick = { model.loadChatMedia(); model.showMedia = true }) {
           Icon(Icons.Outlined.Collections, contentDescription = "Медиа", tint = TextMuted)
         }

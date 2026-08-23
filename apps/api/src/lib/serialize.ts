@@ -134,14 +134,6 @@ function toReference(
     authorId: row.authorId,
     author: row.author ? toPublicUser(row.author) : null,
     content: row.deletedAt ? '' : row.content,
-    encrypted:
-      !row.deletedAt && row.encryptionVersion === 1 && row.encryptionIv && row.ciphertext
-        ? {
-            version: 1,
-            iv: row.encryptionIv,
-            ciphertext: row.ciphertext,
-          }
-        : null,
     deleted: Boolean(row.deletedAt),
   };
 }
@@ -154,6 +146,14 @@ export function toMessage(row: MessageRow, currentUserId: string | null): Messag
     authorId: row.authorId,
     author: toPublicUser(row.author),
     content: row.deletedAt ? '' : row.content,
+    encrypted:
+      !row.deletedAt && row.encryptionVersion === 1 && row.encryptionIv && row.ciphertext
+        ? {
+            version: 1,
+            iv: row.encryptionIv,
+            ciphertext: row.ciphertext,
+          }
+        : null,
     createdAt: row.createdAt.toISOString(),
     editedAt: row.editedAt?.toISOString() ?? null,
     pinned: row.pinned,
