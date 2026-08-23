@@ -16,6 +16,7 @@ interface UiState {
   mobileHistory: MobileView[];
   /** Desktop keeps the member column visible by default, like Discord. */
   membersOpen: boolean;
+  friendsRailOpen: boolean;
   /** Tablet shows members as a slide-over, so it starts closed. */
   membersOverlayOpen: boolean;
   pinsOpen: boolean;
@@ -33,6 +34,7 @@ interface UiState {
   popMobileView: () => void;
   toggleMembers: () => void;
   setMembersOpen: (open: boolean) => void;
+  setFriendsRailOpen: (open: boolean) => void;
   toggleMembersOverlay: () => void;
   setMembersOverlayOpen: (open: boolean) => void;
   setPinsOpen: (open: boolean) => void;
@@ -52,6 +54,7 @@ export const useUiStore = create<UiState>()(
   mobileView: 'chat',
   mobileHistory: [],
   membersOpen: true,
+  friendsRailOpen: false,
   membersOverlayOpen: false,
   pinsOpen: false,
   searchOpen: false,
@@ -84,6 +87,7 @@ export const useUiStore = create<UiState>()(
 
   toggleMembers: () => set((state) => ({ membersOpen: !state.membersOpen })),
   setMembersOpen: (open) => set({ membersOpen: open }),
+  setFriendsRailOpen: (open) => set({ friendsRailOpen: open }),
   toggleMembersOverlay: () => set((state) => ({ membersOverlayOpen: !state.membersOverlayOpen })),
   setMembersOverlayOpen: (open) => set({ membersOverlayOpen: open }),
   setPinsOpen: (open) => set({ pinsOpen: open }),

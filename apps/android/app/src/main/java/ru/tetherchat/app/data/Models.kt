@@ -263,7 +263,7 @@ data class SendMessageBody(
 
 @Serializable
 data class EncryptedEnvelope(
-  val version: Int = 1,
+  val version: Int,
   val iv: String,
   val ciphertext: String,
 )

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Compass, Plus } from 'lucide-react';
+import { Compass, Plus, Users } from 'lucide-react';
 import type { ServerSummary } from '@tetherchat/shared';
 import { cn } from '@/lib/cn';
 import { DM_ROUTE } from '@/hooks/useChatTarget';
@@ -13,6 +13,7 @@ import { CreateServerDialog } from '@/components/modals/CreateServerDialog';
 import { JoinServerDialog } from '@/components/modals/JoinServerDialog';
 import { TetherLogo } from '@/components/brand/TetherLogo';
 import { useT } from '@/i18n/useT';
+import { useUiStore } from '@/stores/uiStore';
 
 /**
  * The 72px column of round server icons. The active server is marked by a white
@@ -25,6 +26,8 @@ export function ServerRail() {
   const { data: servers } = useServers();
   const [createOpen, setCreateOpen] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
+  const friendsOpen = useUiStore((state) => state.friendsRailOpen);
+  const setFriendsOpen = useUiStore((state) => state.setFriendsRailOpen);
 
   return (
     <nav
@@ -33,17 +36,23 @@ export function ServerRail() {
     >
       <RailButton
         label={t('nav.directMessages')}
-        active={serverId === DM_ROUTE}
-        onClick={() => navigate(`/channels/${DM_ROUTE}`)}
+        active={serverId === DM_ROUTE && !friendsOpen}
+        onClick={() => {
+          setFriendsOpen(false);
+          navigate(`/channels/${DM_ROUTE}`);
+        }}
       >
         <TetherLogo className="h-7 w-7" />
+      </RailButton>
+      <RailButton label={t('friends.title')} active={friendsOpen} onClick={() => setFriendsOpen(true)}>
+        <Users size={23} aria-hidden />
       </RailButton>
 
       <div className="h-px w-8 shrink-0 bg-[#35363c]" aria-hidden />
 
       <div className="scroller scroller-hover flex w-full flex-1 flex-col items-center gap-2 pb-2">
         {servers?.map((server) => (
-          <ServerIcon key={server.id} server={server} active={server.id === serverId} />
+          <ServerIcon key={server.id} server={server} active={!friendsOpen && server.id === serverId} />
         ))}
 
         <RailButton label={t('nav.addServer')} onClick={() => setCreateOpen(true)} tone="accent">
@@ -65,6 +74,7 @@ function ServerIcon({ server, active }: { server: ServerSummary; active: boolean
   const navigate = useNavigate();
   const readStates = useReadStateIndex();
   const channelIndex = useServerChannelIndex();
+  const setFriendsOpen = useUiStore((state) => state.setFriendsRailOpen);
   const channelIds = useMemo(() => channelIndex[server.id] ?? [], [channelIndex, server.id]);
 
   const unread = readStates.serverHasUnread(channelIds);
@@ -76,7 +86,10 @@ function ServerIcon({ server, active }: { server: ServerSummary; active: boolean
       active={active}
       unread={unread}
       mentions={mentions}
-      onClick={() => navigate(`/channels/${server.id}`)}
+      onClick={() => {
+        setFriendsOpen(false);
+        navigate(`/channels/${server.id}`);
+      }}
     >
       {server.iconUrl ? (
         <img

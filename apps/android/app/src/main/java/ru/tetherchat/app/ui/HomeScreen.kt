@@ -33,6 +33,7 @@ import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.PersonAdd
+import androidx.compose.material.icons.outlined.People
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Tag
@@ -98,7 +99,11 @@ fun HomeScreen(model: AppViewModel) {
       ) {
         ServerHeader(model)
         Box(Modifier.weight(1f)) {
-          if (model.selectedServerId == null) DmList(model) else ChannelList(model)
+          when {
+            model.friendsTabOpen -> FriendsHomeList(model)
+            model.selectedServerId == null -> DmList(model)
+            else -> ChannelList(model)
+          }
         }
         UserFooter(model)
       }
@@ -134,7 +139,11 @@ fun HomeScreen(model: AppViewModel) {
 @Composable
 private fun ServerHeader(model: AppViewModel) {
   var menu by remember { mutableStateOf(false) }
-  val title = if (model.selectedServerId == null) "Личные сообщения" else model.serverDetail?.name ?: "Сервер"
+  val title = when {
+    model.friendsTabOpen -> "Друзья"
+    model.selectedServerId == null -> "Личные сообщения"
+    else -> model.serverDetail?.name ?: "Сервер"
+  }
   Row(
     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
     verticalAlignment = Alignment.CenterVertically,
@@ -148,9 +157,9 @@ private fun ServerHeader(model: AppViewModel) {
       overflow = TextOverflow.Ellipsis,
       modifier = Modifier.weight(1f).clickable(enabled = model.selectedServerId != null) { menu = true },
     )
-    if (model.selectedServerId == null) {
+    if (model.selectedServerId == null && !model.friendsTabOpen) {
       IconButton(onClick = { model.showNewDm = true; model.dialogText = ""; model.searchQuery = ""; model.selectedDmUsers = emptyList() }) {
-        Icon(Icons.Outlined.Add, contentDescription = "Отправить заявку", tint = TextMuted)
+        Icon(Icons.Outlined.Add, contentDescription = "Добавить друга или создать секретный чат", tint = TextMuted)
       }
     } else {
       IconButton(onClick = { menu = true }) {
@@ -209,11 +218,14 @@ private fun ServerRail(model: AppViewModel) {
   ) {
     val dmUnread = model.dms.any { model.unread(it.id) || model.mentions(it.id) > 0 }
     ServerIcon(
-      selected = model.selectedServerId == null,
+      selected = model.selectedServerId == null && !model.friendsTabOpen,
       onClick = model::selectDms,
       unread = dmUnread,
     ) {
       Icon(Icons.Outlined.AlternateEmail, contentDescription = "ЛС", tint = Color.White, modifier = Modifier.size(22.dp))
+    }
+    ServerIcon(selected = model.friendsTabOpen, onClick = model::selectFriends) {
+      Icon(Icons.Outlined.People, contentDescription = "Друзья", tint = Color.White, modifier = Modifier.size(22.dp))
     }
     Box(Modifier.width(32.dp).height(2.dp).background(Color(0xFF3F4147), RoundedCornerShape(1.dp)))
     LazyColumn(
@@ -380,31 +392,6 @@ private fun DmList(model: AppViewModel) {
   LazyColumn(contentPadding = PaddingValues(bottom = 12.dp)) {
     item {
       Text(
-        "ДРУЗЬЯ · ${model.friends.size}",
-        color = TextMuted,
-        fontSize = 12.sp,
-        fontWeight = FontWeight.SemiBold,
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-      )
-    }
-    items(model.friends, key = { "friend-${it.id}" }) { friend ->
-      Row(
-        modifier = Modifier
-          .fillMaxWidth()
-          .clickable { model.startDm(friend) }
-          .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-      ) {
-        UserAvatar(friend, 36.dp, model.statusOf(friend.id, friend.status))
-        Spacer(Modifier.width(10.dp))
-        Column(Modifier.weight(1f)) {
-          Text(friend.label, color = TextPrimary, fontWeight = FontWeight.Medium, maxLines = 1)
-          Text("@${friend.username}", color = TextMuted, fontSize = 12.sp, maxLines = 1)
-        }
-      }
-    }
-    item {
-      Text(
         "СООБЩЕНИЯ",
         color = TextMuted,
         fontSize = 12.sp,
@@ -414,6 +401,47 @@ private fun DmList(model: AppViewModel) {
     }
     items(model.dms, key = { it.id }) { conversation ->
       DmRow(conversation, meId, model) { model.openDm(conversation) }
+    }
+  }
+}
+
+@Composable
+private fun FriendsHomeList(model: AppViewModel) {
+  LazyColumn(contentPadding = PaddingValues(bottom = 12.dp)) {
+    item {
+      Text(
+        "ДРУЗЬЯ · ${model.friends.size}",
+        color = TextMuted,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+      )
+    }
+    items(model.friends, key = { it.id }) { friend ->
+      Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .clickable { model.startDm(friend) }
+          .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        UserAvatar(friend, 42.dp, model.statusOf(friend.id, friend.status))
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+          Text(friend.label, color = TextPrimary, fontWeight = FontWeight.Medium, fontSize = 16.sp)
+          Text("@${friend.username}", color = TextMuted, fontSize = 13.sp)
+        }
+        Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = "Открыть чат", tint = TextMuted)
+      }
+    }
+    if (model.friends.isEmpty()) {
+      item {
+        Text(
+          "Список друзей пока пуст",
+          color = TextMuted,
+          modifier = Modifier.fillMaxWidth().padding(24.dp),
+        )
+      }
     }
   }
 }
@@ -602,50 +630,83 @@ private fun ChannelSettingsDialog(model: AppViewModel) {
 
 @Composable
 private fun NewDmDialog(model: AppViewModel) {
+  var mode by remember { mutableStateOf("choice") }
   AlertDialog(
     onDismissRequest = { model.showNewDm = false; model.selectedDmUsers = emptyList() },
-    title = { Text("Новый чат") },
+    title = {
+      Text(
+        when (mode) {
+          "invite" -> "Пригласить в друзья"
+          "secret" -> "Секретный чат"
+          else -> "Что вы хотите сделать?"
+        },
+      )
+    },
     text = {
       Column {
-        Text("Друзья", color = TextMuted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-        model.friends.forEach { user ->
+        if (mode == "choice") {
           Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+            modifier = Modifier
+              .fillMaxWidth()
+              .clip(RoundedCornerShape(12.dp))
+              .clickable { mode = "invite" }
+              .background(SurfaceRaised)
+              .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
           ) {
-            UserAvatar(user, 36.dp, model.statusOf(user.id, user.status))
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-              Text(user.label, color = TextPrimary)
-              Text("@${user.username}", color = TextMuted, fontSize = 12.sp)
-            }
-            IconButton(onClick = { model.startDm(user) }) {
-              Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = "Обычный чат", tint = TextMuted)
-            }
-            IconButton(onClick = { model.startSecretDm(user) }) {
-              Icon(Icons.Outlined.Lock, contentDescription = "Секретный чат", tint = Online)
+            Icon(Icons.Outlined.PersonAdd, contentDescription = null, tint = Brand)
+            Spacer(Modifier.width(12.dp))
+            Text("Пригласить в друзья", color = TextPrimary, fontWeight = FontWeight.Medium)
+          }
+          Spacer(Modifier.height(10.dp))
+          Row(
+            modifier = Modifier
+              .fillMaxWidth()
+              .clip(RoundedCornerShape(12.dp))
+              .clickable { mode = "secret" }
+              .background(SurfaceRaised)
+              .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+          ) {
+            Icon(Icons.Outlined.Lock, contentDescription = null, tint = Online)
+            Spacer(Modifier.width(12.dp))
+            Text("Создать секретный чат", color = TextPrimary, fontWeight = FontWeight.Medium)
+          }
+        } else if (mode == "invite") {
+          OutlinedTextField(
+            value = model.searchQuery,
+            onValueChange = model::searchPeople,
+            label = { Text("Поиск пользователя") },
+            singleLine = true,
+          )
+          Spacer(Modifier.height(8.dp))
+          model.searchResults.filter { it.id != model.me?.id }.forEach { user ->
+            Row(
+              modifier = Modifier.fillMaxWidth().clickable { model.sendFriendRequest(user) }.padding(vertical = 8.dp),
+              verticalAlignment = Alignment.CenterVertically,
+            ) {
+              UserAvatar(user, 32.dp, model.statusOf(user.id, user.status))
+              Spacer(Modifier.width(10.dp))
+              Column {
+                Text(user.label, color = TextPrimary)
+                Text("@${user.username}", color = TextMuted, fontSize = 12.sp)
+              }
             }
           }
-        }
-        Spacer(Modifier.height(12.dp))
-        Text("Добавить друга", color = TextMuted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-        OutlinedTextField(
-          value = model.searchQuery,
-          onValueChange = model::searchPeople,
-          label = { Text("Поиск пользователя") },
-          singleLine = true,
-        )
-        Spacer(Modifier.height(8.dp))
-        model.searchResults.filter { it.id != model.me?.id }.forEach { user ->
-          Row(
-            modifier = Modifier.fillMaxWidth().clickable { model.sendFriendRequest(user) }.padding(vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-          ) {
-            UserAvatar(user, 32.dp, model.statusOf(user.id, user.status))
-            Spacer(Modifier.width(10.dp))
-            Column {
-              Text(user.label, color = TextPrimary)
-              Text("@${user.username}", color = TextMuted, fontSize = 12.sp)
+        } else {
+          Text("Выберите друга", color = TextMuted, fontSize = 13.sp)
+          model.friends.forEach { user ->
+            Row(
+              modifier = Modifier.fillMaxWidth().clickable { model.startSecretDm(user) }.padding(vertical = 10.dp),
+              verticalAlignment = Alignment.CenterVertically,
+            ) {
+              UserAvatar(user, 36.dp, model.statusOf(user.id, user.status))
+              Spacer(Modifier.width(10.dp))
+              Column(Modifier.weight(1f)) {
+                Text(user.label, color = TextPrimary)
+                Text("@${user.username}", color = TextMuted, fontSize = 12.sp)
+              }
+              Icon(Icons.Outlined.Lock, contentDescription = null, tint = Online)
             }
           }
         }
@@ -653,7 +714,10 @@ private fun NewDmDialog(model: AppViewModel) {
     },
     confirmButton = {},
     dismissButton = {
-      TextButton(onClick = { model.showNewDm = false; model.selectedDmUsers = emptyList() }) { Text("Закрыть") }
+      Row {
+        if (mode != "choice") TextButton(onClick = { mode = "choice" }) { Text("Назад") }
+        TextButton(onClick = { model.showNewDm = false; model.selectedDmUsers = emptyList() }) { Text("Закрыть") }
+      }
     },
   )
 }

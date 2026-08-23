@@ -6,6 +6,7 @@ import { ChatArea } from '@/components/chat/ChatArea';
 import { useUiStore } from '@/stores/uiStore';
 import { useChatTarget } from '@/hooks/useChatTarget';
 import { useT } from '@/i18n/useT';
+import { FriendsHub } from '@/components/friends/FriendsHub';
 
 /**
  * 768–1023px: rail, channels and chat stay side by side, but there is no room
@@ -14,16 +15,21 @@ import { useT } from '@/i18n/useT';
 export function TabletLayout() {
   const t = useT();
   const membersOpen = useUiStore((state) => state.membersOverlayOpen);
+  const friendsOpen = useUiStore((state) => state.friendsRailOpen);
   const setMembersOpen = useUiStore((state) => state.setMembersOverlayOpen);
   const { channelId } = useChatTarget();
 
   return (
     <div className="relative flex h-screen-dvh w-full overflow-hidden bg-surface-tertiary">
       <ServerRail />
-      <ChannelSidebar />
-      <ChatArea />
+      {friendsOpen ? (
+        <FriendsHub />
+      ) : (
+        <>
+          <ChannelSidebar />
+          <ChatArea />
 
-      <AnimatePresence>
+          <AnimatePresence>
         {membersOpen && channelId ? (
           <>
             <motion.button
@@ -47,7 +53,9 @@ export function TabletLayout() {
             </motion.div>
           </>
         ) : null}
-      </AnimatePresence>
+          </AnimatePresence>
+        </>
+      )}
     </div>
   );
 }

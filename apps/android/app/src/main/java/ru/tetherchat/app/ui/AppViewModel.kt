@@ -172,6 +172,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   var dms by mutableStateOf<List<DirectConversation>>(emptyList())
     private set
   var selectedServerId by mutableStateOf<String?>(null)
+  var friendsTabOpen by mutableStateOf(false)
+    private set
   var serverDetail by mutableStateOf<ServerDetail?>(null)
     private set
   var members by mutableStateOf<List<ServerMember>>(emptyList())
@@ -932,12 +934,21 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   }
 
   fun selectDms() {
+    friendsTabOpen = false
+    selectedServerId = null
+    serverDetail = null
+    members = emptyList()
+  }
+
+  fun selectFriends() {
+    friendsTabOpen = true
     selectedServerId = null
     serverDetail = null
     members = emptyList()
   }
 
   fun selectServer(id: String) {
+    friendsTabOpen = false
     selectedServerId = id
     viewModelScope.launch {
       runCatching {

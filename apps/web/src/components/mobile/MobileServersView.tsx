@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Compass, MessageSquare, Plus, Settings } from 'lucide-react';
+import { ChevronRight, Compass, MessageSquare, Plus, Settings, Users } from 'lucide-react';
 import type { ServerSummary } from '@tetherchat/shared';
 import { cn } from '@/lib/cn';
 import { DM_ROUTE } from '@/hooks/useChatTarget';
@@ -63,6 +63,17 @@ export function MobileServersView() {
             <MessageSquare size={20} aria-hidden />
           </span>
           <span className="flex-1 text-base font-medium text-text-heading">{t('nav.directMessages')}</span>
+          <ChevronRight size={18} className="text-text-muted" aria-hidden />
+        </button>
+        <button
+          type="button"
+          onClick={() => pushMobileView('friends')}
+          className="flex min-h-14 w-full items-center gap-3 px-4 text-left active:bg-surface-hover"
+        >
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-surface-secondary text-success">
+            <Users size={21} aria-hidden />
+          </span>
+          <span className="flex-1 text-base font-medium text-text-heading">{t('friends.title')}</span>
           <ChevronRight size={18} className="text-text-muted" aria-hidden />
         </button>
 

@@ -12,8 +12,7 @@ import { CreateChatDialog } from '@/components/modals/CreateChatDialog';
 import { useT } from '@/i18n/useT';
 import { useAuthStore } from '@/stores/authStore';
 import { ContextMenu, useContextMenu, type MenuItem } from '@/components/ui/ContextMenu';
-import { useFriends, usePinConversation } from '@/hooks/useFriends';
-import { useCreateConversation } from '@/hooks/useDms';
+import { usePinConversation } from '@/hooks/useFriends';
 import { useBlockUser } from '@/components/settings/BlacklistSettings';
 import { useLongPress } from '@/hooks/useLongPress';
 import { useIsMobile } from '@/hooks/useMediaQuery';
@@ -32,8 +31,6 @@ export function DirectMessageList({
   const t = useT();
   const currentUserId = useAuthStore((state) => state.user?.id);
   const { data: conversations, isLoading } = useConversations();
-  const { data: friends } = useFriends();
-  const createConversation = useCreateConversation();
   const navigate = useNavigate();
   const leave = useLeaveConversation();
   const pin = usePinConversation();
@@ -105,44 +102,6 @@ export function DirectMessageList({
           <li className="px-2 py-6 text-center text-sm text-text-muted">{t('dm.emptyHint')}</li>
         ) : null}
       </ul>
-
-      <div className="mt-4 border-t border-divider pt-3">
-        <p className="px-2 text-xs font-semibold uppercase tracking-[0.02em] text-text-muted">
-          {t('friends.title')} · {friends?.length ?? 0}
-        </p>
-        <ul className="mt-1 flex flex-col gap-0.5">
-          {friends?.map((friend) => (
-            <li key={friend.id}>
-              <button
-                type="button"
-                onClick={() =>
-                  createConversation.mutate(
-                    { userIds: [friend.id] },
-                    {
-                      onSuccess: (conversation) => {
-                        if (onSelect) onSelect(conversation);
-                        else navigate(`/channels/${DM_ROUTE}/${conversation.id}`);
-                      },
-                    },
-                  )
-                }
-                className="flex min-h-11 w-full items-center gap-3 rounded px-2 text-left text-text-muted hover:bg-surface-hover hover:text-text-heading"
-              >
-                <Avatar user={friend} size={32} showStatus ringColor="var(--bg-secondary)" />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium">
-                    {friend.displayName ?? friend.username}
-                  </span>
-                  <span className="block truncate text-xs text-text-faint">@{friend.username}</span>
-                </span>
-              </button>
-            </li>
-          ))}
-          {friends?.length === 0 ? (
-            <li className="px-2 py-3 text-sm text-text-muted">{t('friends.empty')}</li>
-          ) : null}
-        </ul>
-      </div>
 
       <CreateChatDialog
         open={newOpen}
