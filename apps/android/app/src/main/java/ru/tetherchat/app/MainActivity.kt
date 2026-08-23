@@ -18,11 +18,19 @@ import ru.tetherchat.app.ui.TetherTheme
 
 class MainActivity : ComponentActivity() {
   private val model by viewModels<AppViewModel>()
+  private var pendingMicCallback: ((Boolean) -> Unit)? = null
 
   private val notificationPermissionLauncher = registerForActivityResult(
     ActivityResultContracts.RequestPermission(),
   ) { granted ->
     if (granted) PushRegistrar.sync(this)
+  }
+
+  private val micPermissionLauncher = registerForActivityResult(
+    ActivityResultContracts.RequestPermission(),
+  ) { granted ->
+    pendingMicCallback?.invoke(granted)
+    pendingMicCallback = null
   }
 
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -32,6 +40,16 @@ class MainActivity : ComponentActivity() {
     lifecycle.addObserver(model)
     NotificationHelper.ensureChannels(this)
     requestNotificationPermissionIfNeeded()
+    model.micPermissionHandler = { callback ->
+      when {
+        ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
+          PackageManager.PERMISSION_GRANTED -> callback(true)
+        else -> {
+          pendingMicCallback = callback
+          micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+      }
+    }
     PushRegistrar.sync(this)
     applyDeepLink(intent)
     intent.getStringExtra(EXTRA_ACCEPT_CALL_ID)?.let { callId ->

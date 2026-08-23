@@ -15,6 +15,49 @@ import { emitToUser } from '../ws/realtime.js';
 
 const RING_TIMEOUT_MS = 45_000;
 const ACTIVE_STATUSES: CallStatus[] = ['ringing', 'active'];
+const STALE_RINGING_MS = RING_TIMEOUT_MS + 10_000;
+const STALE_ACTIVE_MS = 3 * 60_000;
+const BUSY_RETRY_MS = 30_000;
+
+async function forceEndCall(
+  call: { id: string; conversationId: string; callerId: string; calleeId: string; status: CallStatus },
+  reason: 'ended' | 'missed' = 'ended',
+): Promise<void> {
+  if (!ACTIVE_STATUSES.includes(call.status)) return;
+  const status = call.status === 'ringing' ? 'missed' : 'ended';
+  const updated = await prisma.call.update({
+    where: { id: call.id },
+    data: {
+      status: reason === 'missed' && call.status === 'ringing' ? 'missed' : status,
+      endedAt: new Date(),
+      endReason: reason === 'missed' && call.status === 'ringing' ? 'missed' : 'ended',
+    },
+  });
+  const payload = endedPayload(updated, updated.endReason === 'missed' ? 'missed' : 'ended');
+  emitToUser(call.callerId, updated.endReason === 'missed' ? 'call:missed' : 'call:ended', payload);
+  emitToUser(call.calleeId, updated.endReason === 'missed' ? 'call:missed' : 'call:ended', payload);
+}
+
+/** Ends calls that outlived their client session (crash, failed LiveKit connect, etc.). */
+export async function releaseStaleCallsForUser(userId: string): Promise<void> {
+  const now = Date.now();
+  const open = await prisma.call.findMany({
+    where: {
+      status: { in: ACTIVE_STATUSES },
+      OR: [{ callerId: userId }, { calleeId: userId }],
+    },
+  });
+  await Promise.all(
+    open.map(async (call) => {
+      const age = now - call.startedAt.getTime();
+      if (call.status === 'ringing' && age > STALE_RINGING_MS) {
+        await forceEndCall(call, 'missed');
+      } else if (call.status === 'active' && age > STALE_ACTIVE_MS) {
+        await forceEndCall(call, 'ended');
+      }
+    }),
+  );
+}
 
 function livekitPublicUrl(): string {
   return getConfig().PUBLIC_LIVEKIT_URL;
@@ -90,9 +133,15 @@ async function userBusy(userId: string): Promise<boolean> {
       status: { in: ACTIVE_STATUSES },
       OR: [{ callerId: userId }, { calleeId: userId }],
     },
-    select: { id: true },
+    select: { id: true, status: true, startedAt: true, callerId: true, calleeId: true, conversationId: true },
   });
-  return Boolean(active);
+  if (!active) return false;
+  const age = Date.now() - active.startedAt.getTime();
+  if (age > BUSY_RETRY_MS) {
+    await forceEndCall(active, active.status === 'ringing' ? 'missed' : 'ended');
+    return false;
+  }
+  return true;
 }
 
 function endedPayload(
@@ -136,8 +185,10 @@ async function notifyCallPush(
 }
 
 export async function startCall(callerId: string, conversationId: string) {
+  await releaseStaleCallsForUser(callerId);
   const { callee } = await assertCallableConversation(conversationId, callerId);
   if (await userBusy(callerId)) throw ApiError.conflict('Вы уже в звонке');
+  await releaseStaleCallsForUser(callee.id);
   if (await userBusy(callee.id)) {
     const busyCall = await prisma.call.create({
       data: {
@@ -261,7 +312,20 @@ export async function getCallToken(userId: string, callId: string) {
   };
 }
 
+export async function abandonActiveCall(userId: string): Promise<void> {
+  await releaseStaleCallsForUser(userId);
+  const active = await prisma.call.findFirst({
+    where: {
+      status: { in: ACTIVE_STATUSES },
+      OR: [{ callerId: userId }, { calleeId: userId }],
+    },
+    orderBy: { startedAt: 'desc' },
+  });
+  if (active) await forceEndCall(active, active.status === 'ringing' ? 'missed' : 'ended');
+}
+
 export async function getActiveCallForUser(userId: string) {
+  await releaseStaleCallsForUser(userId);
   return prisma.call.findFirst({
     where: {
       status: { in: ACTIVE_STATUSES },

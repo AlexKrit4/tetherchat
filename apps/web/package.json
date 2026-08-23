@@ -29,7 +29,7 @@
     "react-virtuoso": "^4.12.3",
     "remark-gfm": "^4.0.0",
     "socket.io-client": "^4.8.1",
-    "livekit-client": "^2.9.9",
+    "livekit-client": "2.9.9",
     "tailwind-merge": "^2.6.0",
     "zod": "^3.24.1",
     "zustand": "^5.0.2"

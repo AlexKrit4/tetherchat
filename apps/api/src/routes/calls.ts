@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { FastifyInstance } from 'fastify';
 import {
   acceptCall,
+  abandonActiveCall,
   declineCall,
   endCall,
   getActiveCallForUser,
@@ -22,6 +23,11 @@ export async function callRoutes(app: FastifyInstance) {
   app.get('/active', async (request) => {
     const active = await getActiveCallForUser(request.userId);
     return active ? { callId: active.id, status: active.status, conversationId: active.conversationId } : null;
+  });
+
+  app.post('/abandon', async (request, reply) => {
+    await abandonActiveCall(request.userId);
+    reply.send({ ok: true });
   });
 
   app.post('/:callId/accept', async (request, reply) => {

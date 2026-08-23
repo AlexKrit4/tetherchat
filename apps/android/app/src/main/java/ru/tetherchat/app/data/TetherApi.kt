@@ -305,6 +305,10 @@ class TetherApi(private val session: SessionStore) {
 
   fun callToken(callId: String): CallTokenResponse = get("/api/calls/$callId/token")
 
+  fun abandonCall() {
+    postRaw<Unit>("/api/calls/abandon", "{}")
+  }
+
   fun ensureAccessToken(): String = session.accessToken ?: refresh().accessToken
     ?: throw ApiException(401, "unauthorized", "Нет сессии")
 

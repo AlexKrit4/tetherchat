@@ -125,6 +125,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   private var activeCallId: String? = null
   private var activeConversationId: String? = null
   private var connectCallJob: Job? = null
+  var micPermissionHandler: ((onResult: (Boolean) -> Unit) -> Unit)? = null
 
   var screen by mutableStateOf<Screen>(Screen.Boot)
     private set
@@ -2007,19 +2008,24 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
 
   fun startOutgoingCall(conversationId: String) {
     if (callPhase != CallPhase.Idle) return
-    viewModelScope.launch {
-      callPhase = CallPhase.Outgoing
-      callError = null
-      callPeer = currentConversation?.peer(me?.id.orEmpty())
-      runCatching {
-        withContext(Dispatchers.IO) { api.startCall(conversationId) }
-      }.onSuccess { response ->
-        activeCallId = response.callId
-        activeConversationId = conversationId
-        callPeer = response.callee.asPublicUser()
-      }.onFailure {
-        resetCallState()
-        callError = it.userMessage()
+    ensureMicPermission {
+      viewModelScope.launch {
+        callPhase = CallPhase.Outgoing
+        callError = null
+        callPeer = currentConversation?.peer(me?.id.orEmpty())
+        runCatching {
+          withContext(Dispatchers.IO) { api.startCall(conversationId) }
+        }.onSuccess { response ->
+          activeCallId = response.callId
+          activeConversationId = conversationId
+          callPeer = response.callee.asPublicUser()
+        }.onFailure { err ->
+          if (err is ApiException && err.status == 409) {
+            runCatching { withContext(Dispatchers.IO) { api.abandonCall() } }
+          }
+          resetCallState()
+          callError = err.userMessage()
+        }
       }
     }
   }
@@ -2027,19 +2033,21 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   fun acceptIncomingCall() {
     val callId = activeCallId ?: return
     if (callPhase != CallPhase.Ringing) return
-    viewModelScope.launch {
-      callPhase = CallPhase.Connecting
-      callError = null
-      runCatching {
-        withContext(Dispatchers.IO) {
-          api.acceptCall(callId)
-          api.callToken(callId)
+    ensureMicPermission {
+      viewModelScope.launch {
+        callPhase = CallPhase.Connecting
+        callError = null
+        runCatching {
+          withContext(Dispatchers.IO) {
+            api.acceptCall(callId)
+            api.callToken(callId)
+          }
+        }.onSuccess { tokenData ->
+          connectLiveKit(tokenData.livekitUrl, tokenData.token)
+        }.onFailure { err ->
+          resetCallState(endOnServer = true)
+          callError = err.userMessage()
         }
-      }.onSuccess { tokenData ->
-        connectLiveKit(tokenData.livekitUrl, tokenData.token)
-      }.onFailure {
-        resetCallState()
-        callError = it.userMessage()
       }
     }
   }
@@ -2108,7 +2116,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
       connectLiveKit(tokenData.livekitUrl, tokenData.token)
     }.onFailure { error ->
       if (error is CancellationException) return
-      resetCallState()
+      resetCallState(endOnServer = true)
       callError = error.userMessage()
     }
   }
@@ -2125,13 +2133,26 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
         }
         .onFailure { error ->
           if (error is CancellationException) return@launch
-          resetCallState()
+          resetCallState(endOnServer = true)
           callError = error.userMessage()
         }
     }
   }
 
-  private fun resetCallState() {
+  private fun ensureMicPermission(onGranted: () -> Unit) {
+    val handler = micPermissionHandler
+    if (handler == null) {
+      onGranted()
+      return
+    }
+    handler { granted ->
+      if (granted) onGranted() else callError = "Нужен доступ к микрофону для звонка"
+    }
+  }
+
+  private fun resetCallState(endOnServer: Boolean = false) {
+    val callId = activeCallId
+    val shouldEnd = endOnServer && !callId.isNullOrBlank() && callPhase != CallPhase.Idle
     connectCallJob?.cancel()
     connectCallJob = null
     callManager.disconnect()
@@ -2141,6 +2162,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     callPeer = null
     callMuted = false
     callError = null
+    if (shouldEnd && callId != null) {
+      viewModelScope.launch(Dispatchers.IO) {
+        runCatching { api.endCall(callId) }.onFailure { runCatching { api.abandonCall() } }
+      }
+    }
   }
 
   private suspend fun ensureDm(conversationId: String) {

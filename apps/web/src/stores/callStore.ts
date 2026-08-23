@@ -23,6 +23,7 @@ interface CallState {
   handleEnded: (reason?: string) => void;
   setMuted: (muted: boolean) => void;
   reset: () => void;
+  abandonCall: () => Promise<void>;
 }
 
 const initial = {
@@ -92,6 +93,7 @@ export const useCallStore = create<CallState>((set, get) => ({
         phase: 'active',
       });
     } catch (error) {
+      void get().abandonCall();
       set({ ...initial, error: error instanceof Error ? error.message : 'Не удалось подключиться' });
     }
   },
@@ -112,6 +114,7 @@ export const useCallStore = create<CallState>((set, get) => ({
         phase: 'active',
       });
     } catch (error) {
+      void get().abandonCall();
       set({ ...initial, error: error instanceof Error ? error.message : 'Не удалось принять звонок' });
     }
   },
@@ -133,6 +136,16 @@ export const useCallStore = create<CallState>((set, get) => ({
   },
 
   handleEnded(_reason?: string) {
+    set(initial);
+  },
+
+  async abandonCall() {
+    const { callId } = get();
+    if (callId) {
+      await api.post(`/api/calls/${callId}/end`).catch(() => undefined);
+    } else {
+      await api.post('/api/calls/abandon').catch(() => undefined);
+    }
     set(initial);
   },
 

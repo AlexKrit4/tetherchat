@@ -29,7 +29,7 @@ export function useLiveKitRoom(): void {
       }
       await room.localParticipant.setMicrophoneEnabled(!muted);
     })().catch(() => {
-      useCallStore.getState().reset();
+      void useCallStore.getState().abandonCall();
     });
 
     return () => {
