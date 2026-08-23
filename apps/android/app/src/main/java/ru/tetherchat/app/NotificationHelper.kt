@@ -75,13 +75,13 @@ object NotificationHelper {
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 
-    val acceptIntent = Intent(context, NotificationActionReceiver::class.java).apply {
-      action = NotificationActionReceiver.ACTION_ACCEPT_CALL
-      putExtra(EXTRA_CALL_ID, callId)
+    val acceptIntent = Intent(context, MainActivity::class.java).apply {
+      flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+      putExtra(MainActivity.EXTRA_ACCEPT_CALL_ID, callId)
       putExtra(MainActivity.EXTRA_CHANNEL_ID, conversationId)
       putExtra(EXTRA_NOTIFICATION_ID, id)
     }
-    val acceptPending = PendingIntent.getBroadcast(
+    val acceptPending = PendingIntent.getActivity(
       context,
       callId.hashCode() + 3,
       acceptIntent,
@@ -90,6 +90,7 @@ object NotificationHelper {
     val declineIntent = Intent(context, NotificationActionReceiver::class.java).apply {
       action = NotificationActionReceiver.ACTION_DECLINE_CALL
       putExtra(EXTRA_CALL_ID, callId)
+      putExtra(MainActivity.EXTRA_CHANNEL_ID, conversationId)
       putExtra(EXTRA_NOTIFICATION_ID, id)
     }
     val declinePending = PendingIntent.getBroadcast(

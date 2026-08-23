@@ -55,6 +55,7 @@ class MainActivity : ComponentActivity() {
     if (intent.getBooleanExtra(EXTRA_RESTORE_CALL, false)) model.expandCall()
     intent.getStringExtra(EXTRA_ACCEPT_CALL_ID)?.let { callId ->
       val channelId = intent.getStringExtra(EXTRA_CHANNEL_ID)
+      NotificationHelper.cancelCall(this, callId)
       model.handleIncomingCallDeepLink(callId, channelId)
       model.acceptIncomingCall()
     }
@@ -75,6 +76,7 @@ class MainActivity : ComponentActivity() {
     if (intent.getBooleanExtra(EXTRA_RESTORE_CALL, false)) model.expandCall()
     intent.getStringExtra(EXTRA_ACCEPT_CALL_ID)?.let { callId ->
       val channelId = intent.getStringExtra(EXTRA_CHANNEL_ID)
+      NotificationHelper.cancelCall(this, callId)
       model.handleIncomingCallDeepLink(callId, channelId)
       model.acceptIncomingCall()
     }

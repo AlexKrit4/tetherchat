@@ -21,7 +21,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
   }
 
   private fun handle(context: Context, intent: Intent) {
-    val channelId = intent.getStringExtra(MainActivity.EXTRA_CHANNEL_ID) ?: return
+    val channelId = intent.getStringExtra(MainActivity.EXTRA_CHANNEL_ID).orEmpty()
     val messageId = intent.getStringExtra(NotificationHelper.EXTRA_MESSAGE_ID).orEmpty()
     val dm = intent.getBooleanExtra(NotificationHelper.EXTRA_DM, true)
     val notificationId = intent.getIntExtra(NotificationHelper.EXTRA_NOTIFICATION_ID, NotificationHelper.notificationId(channelId))
