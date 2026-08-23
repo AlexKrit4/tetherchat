@@ -70,7 +70,7 @@ export async function ensureE2eeDevice(userId: string): Promise<{ deviceId: stri
         name: 'RSA-OAEP',
         modulusLength: 2048,
         publicExponent: new Uint8Array([1, 0, 1]),
-        hash: 'SHA-256',
+        hash: 'SHA-1',
       },
       false,
       ['encrypt', 'decrypt'],
@@ -130,7 +130,7 @@ export async function createSecretConversation(
       const publicKey = await crypto.subtle.importKey(
         'spki',
         base64ToBytes(device.publicKey),
-        { name: 'RSA-OAEP', hash: 'SHA-256' },
+        { name: 'RSA-OAEP', hash: 'SHA-1' },
         false,
         ['encrypt'],
       );

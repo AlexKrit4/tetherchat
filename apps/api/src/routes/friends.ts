@@ -38,6 +38,7 @@ async function ensureDirectConversation(userA: string, userB: string): Promise<D
       isGroup: false,
       isSaved: false,
       isAi: false,
+      isSecret: false,
       AND: [
         { members: { some: { userId: userA, leftAt: null } } },
         { members: { some: { userId: userB, leftAt: null } } },

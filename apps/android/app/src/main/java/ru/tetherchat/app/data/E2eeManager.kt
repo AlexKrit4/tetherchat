@@ -112,7 +112,7 @@ class E2eeManager(
         KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
       )
         .setKeySize(2048)
-        .setDigests(KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_SHA1)
+        .setDigests(KeyProperties.DIGEST_SHA1)
         .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_OAEP)
         .build(),
     )
@@ -127,7 +127,7 @@ class E2eeManager(
         mode,
         key,
         OAEPParameterSpec(
-          "SHA-256",
+          "SHA-1",
           "MGF1",
           MGF1ParameterSpec.SHA1,
           PSource.PSpecified.DEFAULT,
