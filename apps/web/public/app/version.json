@@ -1,7 +1,7 @@
 {
-  "versionCode": 28,
-  "versionName": "1.2.20",
+  "versionCode": 29,
+  "versionName": "1.2.21",
   "url": "https://tetherchat.ru/app/tetherchat.apk",
   "requiresReinstall": false,
-  "releaseNotes": "Таймер звонка, сворачивание в мини-плашку, управление звонком из уведомления и выбор динамика."
+  "releaseNotes": "Исправлены кнопки «Принять» и «Отклонить» в уведомлении входящего звонка."
 }
