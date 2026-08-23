@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { randomUUID } from 'node:crypto';
+import { generateKeyPairSync, randomUUID } from 'node:crypto';
 import type { DirectConversation, Message } from '@tetherchat/shared';
 import { prisma } from '../db.js';
 import { closeTestApp, createUser, linkFriends, testApp } from './harness.js';
@@ -25,6 +25,9 @@ describe('secret chats', () => {
     const app = await testApp();
     const aliceDevice = `alice-device-${randomUUID()}`;
     const bobDevice = `bob-device-${randomUUID()}`;
+    const publicKey = generateKeyPairSync('rsa', { modulusLength: 2048 })
+      .publicKey.export({ format: 'der', type: 'spki' })
+      .toString('base64');
     for (const [user, deviceId] of [
       [alice, aliceDevice],
       [bob, bobDevice],
@@ -33,7 +36,7 @@ describe('secret chats', () => {
         method: 'POST',
         url: '/api/e2ee/devices',
         headers: user.auth,
-        payload: { deviceId, name: 'test', publicKey: 'p'.repeat(256) },
+        payload: { deviceId, name: 'test', publicKey },
       });
       expect(registered.statusCode).toBe(200);
     }

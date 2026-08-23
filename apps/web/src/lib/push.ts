@@ -170,7 +170,9 @@ export function notifyIncomingMessage(message: Message, currentUserId: string | 
   if (localStorage.getItem(SUBSCRIBED_KEY) !== '1' && !isInstalledAndroidApp()) return;
 
   const title = message.author.displayName ?? message.author.username;
-  const body = message.content.trim().slice(0, 140) || 'Вложение';
+  const body = message.encrypted
+    ? 'Новое зашифрованное сообщение'
+    : (message.content.trim().slice(0, 140) || 'Вложение');
   const url = messageDeepLink(message);
   const native = nativeNotifier();
   if (native) {

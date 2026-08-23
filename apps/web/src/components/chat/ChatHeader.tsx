@@ -9,6 +9,7 @@ import { useUiStore } from '@/stores/uiStore';
 import { useAuthStore } from '@/stores/authStore';
 import { ChatSettingsButton } from './ChatSettingsButton';
 import { useCallStore } from '@/stores/callStore';
+import { getSecretSafetyNumber } from '@/lib/e2ee';
 
 /**
  * 48px bar above the message list. On mobile the leading slot becomes a back
@@ -43,6 +44,17 @@ export function ChatHeader() {
     conversation?.id &&
     callPhase === 'idle';
   const membersVisible = isDesktop ? membersColumnOpen : membersOverlayOpen;
+  const showSafetyNumber = async () => {
+    if (!currentUserId || !dmPeer) return;
+    try {
+      const code = await getSecretSafetyNumber(currentUserId, dmPeer.id);
+      window.alert(
+        `Код безопасности:\n\n${code}\n\nСравните этот код с собеседником по другому каналу. Совпадение подтверждает, что сервер не подменил ключи.`,
+      );
+    } catch {
+      window.alert('Не удалось получить код безопасности');
+    }
+  };
 
   return (
     <header
@@ -62,7 +74,11 @@ export function ChatHeader() {
       ) : null}
 
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        {conversation?.isSecret ? <LockKeyhole size={18} className="shrink-0 text-success" aria-hidden /> : null}
+        {conversation?.isSecret ? (
+          <button type="button" onClick={() => void showSafetyNumber()} title="Проверить код безопасности">
+            <LockKeyhole size={18} className="shrink-0 text-success" aria-hidden />
+          </button>
+        ) : null}
         {isDm ? (
           conversation?.isSaved ? (
             <Bookmark size={20} className="shrink-0 text-brand" aria-hidden />

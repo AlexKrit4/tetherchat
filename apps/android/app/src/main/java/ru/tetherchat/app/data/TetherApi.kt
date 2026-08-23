@@ -159,6 +159,7 @@ class TetherApi(private val session: SessionStore) {
 
   fun friends(): List<PublicUser> = get("/api/friends")
   fun registerCryptoDevice(body: CryptoDeviceBody): CryptoDevice = post("/api/e2ee/devices", body)
+  fun revokeCryptoDevice(deviceId: String) = delete("/api/e2ee/devices/$deviceId")
   fun cryptoDevices(userId: String): List<CryptoDevice> = get("/api/e2ee/users/$userId/devices")
   fun secretConversationKey(conversationId: String, deviceId: String): SecretKeyResponse =
     get("/api/e2ee/conversations/$conversationId/key/$deviceId")

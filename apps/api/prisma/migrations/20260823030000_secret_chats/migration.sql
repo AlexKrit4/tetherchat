@@ -6,6 +6,14 @@ ADD COLUMN "encryptionVersion" INTEGER NOT NULL DEFAULT 0,
 ADD COLUMN "encryptionIv" TEXT,
 ADD COLUMN "ciphertext" TEXT;
 
+ALTER TABLE "Message"
+ADD CONSTRAINT "Message_encryption_fields_check"
+CHECK (
+  ("encryptionVersion" = 0 AND "encryptionIv" IS NULL AND "ciphertext" IS NULL)
+  OR
+  ("encryptionVersion" = 1 AND "encryptionIv" IS NOT NULL AND "ciphertext" IS NOT NULL AND "content" = '')
+);
+
 CREATE TABLE "CryptoDevice" (
   "id" TEXT NOT NULL,
   "userId" TEXT NOT NULL,

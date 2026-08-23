@@ -33,11 +33,22 @@ export function MessageInput() {
   const t = useT();
   const isMobile = useIsMobile();
   const { channelId, isDm, server, title, serverId, conversation } = useChatTarget();
+  const isSecret = Boolean(conversation?.isSecret);
   const user = useAuthStore((state) => state.user);
   const { data: members } = useMembers(serverId);
 
-  const draft = useUiStore((state) => (channelId ? state.drafts[channelId] ?? '' : ''));
+  const draft = useUiStore((state) =>
+    channelId
+      ? (isSecret ? state.volatileDrafts[channelId] : state.drafts[channelId]) ?? ''
+      : '',
+  );
   const setDraft = useUiStore((state) => state.setDraft);
+  const setVolatileDraft = useUiStore((state) => state.setVolatileDraft);
+  const setCurrentDraft = (value: string) => {
+    if (!channelId) return;
+    if (isSecret) setVolatileDraft(channelId, value);
+    else setDraft(channelId, value);
+  };
   const replyTo = useUiStore((state) => (channelId ? state.replyDrafts[channelId] : undefined));
   const setReplyDraft = useUiStore((state) => state.setReplyDraft);
 
@@ -65,7 +76,7 @@ export function MessageInput() {
   const holdingMic = useRef(false);
 
   const nonce = useNonce();
-  const send = useSendMessage(channelId ?? '', isDm, Boolean(conversation?.isSecret));
+  const send = useSendMessage(channelId ?? '', isDm, isSecret);
   const upload = useUploadAttachment();
   const nudgeScrollBottom = useUiStore((state) => state.nudgeScrollBottom);
 
@@ -282,7 +293,7 @@ export function MessageInput() {
       nonce: nonce(),
     });
 
-    setDraft(channelId, '');
+    setCurrentDraft('');
     setReplyDraft(channelId, null);
     setPending([]);
     setSpoilerIds(new Set());
@@ -298,7 +309,7 @@ export function MessageInput() {
       draft.slice(0, replacement.start) +
       replacement.text +
       draft.slice(replacement.start + replacement.length);
-    setDraft(channelId, next);
+    setCurrentDraft(next);
     setMentionQuery(null);
     requestAnimationFrame(() => {
       const node = textareaRef.current;
@@ -462,7 +473,7 @@ export function MessageInput() {
             enterKeyHint={enterToSend ? 'send' : 'enter'}
             aria-label={placeholder}
             onChange={(event) => {
-              setDraft(channelId, event.target.value);
+              setCurrentDraft(event.target.value);
               setMentionQuery(
                 detectMentionQuery(event.target.value, event.target.selectionStart ?? 0),
               );
@@ -505,7 +516,7 @@ export function MessageInput() {
             <EmojiPicker
               open={emojiOpen}
               onClose={() => setEmojiOpen(false)}
-              onSelect={(emoji) => setDraft(channelId, draft + emoji)}
+              onSelect={(emoji) => setCurrentDraft(draft + emoji)}
             />
           </div>
 

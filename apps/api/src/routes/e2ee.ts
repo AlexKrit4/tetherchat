@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { createPublicKey } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../db.js';
 import { ApiError } from '../errors.js';
@@ -32,9 +33,30 @@ export async function e2eeRoutes(app: FastifyInstance) {
 
   app.post('/devices', async (request, reply) => {
     const body = deviceSchema.parse(request.body);
+    try {
+      const key = createPublicKey({
+        key: Buffer.from(body.publicKey, 'base64'),
+        format: 'der',
+        type: 'spki',
+      });
+      if (key.asymmetricKeyType !== 'rsa' || (key.asymmetricKeyDetails?.modulusLength ?? 0) < 2048) {
+        throw new Error('unsupported key');
+      }
+    } catch {
+      throw ApiError.badRequest('Public key must be a valid RSA-2048 SPKI key');
+    }
     const existing = await prisma.cryptoDevice.findUnique({ where: { id: body.deviceId } });
     if (existing && existing.userId !== request.userId) {
       throw ApiError.conflict('Device id is already registered');
+    }
+    if (existing && existing.publicKey !== body.publicKey) {
+      throw ApiError.conflict('Device identity cannot be replaced; register a new device id');
+    }
+    if (!existing) {
+      const activeDevices = await prisma.cryptoDevice.count({
+        where: { userId: request.userId, revokedAt: null },
+      });
+      if (activeDevices >= 16) throw ApiError.conflict('Too many active encrypted devices');
     }
     const device = await prisma.cryptoDevice.upsert({
       where: { id: body.deviceId },
@@ -46,12 +68,22 @@ export async function e2eeRoutes(app: FastifyInstance) {
       },
       update: {
         name: body.name?.trim() || null,
-        publicKey: body.publicKey,
         lastSeenAt: new Date(),
         revokedAt: null,
       },
     });
     reply.send(serializeDevice(device));
+  });
+
+  app.delete('/devices/:deviceId', async (request, reply) => {
+    const { deviceId } = z.object({ deviceId: z.string().min(1) }).parse(request.params);
+    const device = await prisma.cryptoDevice.findUnique({ where: { id: deviceId } });
+    if (!device || device.userId !== request.userId) throw ApiError.notFound('Device not found');
+    await prisma.cryptoDevice.update({
+      where: { id: deviceId },
+      data: { revokedAt: new Date() },
+    });
+    reply.status(204).send();
   });
 
   app.get('/users/:userId/devices', async (request) => {

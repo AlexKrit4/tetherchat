@@ -58,12 +58,18 @@ function deviceStorageKey(userId: string): string {
 
 export async function ensureE2eeDevice(userId: string): Promise<{ deviceId: string; pair: CryptoKeyPair }> {
   let deviceId = localStorage.getItem(deviceStorageKey(userId));
+  const hadDeviceId = Boolean(deviceId);
   if (!deviceId) {
     deviceId = crypto.randomUUID();
     localStorage.setItem(deviceStorageKey(userId), deviceId);
   }
   const identityId = `identity:${userId}:${deviceId}`;
   let pair = await readKey<CryptoKeyPair>(identityId);
+  if (!pair && hadDeviceId) {
+    await api.delete(`/api/e2ee/devices/${deviceId}`).catch(() => undefined);
+    deviceId = crypto.randomUUID();
+    localStorage.setItem(deviceStorageKey(userId), deviceId);
+  }
   if (!pair) {
     pair = (await crypto.subtle.generateKey(
       {
@@ -75,7 +81,7 @@ export async function ensureE2eeDevice(userId: string): Promise<{ deviceId: stri
       false,
       ['encrypt', 'decrypt'],
     )) as CryptoKeyPair;
-    await writeKey(identityId, pair);
+    await writeKey(`identity:${userId}:${deviceId}`, pair);
   }
   const publicKey = bytesToBase64(await crypto.subtle.exportKey('spki', pair.publicKey));
   await api.post('/api/e2ee/devices', {
@@ -120,6 +126,14 @@ export async function createSecretConversation(
   if (friendDevices.length === 0) {
     throw new Error('Друг должен обновить и открыть TetherChat перед созданием секретного чата');
   }
+  for (const device of friendDevices) {
+    const pinId = `tetherchat.e2ee.pinned.${friendId}.${device.id}`;
+    const pinned = localStorage.getItem(pinId);
+    if (pinned && pinned !== device.publicKey) {
+      throw new Error('Ключ устройства друга изменился. Создание чата остановлено для безопасности.');
+    }
+    localStorage.setItem(pinId, device.publicKey);
+  }
   const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, [
     'encrypt',
     'decrypt',
@@ -162,7 +176,7 @@ export async function encryptSecretMessage(
   const key = await conversationKey(userId, conversationId);
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const ciphertext = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
+    { name: 'AES-GCM', iv, additionalData: new TextEncoder().encode(conversationId) },
     key,
     new TextEncoder().encode(content),
   );
@@ -174,7 +188,11 @@ export async function decryptSecretMessage(userId: string, message: Message): Pr
   try {
     const key = await conversationKey(userId, message.channelId);
     const plaintext = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: base64ToBytes(message.encrypted.iv) },
+      {
+        name: 'AES-GCM',
+        iv: base64ToBytes(message.encrypted.iv),
+        additionalData: new TextEncoder().encode(message.channelId),
+      },
       key,
       base64ToBytes(message.encrypted.ciphertext),
     );
@@ -182,4 +200,34 @@ export async function decryptSecretMessage(userId: string, message: Message): Pr
   } catch {
     return { ...message, content: '🔒 Не удалось расшифровать сообщение' };
   }
+}
+
+export async function getSecretSafetyNumber(userId: string, friendId: string): Promise<string> {
+  const [ownDevices, friendDevices] = await Promise.all([
+    api.get<CryptoDevice[]>(`/api/e2ee/users/${userId}/devices`),
+    api.get<CryptoDevice[]>(`/api/e2ee/users/${friendId}/devices`),
+  ]);
+  const canonical = [...ownDevices, ...friendDevices]
+    .map((device) => `${device.userId}:${device.id}:${device.publicKey}`)
+    .sort()
+    .join('|');
+  const hash = new Uint8Array(
+    await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical)),
+  );
+  const code = Array.from(hash.slice(0, 15))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('')
+    .match(/.{1,5}/g)!
+    .join(' ');
+  const lines = await Promise.all(
+    [...ownDevices.map((device) => ['Ваше', device] as const), ...friendDevices.map((device) => ['Друг', device] as const)]
+      .map(async ([owner, device]) => {
+        const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', base64ToBytes(device.publicKey)));
+        const fingerprint = Array.from(digest.slice(0, 8))
+          .map((byte) => byte.toString(16).padStart(2, '0'))
+          .join('');
+        return `${owner}: ${device.name ?? device.id} · ${fingerprint}`;
+      }),
+  );
+  return `${code}\n\nУстройства:\n${lines.join('\n')}`;
 }

@@ -245,8 +245,9 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
         Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Назад", tint = TextPrimary)
       }
       if (model.currentConversation?.isSecret == true) {
-        Icon(Icons.Outlined.Lock, contentDescription = "Секретный чат", tint = Online, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(8.dp))
+        IconButton(onClick = model::showSecretSafetyNumber, modifier = Modifier.size(36.dp)) {
+          Icon(Icons.Outlined.Lock, contentDescription = "Проверить код безопасности", tint = Online, modifier = Modifier.size(18.dp))
+        }
       }
       Column(Modifier.weight(1f)) {
         Text(

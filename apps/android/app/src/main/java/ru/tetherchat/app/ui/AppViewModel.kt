@@ -977,7 +977,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     replyTo = null
     editing = null
     forwarding = null
-    draft = drafts.get(channelId)
+    draft = if (currentConversation?.isSecret == true) "" else drafts.get(channelId)
     typingLabel = null
     viewModelScope.launch {
       runCatching {
@@ -1061,7 +1061,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
       .toMap()
       .ifEmpty { null }
     draft = ""
-    drafts.set(chat.channelId, "")
+    if (currentConversation?.isSecret != true) drafts.set(chat.channelId, "")
     val replyId = replyTo?.id
     replyTo = null
     pendingUploads = emptyList()
@@ -1223,6 +1223,18 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
           prependDm(conversation)
           selectDms()
           openDm(conversation)
+        }
+        .onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun showSecretSafetyNumber() {
+    val userId = me?.id ?: return
+    val peerId = currentConversation?.peer(userId)?.id ?: return
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { e2ee.safetyNumber(userId, peerId) } }
+        .onSuccess {
+          error = "Код безопасности: $it — сравните его с собеседником по другому каналу"
         }
         .onFailure { error = it.userMessage() }
     }
@@ -1418,7 +1430,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   fun updateDraft(text: String) {
     draft = text
     val chat = screen as? Screen.Chat ?: return
-    if (editing == null) drafts.set(chat.channelId, text)
+    if (editing == null && currentConversation?.isSecret != true) drafts.set(chat.channelId, text)
     if (text.isBlank()) {
       realtime.typingStop(chat.channelId)
       typingJob?.cancel()
@@ -1804,7 +1816,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
             if (resolved.serverId == null) ensureDm(resolved.channelId)
             if (!ForegroundState.inForeground && resolved.authorId != me?.id) {
               val title = resolved.author.label
-              val body = resolved.content.ifBlank { if (resolved.attachments.isNotEmpty()) "Вложение" else "Новое сообщение" }
+              val body =
+                if (resolved.encrypted != null) {
+                  "Новое зашифрованное сообщение"
+                } else {
+                  resolved.content.ifBlank { if (resolved.attachments.isNotEmpty()) "Вложение" else "Новое сообщение" }
+                }
               NotificationHelper.showMessage(
                 getApplication(),
                 title,
@@ -1904,7 +1921,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
 
   private fun saveCurrentDraft() {
     val chat = screen as? Screen.Chat ?: return
-    if (editing == null) drafts.set(chat.channelId, draft)
+    if (editing == null && currentConversation?.isSecret != true) drafts.set(chat.channelId, draft)
   }
 
   fun startForward(message: Message) {

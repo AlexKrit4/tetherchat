@@ -30,15 +30,23 @@ class E2eeManager(
 
   fun ensureDevice(userId: String): String {
     val deviceIdKey = "device.$userId"
-    val deviceId = preferences.getString(deviceIdKey, null) ?: UUID.randomUUID().toString().also {
+    var deviceId = preferences.getString(deviceIdKey, null) ?: UUID.randomUUID().toString().also {
       preferences.edit().putString(deviceIdKey, it).apply()
     }
     val pair = ensureIdentityKey(userId)
+    val publicKey = encode(pair.certificate.publicKey.encoded)
+    val storedPublicKey = preferences.getString("public.$userId", null)
+    if (storedPublicKey != null && storedPublicKey != publicKey) {
+      runCatching { api.revokeCryptoDevice(deviceId) }
+      deviceId = UUID.randomUUID().toString()
+      preferences.edit().putString(deviceIdKey, deviceId).apply()
+    }
+    preferences.edit().putString("public.$userId", publicKey).apply()
     api.registerCryptoDevice(
       CryptoDeviceBody(
         deviceId = deviceId,
         name = "${Build.MANUFACTURER} ${Build.MODEL}",
-        publicKey = encode(pair.certificate.publicKey.encoded),
+        publicKey = publicKey,
       ),
     )
     return deviceId
@@ -49,6 +57,14 @@ class E2eeManager(
     val devices = api.cryptoDevices(userId) + api.cryptoDevices(friendId)
     if (devices.none { it.userId == friendId }) {
       throw ApiException(409, "crypto_not_ready", "Друг должен обновить и открыть TetherChat")
+    }
+    devices.filter { it.userId == friendId }.forEach { device ->
+      val pinId = "pinned.$friendId.${device.id}"
+      val pinned = preferences.getString(pinId, null)
+      if (pinned != null && pinned != device.publicKey) {
+        throw ApiException(409, "crypto_key_changed", "Ключ устройства друга изменился")
+      }
+      preferences.edit().putString(pinId, device.publicKey).apply()
     }
     val rawKey = ByteArray(32).also(random::nextBytes)
     val wrapped = devices.map { device ->
@@ -68,6 +84,7 @@ class E2eeManager(
     val iv = ByteArray(12).also(random::nextBytes)
     val cipher = Cipher.getInstance("AES/GCM/NoPadding")
     cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(128, iv))
+    cipher.updateAAD(conversationId.toByteArray(Charsets.UTF_8))
     return EncryptedEnvelope(
       version = 1,
       iv = encode(iv),
@@ -85,10 +102,37 @@ class E2eeManager(
         SecretKeySpec(key, "AES"),
         GCMParameterSpec(128, decode(envelope.iv)),
       )
+      cipher.updateAAD(message.channelId.toByteArray(Charsets.UTF_8))
       message.copy(content = String(cipher.doFinal(decode(envelope.ciphertext)), Charsets.UTF_8))
     }.getOrElse {
       message.copy(content = "🔒 Не удалось расшифровать сообщение")
     }
+  }
+
+  fun safetyNumber(userId: String, friendId: String): String {
+    val ownDevices = api.cryptoDevices(userId)
+    val friendDevices = api.cryptoDevices(friendId)
+    val canonical = (ownDevices + friendDevices)
+      .map { "${it.userId}:${it.id}:${it.publicKey}" }
+      .sorted()
+      .joinToString("|")
+    val code = MessageDigest.getInstance("SHA-256")
+      .digest(canonical.toByteArray(Charsets.UTF_8))
+      .take(15)
+      .joinToString("") { "%02x".format(it) }
+      .chunked(5)
+      .joinToString(" ")
+    val devices = (
+      ownDevices.map { "Ваше" to it } +
+        friendDevices.map { "Друг" to it }
+      ).joinToString("\n") { (owner, device) ->
+        val keyFingerprint = MessageDigest.getInstance("SHA-256")
+          .digest(decode(device.publicKey))
+          .take(8)
+          .joinToString("") { "%02x".format(it) }
+        "$owner: ${device.name ?: device.id} · $keyFingerprint"
+      }
+    return "$code\nУстройства:\n$devices"
   }
 
   private fun loadConversationKey(userId: String, conversationId: String): ByteArray {

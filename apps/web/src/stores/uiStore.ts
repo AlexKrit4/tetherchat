@@ -25,6 +25,7 @@ interface UiState {
   replyDrafts: Record<string, Message | undefined>;
   editingMessageId: string | null;
   drafts: Record<string, string>;
+  volatileDrafts: Record<string, string>;
   scrollBottomNonce: number;
 
   setMobileView: (view: MobileView) => void;
@@ -41,6 +42,7 @@ interface UiState {
   setReplyDraft: (channelId: string, message: Message | null) => void;
   setEditingMessage: (messageId: string | null) => void;
   setDraft: (channelId: string, value: string) => void;
+  setVolatileDraft: (channelId: string, value: string) => void;
   nudgeScrollBottom: () => void;
 }
 
@@ -58,6 +60,7 @@ export const useUiStore = create<UiState>()(
   replyDrafts: {},
   editingMessageId: null,
   drafts: {},
+  volatileDrafts: {},
   scrollBottomNonce: 0,
 
   setMobileView: (view) => set({ mobileView: view, mobileHistory: [] }),
@@ -104,6 +107,9 @@ export const useUiStore = create<UiState>()(
 
   setDraft: (channelId, value) =>
     set((state) => ({ drafts: { ...state.drafts, [channelId]: value } })),
+
+  setVolatileDraft: (channelId, value) =>
+    set((state) => ({ volatileDrafts: { ...state.volatileDrafts, [channelId]: value } })),
 
   nudgeScrollBottom: () => set((state) => ({ scrollBottomNonce: state.scrollBottomNonce + 1 })),
     }),
