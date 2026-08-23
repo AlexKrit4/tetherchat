@@ -15,6 +15,8 @@ export function CallOverlay() {
   const declineIncoming = useCallStore((state) => state.declineIncoming);
   const endCall = useCallStore((state) => state.endCall);
   const setMuted = useCallStore((state) => state.setMuted);
+  const needsAudioUnlock = useCallStore((state) => state.needsAudioUnlock);
+  const unlockRemoteAudio = useCallStore((state) => state.unlockRemoteAudio);
 
   useLiveKitRoom();
 
@@ -52,6 +54,18 @@ export function CallOverlay() {
           </p>
           <p className="mt-1 text-sm text-text-muted">{error ?? label}</p>
         </div>
+
+        {phase === 'active' && needsAudioUnlock ? (
+          <button
+            type="button"
+            onClick={() => void unlockRemoteAudio?.()}
+            className={cn(
+              'w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white',
+            )}
+          >
+            {t('call.enableSound')}
+          </button>
+        ) : null}
 
         {phase === 'ringing' ? (
           <div className="flex w-full gap-3">

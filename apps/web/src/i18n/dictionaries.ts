@@ -228,6 +228,7 @@ export const ru = {
     hangUp: 'Завершить',
     mute: 'Выключить микрофон',
     unmute: 'Включить микрофон',
+    enableSound: 'Включить звук',
     unknown: 'Контакт',
   },
   typing: {
@@ -696,6 +697,7 @@ export const en = {
     hangUp: 'Hang up',
     mute: 'Mute microphone',
     unmute: 'Unmute microphone',
+    enableSound: 'Enable sound',
     unknown: 'Contact',
   },
   typing: {

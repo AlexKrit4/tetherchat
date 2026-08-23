@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { CallParticipant, CallRingPayload, CallSignalPayload } from '@tetherchat/shared';
 import { api } from '@/lib/api';
+import { prepareCallMicrophone, resetCallMicrophone } from '@/lib/callAudio';
 
 export type CallPhase = 'idle' | 'outgoing' | 'ringing' | 'connecting' | 'active' | 'ended';
 
@@ -14,6 +15,10 @@ interface CallState {
   peer: CallParticipant | null;
   muted: boolean;
   error: string | null;
+  needsAudioUnlock: boolean;
+  unlockRemoteAudio: (() => Promise<void>) | null;
+  setNeedsAudioUnlock: (value: boolean) => void;
+  setUnlockRemoteAudio: (fn: (() => Promise<void>) | null) => void;
   startOutgoing: (conversationId: string) => Promise<void>;
   handleRing: (payload: CallRingPayload) => void;
   handleAccepted: (payload: CallSignalPayload) => Promise<void>;
@@ -36,13 +41,33 @@ const initial = {
   peer: null,
   muted: false,
   error: null,
+  needsAudioUnlock: false,
+  unlockRemoteAudio: null,
 };
+
+function clearCallState() {
+  resetCallMicrophone();
+  return { ...initial };
+}
 
 export const useCallStore = create<CallState>((set, get) => ({
   ...initial,
 
+  setNeedsAudioUnlock(value) {
+    set({ needsAudioUnlock: value });
+  },
+
+  setUnlockRemoteAudio(fn) {
+    set({ unlockRemoteAudio: fn });
+  },
+
   async startOutgoing(conversationId) {
     if (get().phase !== 'idle') return;
+    const micReady = await prepareCallMicrophone();
+    if (!micReady) {
+      set({ ...initial, error: 'Нужен доступ к микрофону для звонка' });
+      return;
+    }
     set({ phase: 'outgoing', conversationId, error: null });
     try {
       const data = await api.post<{
@@ -58,7 +83,7 @@ export const useCallStore = create<CallState>((set, get) => ({
         peer: data.callee,
       });
     } catch (error) {
-      set({ ...initial, error: error instanceof Error ? error.message : 'Не удалось позвонить' });
+      set({ ...clearCallState(), error: error instanceof Error ? error.message : 'Не удалось позвонить' });
     }
   },
 
@@ -77,6 +102,7 @@ export const useCallStore = create<CallState>((set, get) => ({
   async handleAccepted(payload) {
     const { callId } = get();
     if (!callId || payload.callId !== callId) return;
+    await prepareCallMicrophone();
     set({
       phase: 'connecting',
       roomName: payload.roomName,
@@ -94,13 +120,18 @@ export const useCallStore = create<CallState>((set, get) => ({
       });
     } catch (error) {
       void get().abandonCall();
-      set({ ...initial, error: error instanceof Error ? error.message : 'Не удалось подключиться' });
+      set({ ...clearCallState(), error: error instanceof Error ? error.message : 'Не удалось подключиться' });
     }
   },
 
   async acceptIncoming() {
     const { callId, phase } = get();
     if (!callId || phase !== 'ringing') return;
+    const micReady = await prepareCallMicrophone();
+    if (!micReady) {
+      set({ error: 'Нужен доступ к микрофону для звонка' });
+      return;
+    }
     set({ phase: 'connecting', error: null });
     try {
       const accepted = await api.post<CallSignalPayload>(`/api/calls/${callId}/accept`);
@@ -115,28 +146,28 @@ export const useCallStore = create<CallState>((set, get) => ({
       });
     } catch (error) {
       void get().abandonCall();
-      set({ ...initial, error: error instanceof Error ? error.message : 'Не удалось принять звонок' });
+      set({ ...clearCallState(), error: error instanceof Error ? error.message : 'Не удалось принять звонок' });
     }
   },
 
   async declineIncoming() {
     const { callId } = get();
     if (!callId) {
-      set(initial);
+      set(clearCallState());
       return;
     }
     await api.post(`/api/calls/${callId}/decline`).catch(() => undefined);
-    set(initial);
+    set(clearCallState());
   },
 
   async endCall() {
     const { callId } = get();
     if (callId) await api.post(`/api/calls/${callId}/end`).catch(() => undefined);
-    set(initial);
+    set(clearCallState());
   },
 
   handleEnded(_reason?: string) {
-    set(initial);
+    set(clearCallState());
   },
 
   async abandonCall() {
@@ -146,7 +177,7 @@ export const useCallStore = create<CallState>((set, get) => ({
     } else {
       await api.post('/api/calls/abandon').catch(() => undefined);
     }
-    set(initial);
+    set(clearCallState());
   },
 
   setMuted(muted) {
@@ -154,7 +185,7 @@ export const useCallStore = create<CallState>((set, get) => ({
   },
 
   reset() {
-    set(initial);
+    set(clearCallState());
   },
 }));
 
