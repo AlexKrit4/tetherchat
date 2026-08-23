@@ -82,6 +82,7 @@ import androidx.compose.material.icons.outlined.People
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.AlertDialog
@@ -181,7 +182,9 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
     if (!granted) model.error = "Нужен доступ к микрофону"
   }
   val canSend = chat.dm || model.canPerm(Perm.SEND_MESSAGES) || model.isOwner()
-  val canAttach = chat.dm || model.canPerm(Perm.ATTACH_FILES) || model.isOwner()
+  val canAttach =
+    model.currentConversation?.isSecret != true &&
+      (chat.dm || model.canPerm(Perm.ATTACH_FILES) || model.isOwner())
   val canManage = !chat.dm && (model.canPerm(Perm.MANAGE_MESSAGES) || model.isOwner())
   val topic = model.serverDetail?.channels?.firstOrNull { it.id == chat.channelId }?.topic
   val canCall = chat.dm &&
@@ -241,6 +244,10 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
       IconButton(onClick = model::back) {
         Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Назад", tint = TextPrimary)
       }
+      if (conversation?.isSecret == true) {
+        Icon(Icons.Outlined.Lock, contentDescription = "Секретный чат", tint = Online, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+      }
       Column(Modifier.weight(1f)) {
         Text(
           chat.title,
@@ -254,16 +261,20 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
           Text(topic, color = TextMuted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
       }
-      IconButton(onClick = { model.showSearch = true }) {
-        Icon(Icons.Outlined.Search, contentDescription = "Поиск", tint = TextMuted)
+      if (conversation?.isSecret != true) {
+        IconButton(onClick = { model.showSearch = true }) {
+          Icon(Icons.Outlined.Search, contentDescription = "Поиск", tint = TextMuted)
+        }
       }
       if (canCall) {
         IconButton(onClick = { model.startOutgoingCall(chat.channelId) }) {
           Icon(Icons.Outlined.Phone, contentDescription = "Позвонить", tint = TextMuted)
         }
       }
-      IconButton(onClick = { model.loadChatMedia(); model.showMedia = true }) {
-        Icon(Icons.Outlined.Collections, contentDescription = "Медиа", tint = TextMuted)
+      if (conversation?.isSecret != true) {
+        IconButton(onClick = { model.loadChatMedia(); model.showMedia = true }) {
+          Icon(Icons.Outlined.Collections, contentDescription = "Медиа", tint = TextMuted)
+        }
       }
       if (!chat.dm) {
         IconButton(onClick = { model.loadPins(); model.showPins = true }) {

@@ -12,6 +12,7 @@ import { api } from '@/lib/api';
 import { queryKeys } from '@/lib/queryKeys';
 import { getSocket } from '@/lib/socket';
 import { useAuthStore } from '@/stores/authStore';
+import { decryptSecretMessage, encryptSecretMessage } from '@/lib/e2ee';
 
 export interface MessagePage {
   items: Message[];
@@ -25,15 +26,22 @@ export function messagesPath(channelId: string, isDm: boolean): string {
   return isDm ? `/api/dms/${channelId}/messages` : `/api/channels/${channelId}/messages`;
 }
 
-export function useMessageHistory(channelId: string | undefined, isDm: boolean) {
+export function useMessageHistory(channelId: string | undefined, isDm: boolean, isSecret = false) {
+  const userId = useAuthStore((state) => state.user?.id);
   return useInfiniteQuery<MessagePage, Error, MessageInfiniteData, readonly unknown[], string | undefined>({
     queryKey: queryKeys.messages(channelId ?? 'none'),
     enabled: Boolean(channelId),
     initialPageParam: undefined,
-    queryFn: ({ pageParam }) =>
-      api.get<MessagePage>(messagesPath(channelId!, isDm), {
+    queryFn: async ({ pageParam }) => {
+      const page = await api.get<MessagePage>(messagesPath(channelId!, isDm), {
         query: { before: pageParam, limit: LIMITS.messagePageSize },
-      }),
+      });
+      if (!isSecret || !userId) return page;
+      return {
+        ...page,
+        items: await Promise.all(page.items.map((message) => decryptSecretMessage(userId, message))),
+      };
+    },
     // Pages arrive newest-first; the cursor for the next page is the oldest id we hold.
     getNextPageParam: (lastPage) =>
       lastPage.hasMore && lastPage.items.length > 0 ? lastPage.items[0].id : undefined,
@@ -43,8 +51,8 @@ export function useMessageHistory(channelId: string | undefined, isDm: boolean) 
 }
 
 /** Flattens paginated history into a single chronological list. */
-export function useMessages(channelId: string | undefined, isDm: boolean) {
-  const query = useMessageHistory(channelId, isDm);
+export function useMessages(channelId: string | undefined, isDm: boolean, isSecret = false) {
+  const query = useMessageHistory(channelId, isDm, isSecret);
 
   const messages = useMemo(() => {
     const pages = query.data?.pages ?? [];
@@ -96,7 +104,7 @@ function removeMessage(client: QueryClient, channelId: string, messageId: string
 
 export const messageCache = { upsertMessage, removeMessage };
 
-export function useSendMessage(channelId: string, isDm: boolean) {
+export function useSendMessage(channelId: string, isDm: boolean, isSecret = false) {
   const client = useQueryClient();
   const user = useAuthStore((state) => state.user);
 
@@ -110,6 +118,18 @@ export function useSendMessage(channelId: string, isDm: boolean) {
       forwardMessageId?: string;
       nonce: string;
     }) => {
+      if (isSecret) {
+        if (!user) throw new Error('Войдите снова');
+        if (input.attachmentIds?.length || input.replyToId || input.forwardMessageId) {
+          throw new Error('В секретном чате сейчас доступны только текстовые сообщения');
+        }
+        const encrypted = await encryptSecretMessage(user.id, channelId, input.content);
+        const message = await api.post<Message>(messagesPath(channelId, isDm), {
+          encrypted,
+          nonce: input.nonce,
+        });
+        return decryptSecretMessage(user.id, message);
+      }
       const socket = getSocket();
 
       // The socket path gives the lowest latency; REST is the fallback when the

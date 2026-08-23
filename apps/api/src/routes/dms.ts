@@ -10,6 +10,7 @@ import { conversationInclude, toConversation } from '../lib/serialize.js';
 import { ensureAiConversation, getAiBotUserId } from '../lib/aiBot.js';
 import {
   createMessage,
+  createEncryptedMessage,
   listMessages,
   searchMessages,
 } from '../services/messageService.js';
@@ -26,6 +27,13 @@ const messageBody = z.object({
   attachmentSpoilers: z.record(z.string(), z.boolean()).optional(),
   forwardMessageId: z.string().min(1).optional(),
   nonce: z.string().max(64).optional(),
+  encrypted: z
+    .object({
+      version: z.literal(1),
+      iv: z.string().min(12).max(64),
+      ciphertext: z.string().min(1).max(16_000),
+    })
+    .optional(),
 });
 
 export async function dmRoutes(app: FastifyInstance) {
@@ -72,6 +80,69 @@ export async function dmRoutes(app: FastifyInstance) {
   app.post('/saved', async (request, reply) => {
     const conversation = await ensureSavedConversation(request.userId);
     reply.send(toConversation(conversation, request.userId));
+  });
+
+  app.post('/secret', async (request, reply) => {
+    const body = z
+      .object({
+        userId: z.string().min(1),
+        keys: z
+          .array(
+            z.object({
+              deviceId: z.string().min(16).max(128),
+              wrappedKey: z.string().min(128).max(2048),
+            }),
+          )
+          .min(2)
+          .max(32),
+      })
+      .parse(request.body);
+    if (body.userId === request.userId) throw ApiError.badRequest('Pick a friend');
+    if (await isBlockedEitherWay(request.userId, body.userId)) {
+      throw ApiError.forbidden('You cannot message this user');
+    }
+    if (!(await areFriends(request.userId, body.userId))) {
+      throw ApiError.forbidden('Секретный чат можно создать только с другом');
+    }
+
+    const devices = await prisma.cryptoDevice.findMany({
+      where: { userId: { in: [request.userId, body.userId] }, revokedAt: null },
+      select: { id: true, userId: true },
+    });
+    if (!devices.some((device) => device.userId === request.userId)) {
+      throw ApiError.badRequest('Сначала зарегистрируйте ключ этого устройства');
+    }
+    if (!devices.some((device) => device.userId === body.userId)) {
+      throw ApiError.conflict('Друг ещё не настроил секретные чаты');
+    }
+    const submitted = new Map(body.keys.map((entry) => [entry.deviceId, entry.wrappedKey]));
+    if (devices.some((device) => !submitted.has(device.id)) || submitted.size !== devices.length) {
+      throw ApiError.badRequest('Ключ должен быть зашифрован для каждого активного устройства');
+    }
+
+    const conversation = await prisma.$transaction(async (tx) => {
+      const created = await tx.directConversation.create({
+        data: {
+          isSecret: true,
+          members: { create: [{ userId: request.userId }, { userId: body.userId }] },
+        },
+        include: conversationInclude,
+      });
+      await tx.secretConversationKey.createMany({
+        data: devices.map((device) => ({
+          conversationId: created.id,
+          deviceId: device.id,
+          wrappedKey: submitted.get(device.id)!,
+        })),
+      });
+      return created;
+    });
+
+    for (const userId of [request.userId, body.userId]) {
+      await joinUserToRoom(userId, socketRooms.conversation(conversation.id));
+      emitToUser(userId, 'dm:create', toConversation(conversation, userId));
+    }
+    reply.status(201).send(toConversation(conversation, request.userId));
   });
 
   app.post('/', async (request, reply) => {
@@ -165,17 +236,31 @@ export async function dmRoutes(app: FastifyInstance) {
     const { conversationId } = conversationParam.parse(request.params);
     const body = messageBody.parse(request.body);
 
-    const message = await createMessage({
-      authorId: request.userId,
-      conversationId,
-      content: body.content,
-      replyToId: body.replyToId ?? null,
-      attachmentIds: body.attachmentIds,
-      attachmentDurations: body.attachmentDurations,
-      attachmentSpoilers: body.attachmentSpoilers,
-      forwardMessageId: body.forwardMessageId,
-      nonce: body.nonce,
+    const conversation = await prisma.directConversation.findUniqueOrThrow({
+      where: { id: conversationId },
+      select: { isSecret: true },
     });
+    const message = conversation.isSecret
+      ? await createEncryptedMessage({
+          authorId: request.userId,
+          conversationId,
+          encrypted: body.encrypted,
+          nonce: body.nonce,
+          hasUnsupportedPayload: Boolean(
+            body.content || body.replyToId || body.attachmentIds?.length || body.forwardMessageId,
+          ),
+        })
+      : await createMessage({
+          authorId: request.userId,
+          conversationId,
+          content: body.content,
+          replyToId: body.replyToId ?? null,
+          attachmentIds: body.attachmentIds,
+          attachmentDurations: body.attachmentDurations,
+          attachmentSpoilers: body.attachmentSpoilers,
+          forwardMessageId: body.forwardMessageId,
+          nonce: body.nonce,
+        });
 
     reply.status(201).send(message);
   });
@@ -184,6 +269,11 @@ export async function dmRoutes(app: FastifyInstance) {
     const { conversationId } = conversationParam.parse(request.params);
     const { q } = z.object({ q: z.string().min(2).max(200) }).parse(request.query);
     await assertConversationMember(conversationId, request.userId);
+    const conversation = await prisma.directConversation.findUniqueOrThrow({
+      where: { id: conversationId },
+      select: { isSecret: true },
+    });
+    if (conversation.isSecret) throw ApiError.badRequest('Поиск недоступен в секретном чате');
     return searchMessages({ conversationId, serverId: null }, q, request.userId);
   });
 
@@ -289,6 +379,7 @@ async function findDirectConversation(userA: string, userB: string) {
       isGroup: false,
       isSaved: false,
       isAi: false,
+      isSecret: false,
       AND: [
         { members: { some: { userId: userA, leftAt: null } } },
         { members: { some: { userId: userB, leftAt: null } } },

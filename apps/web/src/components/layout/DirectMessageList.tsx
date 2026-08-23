@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Ban, Bookmark, Pin, Plus, Sparkles, Users, X } from 'lucide-react';
+import { Ban, Bookmark, LockKeyhole, Pin, Plus, Sparkles, Users, X } from 'lucide-react';
 import type { DirectConversation } from '@tetherchat/shared';
 import { cn } from '@/lib/cn';
 import { DM_ROUTE } from '@/hooks/useChatTarget';
@@ -8,7 +8,7 @@ import { conversationTitle, useConversations, useLeaveConversation } from '@/hoo
 import { Avatar } from '@/components/ui/Avatar';
 import { IconButton } from '@/components/ui/IconButton';
 import { SidebarSkeleton } from '@/components/ui/Skeleton';
-import { FriendRequestDialog } from '@/components/modals/FriendRequestDialog';
+import { CreateChatDialog } from '@/components/modals/CreateChatDialog';
 import { useT } from '@/i18n/useT';
 import { useAuthStore } from '@/stores/authStore';
 import { ContextMenu, useContextMenu, type MenuItem } from '@/components/ui/ContextMenu';
@@ -85,7 +85,7 @@ export function DirectMessageList({
         <span className="text-xs font-semibold uppercase tracking-[0.02em] text-text-muted">
           {t('dm.title')}
         </span>
-        <IconButton icon={Plus} label={t('friends.sendRequest')} size="sm" onClick={() => setNewOpen(true)} />
+        <IconButton icon={Plus} label="Новый чат" size="sm" onClick={() => setNewOpen(true)} />
       </header>
 
       <ul className="mt-1 flex flex-col gap-0.5">
@@ -144,7 +144,14 @@ export function DirectMessageList({
         </ul>
       </div>
 
-      <FriendRequestDialog open={newOpen} onClose={() => setNewOpen(false)} />
+      <CreateChatDialog
+        open={newOpen}
+        onClose={() => setNewOpen(false)}
+        onCreated={(conversation) => {
+          if (onSelect) onSelect(conversation);
+          else navigate(`/channels/${DM_ROUTE}/${conversation.id}`);
+        }}
+      />
       <ContextMenu state={menu.state} onClose={menu.close} />
     </div>
   );
@@ -217,6 +224,7 @@ function DmRow({
 
         <span className="flex min-w-0 flex-1 flex-col">
           <span className={cn('truncate text-base', active && 'font-medium text-text-heading')}>
+            {conversation.isSecret ? <LockKeyhole size={13} className="mr-1 inline text-success" /> : null}
             {title}
           </span>
           {conversation.isGroup ? (

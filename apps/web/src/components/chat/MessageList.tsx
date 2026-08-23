@@ -46,6 +46,7 @@ export function MessageList() {
   const { data: members } = useMembers(serverId);
   const readStates = useReadStateIndex();
   const ack = useAckChannel();
+  const isSecret = Boolean(conversation?.isSecret);
 
   const editingMessageId = useUiStore((state) => state.editingMessageId);
   const setEditingMessage = useUiStore((state) => state.setEditingMessage);
@@ -68,6 +69,7 @@ export function MessageList() {
   const { messages, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useMessages(
     channelId,
     isDm,
+    isSecret,
   );
 
   const editMessage = useEditMessage(channelId ?? '');
@@ -244,12 +246,14 @@ export function MessageList() {
                   message.mentionsEveryone
                 }
                 actions={{
-                  canEdit: mine,
+                  canEdit: mine && !isSecret,
                   canDelete: mine || manageMessages,
                   canPin: manageMessages && !isDm,
                   canReact,
                 }}
-                onReply={(target) => setReplyDraft(channelId, target)}
+                onReply={(target) =>
+                  isSecret ? toast.error('Ответы пока недоступны в секретном чате') : setReplyDraft(channelId, target)
+                }
                 onEdit={(target) => setEditingMessage(target.id)}
                 onEditCancel={() => setEditingMessage(null)}
                 onEditSubmit={(content) => {
@@ -275,8 +279,8 @@ export function MessageList() {
                 onOpenActions={setActionSheetFor}
                 onOpenProfile={setProfileFor}
                 onJumpToMessage={jumpToMessage}
-                onForward={setForwardFor}
-                onReport={mine ? undefined : setReportFor}
+                onForward={isSecret ? undefined : setForwardFor}
+                onReport={mine || isSecret ? undefined : setReportFor}
                 receipt={
                   showReceipts && !message.pending && !message.failed
                     ? read
@@ -309,11 +313,13 @@ export function MessageList() {
       <MessageActionSheet
         message={actionSheetFor}
         onClose={() => setActionSheetFor(null)}
-        canEdit={actionSheetFor?.authorId === currentUser?.id}
+        canEdit={!isSecret && actionSheetFor?.authorId === currentUser?.id}
         canDelete={actionSheetFor?.authorId === currentUser?.id || manageMessages}
         canPin={manageMessages && !isDm}
-        onReply={(target) => setReplyDraft(channelId, target)}
-        onForward={setForwardFor}
+        onReply={(target) =>
+          isSecret ? toast.error('Ответы пока недоступны в секретном чате') : setReplyDraft(channelId, target)
+        }
+        onForward={isSecret ? undefined : setForwardFor}
         onEdit={(target) => setEditingMessage(target.id)}
         onDelete={(target) =>
           deleteMessage.mutate(target.id, { onError: (error) => toast.error(errorMessage(error)) })
@@ -322,7 +328,7 @@ export function MessageList() {
         onReact={(target, emoji) => toggleReaction.mutate({ messageId: target.id, emoji })}
         onOpenEmojiPicker={(target) => setEmojiFor(target)}
         onReport={
-          actionSheetFor && actionSheetFor.authorId !== currentUser?.id ? setReportFor : undefined
+          !isSecret && actionSheetFor && actionSheetFor.authorId !== currentUser?.id ? setReportFor : undefined
         }
       />
 

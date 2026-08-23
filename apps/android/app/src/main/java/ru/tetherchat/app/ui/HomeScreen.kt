@@ -30,12 +30,14 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AlternateEmail
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Bookmark
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.PersonAdd
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Tag
 import androidx.compose.material.icons.outlined.PersonOff
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
@@ -459,6 +461,10 @@ private fun DmRow(
         Box(Modifier.size(40.dp).clip(CircleShape).background(Brand))
       }
       Spacer(Modifier.width(12.dp))
+      if (conversation.isSecret) {
+        Icon(Icons.Outlined.Lock, contentDescription = "Секретный чат", tint = Online, modifier = Modifier.size(15.dp))
+        Spacer(Modifier.width(6.dp))
+      }
       Text(
         conversation.title(meId),
         color = TextPrimary,
@@ -598,13 +604,35 @@ private fun ChannelSettingsDialog(model: AppViewModel) {
 private fun NewDmDialog(model: AppViewModel) {
   AlertDialog(
     onDismissRequest = { model.showNewDm = false; model.selectedDmUsers = emptyList() },
-    title = { Text("Отправить заявку") },
+    title = { Text("Новый чат") },
     text = {
       Column {
+        Text("Друзья", color = TextMuted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        model.friends.forEach { user ->
+          Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+          ) {
+            UserAvatar(user, 36.dp, model.statusOf(user.id, user.status))
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+              Text(user.label, color = TextPrimary)
+              Text("@${user.username}", color = TextMuted, fontSize = 12.sp)
+            }
+            IconButton(onClick = { model.startDm(user) }) {
+              Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = "Обычный чат", tint = TextMuted)
+            }
+            IconButton(onClick = { model.startSecretDm(user) }) {
+              Icon(Icons.Outlined.Lock, contentDescription = "Секретный чат", tint = Online)
+            }
+          }
+        }
+        Spacer(Modifier.height(12.dp))
+        Text("Добавить друга", color = TextMuted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
         OutlinedTextField(
           value = model.searchQuery,
           onValueChange = model::searchPeople,
-          label = { Text("Поиск по имени") },
+          label = { Text("Поиск пользователя") },
           singleLine = true,
         )
         Spacer(Modifier.height(8.dp))

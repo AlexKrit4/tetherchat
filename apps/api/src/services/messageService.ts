@@ -54,6 +54,7 @@ interface Target {
   recipientIds: string[];
   canMentionEveryone: boolean;
   isAi?: boolean;
+  isSecret?: boolean;
 }
 
 async function resolveTarget(input: CreateMessageInput): Promise<Target> {
@@ -105,6 +106,7 @@ async function resolveTarget(input: CreateMessageInput): Promise<Target> {
       recipientIds,
       canMentionEveryone: false,
       isAi: conversation.isAi,
+      isSecret: conversation.isSecret,
     };
   }
 
@@ -135,6 +137,9 @@ export async function createMessage(input: CreateMessageInput): Promise<Message>
   if (!input.skipRateLimit) await assertSendRate(input.authorId);
 
   const target = await resolveTarget(input);
+  if (target.isSecret) {
+    throw ApiError.badRequest('Use an encrypted payload in secret chats');
+  }
   const forwarded = input.forwardMessageId
     ? await loadForwardSource(input.authorId, input.forwardMessageId)
     : null;
@@ -282,12 +287,65 @@ export async function createMessage(input: CreateMessageInput): Promise<Message>
   return payload;
 }
 
+export async function createEncryptedMessage(input: {
+  authorId: string;
+  conversationId: string;
+  encrypted?: { version: 1; iv: string; ciphertext: string };
+  nonce?: string;
+  hasUnsupportedPayload?: boolean;
+}): Promise<Message> {
+  await assertSendRate(input.authorId);
+  const target = await resolveTarget({
+    authorId: input.authorId,
+    conversationId: input.conversationId,
+    content: '',
+  });
+  if (!target.isSecret) throw ApiError.badRequest('Encrypted payloads require a secret chat');
+  if (!input.encrypted || input.hasUnsupportedPayload) {
+    throw ApiError.badRequest('Secret chats currently support encrypted text messages only');
+  }
+
+  const created = await prisma.$transaction(async (tx) => {
+    const message = await tx.message.create({
+      data: {
+        conversationId: input.conversationId,
+        authorId: input.authorId,
+        content: '',
+        encryptionVersion: input.encrypted!.version,
+        encryptionIv: input.encrypted!.iv,
+        ciphertext: input.encrypted!.ciphertext,
+      },
+      include: messageInclude,
+    });
+    await tx.directConversation.update({
+      where: { id: input.conversationId },
+      data: { lastMessageAt: message.createdAt },
+    });
+    await tx.directConversationMember.updateMany({
+      where: { conversationId: input.conversationId, userId: input.authorId, leftAt: null },
+      data: { lastReadMessageId: message.id, lastReadAt: message.createdAt },
+    });
+    return message;
+  });
+
+  const payload: Message = {
+    ...toMessage(created, null),
+    ...(input.nonce ? { nonce: input.nonce } : {}),
+  };
+  emitToConversation(input.conversationId, 'message:new', payload);
+  await notifyRecipients(target, payload, false, []);
+  return payload;
+}
+
 async function loadForwardSource(userId: string, messageId: string) {
   const original = await prisma.message.findUnique({
     where: { id: messageId },
     include: { attachments: true },
   });
   if (!original || original.deletedAt) throw ApiError.notFound('Message not found');
+  if (original.encryptionVersion > 0) {
+    throw ApiError.badRequest('Секретные сообщения нельзя пересылать');
+  }
 
   if (original.channelId) {
     await loadChannelContext(original.channelId, userId);
@@ -351,7 +409,9 @@ async function notifyRecipients(
     userIds: notifyIds,
     payload: {
       title,
-      body: message.content.slice(0, 140) || 'Вложение',
+      body: target.isSecret
+        ? 'Новое зашифрованное сообщение'
+        : (message.content.slice(0, 140) || 'Вложение'),
       icon: message.author.avatarUrl ?? undefined,
       url,
       tag: `channel:${target.id}`,
@@ -375,6 +435,7 @@ export async function editMessage(
   if (existing.authorId !== userId) throw ApiError.forbidden('You can only edit your own messages');
 
   const target = await resolveTargetForExisting(existing, userId);
+  if (target.isSecret) throw ApiError.badRequest('Редактирование секретных сообщений пока недоступно');
   const trimmed = assertContent(content, 1);
   const mentionedUserIds = filterMentions(target, extractUserMentions(trimmed));
 

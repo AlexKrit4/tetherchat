@@ -10,6 +10,7 @@ import { messageCache } from './useMessages';
 import { sortDirectConversations } from './useDms';
 import { useAuthStore } from '@/stores/authStore';
 import { useCallStore } from '@/stores/callStore';
+import { decryptSecretMessage } from '@/lib/e2ee';
 import { usePresenceStore } from '@/stores/presenceStore';
 import { useTypingStore } from '@/stores/typingStore';
 
@@ -46,16 +47,28 @@ export function useRealtime(): ConnectionState {
     const onConnectError = () => setConnection('offline');
 
     const onMessageNew = (message: Message) => {
-      messageCache.upsertMessage(client, message.channelId, message);
-      if (message.authorId !== currentUserId) {
-        markChannelUnread(client, message.channelId, message.mentionedUserIds.includes(currentUserId ?? ''));
-        notifyIncomingMessage(message, currentUserId);
-      }
-      void client.invalidateQueries({ queryKey: queryKeys.dms, refetchType: 'none' });
+      void (async () => {
+        const resolved =
+          message.encrypted && currentUserId
+            ? await decryptSecretMessage(currentUserId, message)
+            : message;
+        messageCache.upsertMessage(client, resolved.channelId, resolved);
+        if (resolved.authorId !== currentUserId) {
+          markChannelUnread(client, resolved.channelId, resolved.mentionedUserIds.includes(currentUserId ?? ''));
+          notifyIncomingMessage(resolved, currentUserId);
+        }
+        void client.invalidateQueries({ queryKey: queryKeys.dms, refetchType: 'none' });
+      })();
     };
 
     const onMessageUpdated = (message: Message) => {
-      messageCache.upsertMessage(client, message.channelId, message);
+      void (async () => {
+        const resolved =
+          message.encrypted && currentUserId
+            ? await decryptSecretMessage(currentUserId, message)
+            : message;
+        messageCache.upsertMessage(client, resolved.channelId, resolved);
+      })();
     };
 
     const onMessageDeleted = ({ messageId, channelId }: { messageId: string; channelId: string }) => {

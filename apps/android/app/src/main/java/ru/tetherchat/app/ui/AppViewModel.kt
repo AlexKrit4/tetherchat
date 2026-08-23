@@ -44,6 +44,7 @@ import ru.tetherchat.app.data.ChatMediaItem
 import ru.tetherchat.app.data.DeviceSession
 import ru.tetherchat.app.data.DirectConversation
 import ru.tetherchat.app.data.DraftStore
+import ru.tetherchat.app.data.E2eeManager
 import ru.tetherchat.app.data.FriendRequest
 import ru.tetherchat.app.data.ReceiptUpdate
 import ru.tetherchat.app.data.Invite
@@ -113,6 +114,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   private val session = SessionStore.get(application)
   private val drafts = DraftStore.get(application)
   private val api = TetherApi(session)
+  private val e2ee = E2eeManager(application, api)
   private val realtime = RealtimeClient(api, api.json)
   private val callManager = CallManager(application)
 
@@ -295,6 +297,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
 
   private fun loadWorkspace() {
     me = api.me()
+    runCatching { e2ee.ensureDevice(me!!.id) }
     servers = api.servers()
     dms = api.dms()
     friends = api.friends()
@@ -987,7 +990,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
             channelMuted = runCatching { api.notifications(channelId).muted }.getOrDefault(false)
           }
           val page = api.messages(channelId, dm = dm)
-          messages = page.items
+          messages =
+            if (currentConversation?.isSecret == true) {
+              page.items.map { e2ee.decrypt(me!!.id, it) }
+            } else {
+              page.items
+            }
           messagesHasMore = page.hasMore
         }
       }.onSuccess {
@@ -1005,7 +1013,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     viewModelScope.launch {
       busy = true
       runCatching {
-        withContext(Dispatchers.IO) { api.messages(chat.channelId, before = oldest, dm = chat.dm) }
+        withContext(Dispatchers.IO) {
+          val page = api.messages(chat.channelId, before = oldest, dm = chat.dm)
+          if (currentConversation?.isSecret == true) {
+            page.copy(items = page.items.map { e2ee.decrypt(me!!.id, it) })
+          } else {
+            page
+          }
+        }
       }.onSuccess { page ->
         messages = page.items + messages
         messagesHasMore = page.hasMore
@@ -1049,15 +1064,23 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     viewModelScope.launch {
       runCatching {
         withContext(Dispatchers.IO) {
-          api.send(
-            chat.channelId,
-            text,
-            chat.dm,
-            nonce,
-            replyToId = replyId,
-            attachmentIds = attachments.map { it.id }.ifEmpty { null },
-            attachmentSpoilers = spoilers,
-          )
+          if (currentConversation?.isSecret == true) {
+            if (attachments.isNotEmpty() || replyId != null) {
+              throw IllegalStateException("В секретном чате пока доступны только текстовые сообщения")
+            }
+            val envelope = e2ee.encrypt(me!!.id, chat.channelId, text)
+            e2ee.decrypt(me!!.id, api.sendEncrypted(chat.channelId, envelope, nonce))
+          } else {
+            api.send(
+              chat.channelId,
+              text,
+              chat.dm,
+              nonce,
+              replyToId = replyId,
+              attachmentIds = attachments.map { it.id }.ifEmpty { null },
+              attachmentSpoilers = spoilers,
+            )
+          }
         }
       }.onSuccess { message ->
         if (messages.none { it.id == message.id }) messages = messages + message
@@ -1174,6 +1197,20 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
           showNewDm = false
           searchQuery = ""
           searchResults = emptyList()
+          prependDm(conversation)
+          selectDms()
+          openDm(conversation)
+        }
+        .onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun startSecretDm(user: PublicUser) {
+    val userId = me?.id ?: return
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { e2ee.createSecretConversation(userId, user.id) } }
+        .onSuccess { conversation ->
+          showNewDm = false
           prependDm(conversation)
           selectDms()
           openDm(conversation)
@@ -1735,37 +1772,53 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
       RealtimeHandlers(
         onMessage = { message ->
           viewModelScope.launch {
+            val resolved =
+              if (message.encrypted != null && me != null) {
+                withContext(Dispatchers.IO) { e2ee.decrypt(me!!.id, message) }
+              } else {
+                message
+              }
             val chat = screen as? Screen.Chat
-            if (chat?.channelId == message.channelId && messages.none { it.id == message.id || (message.nonce != null && it.nonce == message.nonce) }) {
-              messages = messages + message
+            if (chat?.channelId == resolved.channelId && messages.none { it.id == resolved.id || (resolved.nonce != null && it.nonce == resolved.nonce) }) {
+              messages = messages + resolved
               if (ForegroundState.inForeground) ackVisible()
-            } else if (message.authorId != me?.id) {
-              val state = readStates[message.channelId]
-              readStates[message.channelId] = ReadState(
-                channelId = message.channelId,
+            } else if (resolved.authorId != me?.id) {
+              val state = readStates[resolved.channelId]
+              readStates[resolved.channelId] = ReadState(
+                channelId = resolved.channelId,
                 lastReadMessageId = state?.lastReadMessageId,
-                mentionCount = (state?.mentionCount ?: 0) + if (message.content.contains("@${me?.username}")) 1 else 0,
+                mentionCount = (state?.mentionCount ?: 0) + if (resolved.content.contains("@${me?.username}")) 1 else 0,
                 unread = true,
               )
             }
-            message.serverId?.let { channelServerIds[message.channelId] = it }
-            if (message.serverId == null) ensureDm(message.channelId)
-            if (!ForegroundState.inForeground && message.authorId != me?.id) {
-              val title = message.author.label
-              val body = message.content.ifBlank { if (message.attachments.isNotEmpty()) "Вложение" else "Новое сообщение" }
+            resolved.serverId?.let { channelServerIds[resolved.channelId] = it }
+            if (resolved.serverId == null) ensureDm(resolved.channelId)
+            if (!ForegroundState.inForeground && resolved.authorId != me?.id) {
+              val title = resolved.author.label
+              val body = resolved.content.ifBlank { if (resolved.attachments.isNotEmpty()) "Вложение" else "Новое сообщение" }
               NotificationHelper.showMessage(
                 getApplication(),
                 title,
                 body,
-                message.channelId,
-                message.serverId,
+                resolved.channelId,
+                resolved.serverId,
                 title,
-                message.id,
+                resolved.id,
               )
             }
           }
         },
-        onMessageUpdated = { updated -> viewModelScope.launch { replaceMessage(updated) } },
+        onMessageUpdated = { updated ->
+          viewModelScope.launch {
+            val resolved =
+              if (updated.encrypted != null && me != null) {
+                withContext(Dispatchers.IO) { e2ee.decrypt(me!!.id, updated) }
+              } else {
+                updated
+              }
+            replaceMessage(resolved)
+          }
+        },
         onMessageDeleted = { event ->
           viewModelScope.launch { messages = messages.filterNot { it.id == event.messageId } }
         },

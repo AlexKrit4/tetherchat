@@ -13,6 +13,8 @@ import { NotificationBanner } from './NotificationBanner';
 import { CallOverlay } from '@/components/call/CallOverlay';
 import { CallBanner } from '@/components/call/CallBanner';
 import { useLiveKitRoom } from '@/hooks/useLiveKitRoom';
+import { useAuthStore } from '@/stores/authStore';
+import { ensureE2eeDevice } from '@/lib/e2ee';
 
 /**
  * Chooses the layout for the current viewport and owns the app-wide side
@@ -22,11 +24,17 @@ export function AppShell() {
   const layout = useLayout();
   const connection = useRealtime();
   useLiveKitRoom();
+  const userId = useAuthStore((state) => state.user?.id);
   usePresenceLifecycle();
   const navigate = useNavigate();
   const { serverId, channelId, server, isDm } = useChatTarget();
 
   useKeyboardOffsetVariable();
+
+  useEffect(() => {
+    if (!userId || !window.crypto?.subtle || !window.indexedDB) return;
+    void ensureE2eeDevice(userId).catch(() => undefined);
+  }, [userId]);
 
   // Opening a server without a channel lands on its first channel.
   useEffect(() => {

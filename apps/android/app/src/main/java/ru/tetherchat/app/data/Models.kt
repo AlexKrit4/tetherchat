@@ -185,6 +185,7 @@ data class Message(
   val authorId: String,
   val author: PublicUser,
   val content: String = "",
+  val encrypted: EncryptedEnvelope? = null,
   val createdAt: String = "",
   val editedAt: String? = null,
   val pinned: Boolean = false,
@@ -209,6 +210,7 @@ data class DirectConversation(
   val isGroup: Boolean = false,
   val isSaved: Boolean = false,
   val isAi: Boolean = false,
+  val isSecret: Boolean = false,
   val name: String? = null,
   val iconUrl: String? = null,
   val ownerId: String? = null,
@@ -257,6 +259,53 @@ data class SendMessageBody(
   val attachmentDurations: Map<String, Int>? = null,
   val attachmentSpoilers: Map<String, Boolean>? = null,
   val forwardMessageId: String? = null,
+)
+
+@Serializable
+data class EncryptedEnvelope(
+  val version: Int = 1,
+  val iv: String,
+  val ciphertext: String,
+)
+
+@Serializable
+data class EncryptedMessageBody(
+  val encrypted: EncryptedEnvelope,
+  val nonce: String? = null,
+)
+
+@Serializable
+data class CryptoDeviceBody(
+  val deviceId: String,
+  val name: String? = null,
+  val publicKey: String,
+)
+
+@Serializable
+data class CryptoDevice(
+  val id: String,
+  val userId: String,
+  val name: String? = null,
+  val publicKey: String,
+  val createdAt: String = "",
+)
+
+@Serializable
+data class WrappedSecretKey(
+  val deviceId: String,
+  val wrappedKey: String,
+)
+
+@Serializable
+data class SecretConversationBody(
+  val userId: String,
+  val keys: List<WrappedSecretKey>,
+)
+
+@Serializable
+data class SecretKeyResponse(
+  val deviceId: String,
+  val wrappedKey: String,
 )
 
 @Serializable

@@ -65,7 +65,7 @@ export function MessageInput() {
   const holdingMic = useRef(false);
 
   const nonce = useNonce();
-  const send = useSendMessage(channelId ?? '', isDm);
+  const send = useSendMessage(channelId ?? '', isDm, Boolean(conversation?.isSecret));
   const upload = useUploadAttachment();
   const nudgeScrollBottom = useUiStore((state) => state.nudgeScrollBottom);
 
@@ -73,7 +73,8 @@ export function MessageInput() {
   useAutoResize(textareaRef, draft, maxHeight);
 
   const canSend = isDm || !server || can(server.permissions, Permission.SEND_MESSAGES);
-  const canAttach = isDm || !server || can(server.permissions, Permission.ATTACH_FILES);
+  const canAttach =
+    !conversation?.isSecret && (isDm || !server || can(server.permissions, Permission.ATTACH_FILES));
   const enterToSend = isMobile ? false : (user?.enterToSend ?? true);
 
   // Focus the composer when the user starts typing anywhere on desktop.

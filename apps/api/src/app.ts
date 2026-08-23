@@ -23,6 +23,7 @@ import { adminRoutes } from './routes/admin.js';
 import { reportRoutes } from './routes/reports.js';
 import { pushRoutes } from './routes/push.js';
 import { callRoutes } from './routes/calls.js';
+import { e2eeRoutes } from './routes/e2ee.js';
 import { serverRoutes } from './routes/servers.js';
 import { uploadRoutes } from './routes/uploads.js';
 import { userRoutes } from './routes/users.js';
@@ -99,6 +100,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(uploadRoutes, { prefix: '/api/upload' });
   await app.register(pushRoutes, { prefix: '/api/push' });
   await app.register(callRoutes, { prefix: '/api/calls' });
+  await app.register(e2eeRoutes, { prefix: '/api/e2ee' });
   await app.register(appRoutes, { prefix: '/api/app' });
 
   return app;

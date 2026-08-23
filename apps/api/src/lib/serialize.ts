@@ -134,6 +134,14 @@ function toReference(
     authorId: row.authorId,
     author: row.author ? toPublicUser(row.author) : null,
     content: row.deletedAt ? '' : row.content,
+    encrypted:
+      !row.deletedAt && row.encryptionVersion === 1 && row.encryptionIv && row.ciphertext
+        ? {
+            version: 1,
+            iv: row.encryptionIv,
+            ciphertext: row.ciphertext,
+          }
+        : null,
     deleted: Boolean(row.deletedAt),
   };
 }
@@ -256,6 +264,7 @@ export function toConversation(row: ConversationRow, currentUserId?: string): Di
     isGroup: row.isGroup,
     isSaved,
     isAi,
+    isSecret: row.isSecret,
     name: row.name,
     iconUrl: row.iconUrl,
     ownerId: row.ownerId,

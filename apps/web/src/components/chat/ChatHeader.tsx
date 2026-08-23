@@ -1,4 +1,4 @@
-import { ArrowLeft, AtSign, Bell, Bookmark, Hash, Image as ImageIcon, Phone, Pin, Search, Sparkles, Users } from 'lucide-react';
+import { ArrowLeft, AtSign, Bell, Bookmark, Hash, Image as ImageIcon, LockKeyhole, Phone, Pin, Search, Sparkles, Users } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { useT } from '@/i18n/useT';
 import { useChatTarget } from '@/hooks/useChatTarget';
@@ -62,6 +62,7 @@ export function ChatHeader() {
       ) : null}
 
       <div className="flex min-w-0 flex-1 items-center gap-2">
+        {conversation?.isSecret ? <LockKeyhole size={18} className="shrink-0 text-success" aria-hidden /> : null}
         {isDm ? (
           conversation?.isSaved ? (
             <Bookmark size={20} className="shrink-0 text-brand" aria-hidden />
@@ -103,12 +104,14 @@ export function ChatHeader() {
           />
         ) : null}
 
-        <IconButton
-          icon={ImageIcon}
-          label={t('chat.mediaTitle')}
-          size={isMobile ? 'lg' : 'md'}
-          onClick={() => setMediaOpen(true)}
-        />
+        {!conversation?.isSecret ? (
+          <IconButton
+            icon={ImageIcon}
+            label={t('chat.mediaTitle')}
+            size={isMobile ? 'lg' : 'md'}
+            onClick={() => setMediaOpen(true)}
+          />
+        ) : null}
 
         <IconButton
           icon={Pin}
@@ -129,12 +132,14 @@ export function ChatHeader() {
           }}
         />
 
-        <IconButton
-          icon={Search}
-          label={t('chat.search')}
-          size={isMobile ? 'lg' : 'md'}
-          onClick={() => (isMobile ? pushMobileView('search') : setSearchOpen(true))}
-        />
+        {!conversation?.isSecret ? (
+          <IconButton
+            icon={Search}
+            label={t('chat.search')}
+            size={isMobile ? 'lg' : 'md'}
+            onClick={() => (isMobile ? pushMobileView('search') : setSearchOpen(true))}
+          />
+        ) : null}
 
         <ChatSettingsButton />
       </div>

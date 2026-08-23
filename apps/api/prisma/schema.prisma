@@ -81,6 +81,7 @@ model User {
   issuedSiteBans          SiteBan[]       @relation("SiteBanModerator")
   callsStarted            Call[]          @relation("CallCaller")
   callsReceived           Call[]          @relation("CallCallee")
+  cryptoDevices           CryptoDevice[]
 
   @@index([username])
 }
@@ -252,6 +253,9 @@ model Message {
   conversationId    String?
   authorId          String
   content           String
+  encryptionVersion Int      @default(0)
+  encryptionIv      String?
+  ciphertext        String?
   system            Boolean   @default(false)
   pinned            Boolean   @default(false)
   replyToId         String?
@@ -352,6 +356,7 @@ model DirectConversation {
   isSaved        Boolean   @default(false)
   savedForUserId String?   @unique
   isAi           Boolean   @default(false)
+  isSecret       Boolean   @default(false)
   aiForUserId    String?   @unique
   name           String?
   iconUrl        String?
@@ -363,8 +368,37 @@ model DirectConversation {
   members  DirectConversationMember[]
   messages Message[]
   calls    Call[]
+  secretKeys SecretConversationKey[]
 
   @@index([lastMessageAt(sort: Desc)])
+}
+
+model CryptoDevice {
+  id          String    @id
+  userId      String
+  name        String?
+  publicKey   String
+  createdAt   DateTime  @default(now())
+  lastSeenAt  DateTime  @default(now())
+  revokedAt   DateTime?
+
+  user        User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  secretKeys  SecretConversationKey[]
+
+  @@index([userId, revokedAt])
+}
+
+model SecretConversationKey {
+  conversationId String
+  deviceId       String
+  wrappedKey     String
+  createdAt      DateTime @default(now())
+
+  conversation DirectConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  device       CryptoDevice       @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, deviceId])
+  @@index([deviceId])
 }
 
 model DirectConversationMember {

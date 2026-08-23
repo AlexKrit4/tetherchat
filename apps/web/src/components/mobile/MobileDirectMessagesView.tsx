@@ -1,11 +1,7 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PenSquare } from 'lucide-react';
 import { DM_ROUTE } from '@/hooks/useChatTarget';
 import { DirectMessageList } from '@/components/layout/DirectMessageList';
 import { UserPanel } from '@/components/layout/UserPanel';
-import { IconButton } from '@/components/ui/IconButton';
-import { FriendRequestDialog } from '@/components/modals/FriendRequestDialog';
 import { MobileHeader } from './MobileHeader';
 import { useChatTarget } from '@/hooks/useChatTarget';
 import { useUiStore } from '@/stores/uiStore';
@@ -17,22 +13,12 @@ export function MobileDirectMessagesView() {
   const { channelId } = useChatTarget();
   const setMobileView = useUiStore((state) => state.setMobileView);
   const pushMobileView = useUiStore((state) => state.pushMobileView);
-  const [newOpen, setNewOpen] = useState(false);
 
   return (
     <div className="flex h-full flex-col bg-surface-secondary">
       <MobileHeader
         title={t('dm.title')}
         onBack={() => setMobileView('servers')}
-        actions={
-          <IconButton
-            icon={PenSquare}
-            label={t('friends.sendRequest')}
-            size="lg"
-            showTooltip={false}
-            onClick={() => setNewOpen(true)}
-          />
-        }
       />
 
       <div className="scroller flex-1">
@@ -47,8 +33,6 @@ export function MobileDirectMessagesView() {
       </div>
 
       <UserPanel className="pb-safe" />
-
-      <FriendRequestDialog open={newOpen} onClose={() => setNewOpen(false)} />
     </div>
   );
 }

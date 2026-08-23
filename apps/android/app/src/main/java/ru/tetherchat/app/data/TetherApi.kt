@@ -149,6 +149,8 @@ class TetherApi(private val session: SessionStore) {
   fun openDm(userId: String): DirectConversation = post("/api/dms", CreateDmBody(listOf(userId)))
   fun openGroup(userIds: List<String>, name: String?): DirectConversation =
     post("/api/dms", CreateGroupDmBody(userIds, name))
+  fun createSecretConversation(userId: String, keys: List<WrappedSecretKey>): DirectConversation =
+    post("/api/dms/secret", SecretConversationBody(userId, keys))
   fun leaveGroup(id: String) = postRaw<Unit>("/api/dms/$id/leave", "{}")
   fun pinConversation(id: String): DirectConversation = postRaw("/api/dms/$id/pin", "{}")
   fun unpinConversation(id: String): DirectConversation = deleteJson("/api/dms/$id/pin")
@@ -156,6 +158,10 @@ class TetherApi(private val session: SessionStore) {
     get<MediaPage>(if (dm) "/api/dms/$channelId/media" else "/api/channels/$channelId/media").items
 
   fun friends(): List<PublicUser> = get("/api/friends")
+  fun registerCryptoDevice(body: CryptoDeviceBody): CryptoDevice = post("/api/e2ee/devices", body)
+  fun cryptoDevices(userId: String): List<CryptoDevice> = get("/api/e2ee/users/$userId/devices")
+  fun secretConversationKey(conversationId: String, deviceId: String): SecretKeyResponse =
+    get("/api/e2ee/conversations/$conversationId/key/$deviceId")
   fun incomingFriends(): List<FriendRequest> = get("/api/friends/incoming")
   fun incomingFriendCount(): Int = get<CountBody>("/api/friends/incoming/count").count
   fun sendFriendRequest(userId: String) {
@@ -252,6 +258,9 @@ class TetherApi(private val session: SessionStore) {
       SendMessageBody(content, nonce, replyToId, attachmentIds, attachmentDurations, attachmentSpoilers, forwardMessageId),
     )
   }
+
+  fun sendEncrypted(channelId: String, envelope: EncryptedEnvelope, nonce: String): Message =
+    post("/api/dms/$channelId/messages", EncryptedMessageBody(envelope, nonce))
 
   fun editMessage(messageId: String, content: String): Message =
     patch("/api/messages/$messageId", EditMessageBody(content))

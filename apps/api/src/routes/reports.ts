@@ -21,6 +21,9 @@ export async function reportRoutes(app: FastifyInstance) {
       include: { attachments: true },
     });
     if (!message || message.deletedAt) throw ApiError.notFound('Сообщение не найдено');
+    if (message.encryptionVersion > 0) {
+      throw ApiError.badRequest('Сервер не может прочитать или проверить секретное сообщение');
+    }
     if (message.authorId === request.userId) throw ApiError.badRequest('Нельзя пожаловаться на своё сообщение');
     if (message.system) throw ApiError.badRequest('На это сообщение нельзя пожаловаться');
 

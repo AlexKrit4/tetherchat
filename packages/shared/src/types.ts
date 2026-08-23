@@ -119,6 +119,11 @@ export interface Message {
   authorId: string;
   author: PublicUser;
   content: string;
+  encrypted?: {
+    version: 1;
+    iv: string;
+    ciphertext: string;
+  } | null;
   createdAt: string;
   editedAt: string | null;
   pinned: boolean;
@@ -143,6 +148,8 @@ export interface DirectConversation {
   isSaved?: boolean;
   /** Built-in LLM assistant DM, listed under Saved Messages. */
   isAi?: boolean;
+  /** End-to-end encrypted 1:1 conversation. The server never receives plaintext. */
+  isSecret?: boolean;
   name: string | null;
   iconUrl: string | null;
   ownerId: string | null;
@@ -153,6 +160,19 @@ export interface DirectConversation {
   peerLastReadAt?: string | null;
   /** Per-member pin in the DM list. Saved Messages stays above pinned chats. */
   pinned?: boolean;
+}
+
+export interface CryptoDevice {
+  id: string;
+  userId: string;
+  name: string | null;
+  publicKey: string;
+  createdAt: string;
+}
+
+export interface WrappedSecretKey {
+  deviceId: string;
+  wrappedKey: string;
 }
 
 export interface Session {
