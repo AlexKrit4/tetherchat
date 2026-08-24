@@ -1,0 +1,59 @@
+/**
+ * Surface hierarchy is expressed purely through background layers — no borders,
+ * no glows. Values mirror the Discord dark theme used as the visual reference.
+ */
+:root {
+  color-scheme: dark;
+
+  /* Backgrounds, darkest to lightest */
+  --bg-tertiary: #1e1f22; /* server rail, deepest wells */
+  --bg-secondary: #2b2d31; /* channel sidebar, member list */
+  --bg-primary: #313338; /* chat area, modals */
+  --bg-floating: #111214; /* tooltips, popovers, context menus */
+  --bg-overlay: rgba(0, 0, 0, 0.5);
+  --input-bg: #383a40;
+
+  /* Interaction layers */
+  --bg-modifier-hover: #35373c;
+  --bg-modifier-active: #404249;
+  --bg-modifier-selected: #404249;
+  --bg-modifier-accent: rgba(255, 255, 255, 0.06);
+
+  /* Text */
+  --text-normal: #dbdee1;
+  --text-muted: #949ba4;
+  --text-faint: #6d6f78;
+  --text-link: #00a8fc;
+  --text-inverse: #313338;
+  --header-primary: #f2f3f5;
+  --header-secondary: #b5bac1;
+
+  /* Accents */
+  --brand: #5865f2;
+  --brand-hover: #4752c4;
+  --brand-active: #3c45a5;
+  --green: #23a559;
+  --yellow: #f0b232;
+  --red: #f23f43;
+  --red-hover: #da373c;
+  --grey: #80848e;
+
+  --mention-bg: rgba(240, 178, 50, 0.1);
+  --mention-text: #f0b232;
+  --divider: #3f4147;
+
+  --scrollbar-thumb: #1a1b1e;
+  --scrollbar-track: transparent;
+
+  /* Layout metrics referenced from both CSS and TS */
+  --rail-width: 72px;
+  --sidebar-width: 240px;
+  --members-width: 240px;
+  --header-height: 48px;
+
+  /* Safe areas resolve to 0px on devices without insets */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}
