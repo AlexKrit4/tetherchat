@@ -106,6 +106,19 @@ services:
       LLM_BASE_URL: ${LLM_BASE_URL:-https://api.groq.com/openai/v1}
       LLM_MODEL: ${LLM_MODEL:-openai/gpt-oss-20b}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      VPN_BRAND_NAME: ${VPN_BRAND_NAME:-Enigma VPN}
+      VPN_SUBSCRIPTION_PREFIX: ${VPN_SUBSCRIPTION_PREFIX:-https://tetherchat.ru/api/vpn/s}
+      MARZBAN_URL: ${MARZBAN_URL:-http://host.docker.internal:8000}
+      MARZBAN_USERNAME: ${MARZBAN_USERNAME:-admin}
+      MARZBAN_PASSWORD: ${MARZBAN_PASSWORD:-}
+      MARZBAN_MOCK: ${MARZBAN_MOCK:-true}
+      YOOMONEY_WALLET: ${YOOMONEY_WALLET:-}
+      YOOMONEY_NOTIFICATION_SECRET: ${YOOMONEY_NOTIFICATION_SECRET:-}
+      VPN_TRIAL_ENABLED: ${VPN_TRIAL_ENABLED:-true}
+      VPN_TRIAL_DURATION_DAYS: ${VPN_TRIAL_DURATION_DAYS:-1}
+      VPN_TRIAL_TRAFFIC_GB: ${VPN_TRIAL_TRAFFIC_GB:-5}
+      VPN_TRIAL_DEVICE_LIMIT: ${VPN_TRIAL_DEVICE_LIMIT:-1}
+      VPN_NODE_ID: ${VPN_NODE_ID:-nl-1}
     expose:
       - '4000'
     healthcheck:

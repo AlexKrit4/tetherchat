@@ -45,6 +45,7 @@ export interface CreateMessageInput {
   skipRateLimit?: boolean;
   /** Internal: do not enqueue another AI reply (the bot's own messages). */
   skipAiReply?: boolean;
+  skipVpnReply?: boolean;
 }
 
 interface Target {
@@ -56,6 +57,7 @@ interface Target {
   recipientIds: string[];
   canMentionEveryone: boolean;
   isAi?: boolean;
+  isVpn?: boolean;
   isSecret?: boolean;
 }
 
@@ -92,7 +94,7 @@ async function resolveTarget(input: CreateMessageInput): Promise<Target> {
     });
 
     const recipientIds = conversation.members.map((member) => member.userId);
-    if (!conversation.isGroup && !conversation.isAi && !conversation.isSaved) {
+    if (!conversation.isGroup && !conversation.isAi && !conversation.isVpn && !conversation.isSaved) {
       const otherId = recipientIds.find((id) => id !== input.authorId);
       if (otherId && (await isBlockedEitherWay(input.authorId, otherId))) {
         throw ApiError.forbidden('You cannot message this user');
@@ -111,6 +113,7 @@ async function resolveTarget(input: CreateMessageInput): Promise<Target> {
       recipientIds,
       canMentionEveryone: false,
       isAi: conversation.isAi,
+      isVpn: conversation.isVpn,
       isSecret: conversation.isSecret,
     };
   }
@@ -296,6 +299,17 @@ export async function createMessage(input: CreateMessageInput): Promise<Message>
     if (input.authorId !== botId) {
       const { replyAsAi } = await import('./aiReplyService.js');
       const pending = replyAsAi(target.id, input.authorId);
+      if (isTest()) await pending;
+      else void pending;
+    }
+  }
+
+  if (target.kind === 'conversation' && target.isVpn && !input.skipVpnReply) {
+    const { getVpnBotUserId } = await import('../lib/vpnBot.js');
+    const botId = await getVpnBotUserId();
+    if (input.authorId !== botId) {
+      const { replyAsVpn } = await import('./vpnReplyService.js');
+      const pending = replyAsVpn(target.id, input.authorId, payload.content);
       if (isTest()) await pending;
       else void pending;
     }

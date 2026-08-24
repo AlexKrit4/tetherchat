@@ -8,6 +8,7 @@ import { areFriends } from '../lib/friends.js';
 import { assertConversationMember } from '../lib/permissions.js';
 import { conversationInclude, toConversation } from '../lib/serialize.js';
 import { ensureAiConversation, getAiBotUserId } from '../lib/aiBot.js';
+import { ensureVpnConversation, getVpnBotUserId } from '../lib/vpnBot.js';
 import { assertPlus, loadPlus, pinnedDmLimit } from '../lib/plus.js';
 import { readWallpaperUpload } from '../lib/wallpaper.js';
 import {
@@ -44,6 +45,7 @@ export async function dmRoutes(app: FastifyInstance) {
   app.get('/', async (request) => {
     await ensureSavedConversation(request.userId);
     await ensureAiConversation(request.userId);
+    await ensureVpnConversation(request.userId);
     const conversations = await prisma.directConversation.findMany({
       where: { members: { some: { userId: request.userId, leftAt: null, hiddenAt: null } } },
       include: conversationInclude,
@@ -61,12 +63,14 @@ export async function dmRoutes(app: FastifyInstance) {
         (conversation) =>
           conversation.isSaved ||
           conversation.isAi ||
+          conversation.isVpn ||
           conversation.isGroup ||
           !conversation.members.some((member) => member.id !== request.userId && blocked.has(member.id)),
       )
       .sort((a, b) => {
         if (a.isSaved !== b.isSaved) return a.isSaved ? -1 : 1;
         if (Boolean(a.isAi) !== Boolean(b.isAi)) return a.isAi ? -1 : 1;
+        if (Boolean(a.isVpn) !== Boolean(b.isVpn)) return a.isVpn ? -1 : 1;
         if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
         const aTime = a.lastMessageAt ?? '';
         const bTime = b.lastMessageAt ?? '';
@@ -158,10 +162,18 @@ export async function dmRoutes(app: FastifyInstance) {
     const otherIds = Array.from(new Set(body.userIds.filter((id) => id !== request.userId)));
     if (otherIds.length === 0) throw ApiError.badRequest('Pick at least one other person');
 
-    const botId = await getAiBotUserId();
-    if (otherIds.includes(botId)) {
+    const aiBotId = await getAiBotUserId();
+    if (otherIds.includes(aiBotId)) {
       if (otherIds.length > 1) throw ApiError.badRequest('Нельзя добавить нейросеть в группу');
       const conversation = await ensureAiConversation(request.userId);
+      reply.send(toConversation(conversation, request.userId));
+      return;
+    }
+
+    const vpnBotId = await getVpnBotUserId();
+    if (otherIds.includes(vpnBotId)) {
+      if (otherIds.length > 1) throw ApiError.badRequest('Нельзя добавить VPN-бота в группу');
+      const conversation = await ensureVpnConversation(request.userId);
       reply.send(toConversation(conversation, request.userId));
       return;
     }
@@ -384,7 +396,7 @@ export async function dmRoutes(app: FastifyInstance) {
       include: { members: { select: { userId: true, leftAt: true } } },
     });
 
-    if (conversation.isSaved || conversation.isAi) {
+    if (conversation.isSaved || conversation.isAi || conversation.isVpn) {
       throw ApiError.badRequest('This chat cannot be deleted');
     }
 

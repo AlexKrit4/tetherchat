@@ -19,6 +19,7 @@ import { friendRoutes } from './routes/friends.js';
 import { inviteRoutes } from './routes/invites.js';
 import { messageRoutes } from './routes/messages.js';
 import { appRoutes } from './routes/app.js';
+import { vpnRoutes } from './routes/vpn.js';
 import { adminRoutes } from './routes/admin.js';
 import { reportRoutes } from './routes/reports.js';
 import { pushRoutes } from './routes/push.js';
@@ -103,6 +104,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(callRoutes, { prefix: '/api/calls' });
   await app.register(e2eeRoutes, { prefix: '/api/e2ee' });
   await app.register(appRoutes, { prefix: '/api/app' });
+  await app.register(vpnRoutes, { prefix: '/api/vpn' });
 
   return app;
 }

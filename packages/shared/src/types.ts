@@ -156,6 +156,8 @@ export interface DirectConversation {
   isSaved?: boolean;
   /** Built-in LLM assistant DM, listed under Saved Messages. */
   isAi?: boolean;
+  /** VPN subscription bot (Enigma / Happ). */
+  isVpn?: boolean;
   /** End-to-end encrypted 1:1 conversation. The server never receives plaintext. */
   isSecret?: boolean;
   name: string | null;

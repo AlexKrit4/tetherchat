@@ -86,6 +86,8 @@ model User {
   callsStarted            Call[]          @relation("CallCaller")
   callsReceived           Call[]          @relation("CallCallee")
   cryptoDevices           CryptoDevice[]
+  vpnSubscriptions        VpnSubscription[]
+  vpnOrders               VpnOrder[]
 
   @@index([username])
 }
@@ -361,8 +363,10 @@ model DirectConversation {
   isSaved        Boolean   @default(false)
   savedForUserId String?   @unique
   isAi           Boolean   @default(false)
+  isVpn          Boolean   @default(false)
   isSecret       Boolean   @default(false)
   aiForUserId    String?   @unique
+  vpnForUserId   String?   @unique
   name           String?
   iconUrl        String?
   ownerId        String?
@@ -594,4 +598,94 @@ model Call {
   @@index([callerId, status])
   @@index([calleeId, status])
   @@index([conversationId, startedAt(sort: Desc)])
+}
+
+enum VpnOrderStatus {
+  pending
+  paid
+  failed
+  refunded
+}
+
+enum VpnSubscriptionStatus {
+  trial
+  active
+  expired
+  disabled
+}
+
+model VpnPlan {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  name         String
+  groupName    String   @default("для себя")
+  durationDays Int
+  trafficGb    Int?
+  deviceLimit  Int      @default(2)
+  priceRub     Decimal  @db.Decimal(10, 2)
+  isActive     Boolean  @default(true)
+  sortOrder    Int      @default(0)
+
+  orders        VpnOrder[]
+  subscriptions VpnSubscription[]
+}
+
+model VpnOrder {
+  id                  String          @id @default(cuid())
+  userId              String
+  planId              String
+  amount              Decimal         @db.Decimal(10, 2)
+  currency            String          @default("RUB")
+  status              VpnOrderStatus  @default(pending)
+  paymentProvider     String          @default("yoomoney")
+  paymentExternalId   String?
+  paymentLabel        String          @unique @default(cuid())
+  createdAt           DateTime        @default(now())
+  paidAt              DateTime?
+
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan         VpnPlan           @relation(fields: [planId], references: [id])
+  payments     VpnPayment[]
+  subscription VpnSubscription?
+
+  @@index([userId])
+  @@index([status])
+}
+
+model VpnSubscription {
+  id               String                @id @default(cuid())
+  userId           String
+  planId           String?
+  orderId          String?               @unique
+  status           VpnSubscriptionStatus
+  subToken         String                @unique @default(cuid())
+  startsAt         DateTime              @default(now())
+  endsAt           DateTime
+  trafficLimitGb   Int?
+  trafficUsedGb    Decimal               @default(0) @db.Decimal(12, 3)
+  deviceLimit      Int                   @default(2)
+  marzbanUsername  String?
+  marzbanUuid      String?
+  nodeId           String?
+  createdAt        DateTime              @default(now())
+
+  user  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan  VpnPlan?  @relation(fields: [planId], references: [id], onDelete: SetNull)
+  order VpnOrder? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status, endsAt])
+}
+
+model VpnPayment {
+  id         String   @id @default(cuid())
+  orderId    String
+  provider   String
+  externalId String
+  status     String
+  rawPayload Json?
+  createdAt  DateTime @default(now())
+
+  order VpnOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, externalId])
 }

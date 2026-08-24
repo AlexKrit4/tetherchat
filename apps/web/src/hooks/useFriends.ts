@@ -12,7 +12,7 @@ export function conversationNeedsFriendship(
   conversation: DirectConversation | null | undefined,
 ): boolean {
   if (!conversation) return false;
-  return !conversation.isSaved && !conversation.isAi && !conversation.isGroup;
+  return !conversation.isSaved && !conversation.isAi && !conversation.isVpn && !conversation.isGroup;
 }
 
 export function isFriendOf(

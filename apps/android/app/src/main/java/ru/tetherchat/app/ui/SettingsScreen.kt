@@ -512,9 +512,11 @@ fun UserProfileScreen(model: AppViewModel) {
     if (user.id != model.me?.id) {
       val incoming = model.incomingRequestFrom(user.id)
       val requestPending = user.id in model.pendingOutgoingFriendIds
-      val isAiPeer = model.dms.any { it.isAi && it.members.any { member -> member.id == user.id } }
+      val isBotPeer = model.dms.any {
+        (it.isAi || it.isVpn) && it.members.any { member -> member.id == user.id }
+      }
       when {
-        isAiPeer || model.isFriend(user.id) -> {
+        isBotPeer || model.isFriend(user.id) -> {
           Button(onClick = model::openDmFromProfile, modifier = Modifier.fillMaxWidth()) {
             Text("Написать")
           }

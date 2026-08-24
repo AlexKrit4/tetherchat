@@ -358,7 +358,9 @@ export function MessageInput() {
     ? isDm
       ? conversation?.isAi
         ? t('chat.messageAi')
-        : t('chat.messageUser', { name: title })
+        : conversation?.isVpn
+          ? t('chat.messageVpn')
+          : t('chat.messageUser', { name: title })
       : t('chat.messageChannel', { name: title })
     : t('chat.selectChannel');
 

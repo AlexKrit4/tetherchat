@@ -197,7 +197,7 @@ export function MessageList() {
   if (isLoading) return <MessageSkeletonList />;
 
   if (entries.length === 0) {
-    return <ChannelIntro name={title} isDm={isDm} isAi={Boolean(conversation?.isAi)} />;
+    return <ChannelIntro name={title} isDm={isDm} isAi={Boolean(conversation?.isAi)} isVpn={Boolean(conversation?.isVpn)} />;
   }
 
   return (
@@ -234,7 +234,7 @@ export function MessageList() {
               ) : hasNextPage ? (
                 <div className="h-4" />
               ) : (
-                <ChannelIntro name={title} isDm={isDm} isAi={Boolean(conversation?.isAi)} compact />
+                <ChannelIntro name={title} isDm={isDm} isAi={Boolean(conversation?.isAi)} isVpn={Boolean(conversation?.isVpn)} compact />
               )}
             </div>
           ),
@@ -244,7 +244,7 @@ export function MessageList() {
           const { message } = entry;
           const mine = message.authorId === currentUser?.id;
           const showReceipts =
-            Boolean(mine && isDm && conversation && !conversation.isGroup && !conversation.isSaved && !conversation.isAi);
+            Boolean(mine && isDm && conversation && !conversation.isGroup && !conversation.isSaved && !conversation.isAi && !conversation.isVpn);
           const read =
             showReceipts &&
             Boolean(
@@ -396,11 +396,13 @@ function ChannelIntro({
   name,
   isDm,
   isAi,
+  isVpn,
   compact,
 }: {
   name: string;
   isDm: boolean;
   isAi?: boolean;
+  isVpn?: boolean;
   compact?: boolean;
 }) {
   const t = useT();
@@ -415,7 +417,7 @@ function ChannelIntro({
         {isDm ? name : t('chat.welcomeChannel', { name })}
       </h2>
       <p className="mt-1 text-base text-text-muted">
-        {isAi ? t('chat.startAi') : isDm ? t('chat.startDm') : t('chat.startChannel', { name })}
+        {isAi ? t('chat.startAi') : isVpn ? t('chat.startVpn') : isDm ? t('chat.startDm') : t('chat.startChannel', { name })}
       </p>
     </div>
   );

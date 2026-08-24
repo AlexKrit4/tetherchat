@@ -1,24 +1,18 @@
 import { socketRooms } from '@tetherchat/shared';
 import { prisma } from '../db.js';
-import { getBotUserId, isReservedUsername as isReservedBotUsername } from './bots.js';
+import { getBotUserId } from './bots.js';
 import { conversationInclude, toConversation } from './serialize.js';
 import { emitToUser, joinUserToRoom } from '../ws/realtime.js';
 
-export const AI_BOT_USERNAME = 'tetherai';
-export const AI_BOT_EMAIL = 'tetherai@tetherchat.invalid';
-export const AI_BOT_DISPLAY_NAME = 'Нейросеть';
+export const VPN_BOT_USERNAME = 'tethervpn';
 
-export function isReservedUsername(username: string): boolean {
-  return isReservedBotUsername(username);
+export async function getVpnBotUserId(): Promise<string> {
+  return getBotUserId('vpn');
 }
 
-export async function getAiBotUserId(): Promise<string> {
-  return getBotUserId('ai');
-}
-
-export async function ensureAiConversation(userId: string) {
+export async function ensureVpnConversation(userId: string) {
   const existing = await prisma.directConversation.findUnique({
-    where: { aiForUserId: userId },
+    where: { vpnForUserId: userId },
     include: conversationInclude,
   });
   if (existing) {
@@ -26,13 +20,13 @@ export async function ensureAiConversation(userId: string) {
     return existing;
   }
 
-  const botId = await getAiBotUserId();
+  const botId = await getVpnBotUserId();
 
   try {
     const created = await prisma.directConversation.create({
       data: {
-        isAi: true,
-        aiForUserId: userId,
+        isVpn: true,
+        vpnForUserId: userId,
         ownerId: userId,
         members: { create: [{ userId }, { userId: botId }] },
       },
@@ -43,13 +37,13 @@ export async function ensureAiConversation(userId: string) {
     return created;
   } catch {
     const raced = await prisma.directConversation.findUnique({
-      where: { aiForUserId: userId },
+      where: { vpnForUserId: userId },
       include: conversationInclude,
     });
     if (raced) {
       await joinUserToRoom(userId, socketRooms.conversation(raced.id));
       return raced;
     }
-    throw new Error('Failed to create AI conversation');
+    throw new Error('Failed to create VPN bot conversation');
   }
 }

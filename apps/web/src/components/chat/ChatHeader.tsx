@@ -1,4 +1,4 @@
-import { ArrowLeft, AtSign, Bell, Bookmark, Hash, Image as ImageIcon, LockKeyhole, Phone, Pin, Search, Sparkles, Users } from 'lucide-react';
+import { ArrowLeft, AtSign, Bell, Bookmark, Hash, Image as ImageIcon, LockKeyhole, Phone, Pin, Search, Shield, Sparkles, Users } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { useT } from '@/i18n/useT';
 import { useChatTarget } from '@/hooks/useChatTarget';
@@ -46,6 +46,7 @@ export function ChatHeader() {
     dmPeer &&
     !conversation?.isSaved &&
     !conversation?.isAi &&
+    !conversation?.isVpn &&
     !conversation?.isGroup &&
     conversation?.id &&
     callPhase === 'idle' &&
@@ -91,6 +92,8 @@ export function ChatHeader() {
             <Bookmark size={20} className="shrink-0 text-brand" aria-hidden />
           ) : conversation?.isAi ? (
             <Sparkles size={20} className="shrink-0 text-[#9b6bff]" aria-hidden />
+          ) : conversation?.isVpn ? (
+            <Shield size={20} className="shrink-0 text-[#22c55e]" aria-hidden />
           ) : dmPeer ? (
             <Avatar user={dmPeer} size={24} showStatus />
           ) : (
@@ -100,7 +103,7 @@ export function ChatHeader() {
           <Hash size={22} strokeWidth={2} className="shrink-0 text-text-faint" aria-hidden />
         )}
 
-        {isDm && dmPeer && !conversation?.isGroup && !conversation?.isSaved && !conversation?.isAi ? (
+        {isDm && dmPeer && !conversation?.isGroup && !conversation?.isSaved && !conversation?.isAi && !conversation?.isVpn ? (
           <div className="min-w-0 flex-1">
             <h1 className="min-w-0 truncate text-lg font-semibold text-text-heading">
               <DisplayName user={dmPeer} name={title || '…'} />

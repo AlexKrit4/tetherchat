@@ -202,6 +202,7 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
   val canCall = chat.dm &&
     model.currentConversation?.isSaved != true &&
     model.currentConversation?.isAi != true &&
+    model.currentConversation?.isVpn != true &&
     model.currentConversation?.isGroup != true &&
     model.callPhase == ru.tetherchat.app.data.CallPhase.Idle &&
     model.canMessageCurrentPeer()
@@ -275,7 +276,8 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
       Column(Modifier.weight(1f)) {
         val peer = model.me?.id?.let { model.currentConversation?.peer(it) }
         if (peer != null && chat.dm && model.currentConversation?.isGroup != true &&
-          model.currentConversation?.isSaved != true && model.currentConversation?.isAi != true
+          model.currentConversation?.isSaved != true && model.currentConversation?.isAi != true &&
+          model.currentConversation?.isVpn != true
         ) {
           PlusName(peer, name = chat.title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
         } else {
@@ -428,6 +430,7 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
                 when {
                   model.editing != null -> "Изменить сообщение"
                   model.currentConversation?.isAi == true -> "Спросите нейросеть…"
+                  model.currentConversation?.isVpn == true -> "Напишите: тарифы, подписка, пробный…"
                   else -> "Написать сообщение"
                 },
                 color = TextMuted,

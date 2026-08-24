@@ -78,6 +78,27 @@ const schema = z.object({
   PUBLIC_LIVEKIT_URL: z.string().default('ws://localhost:7880'),
 
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+
+  /** Enigma VPN bot (Happ + Marzban + YooMoney) */
+  VPN_BRAND_NAME: z.string().default('Enigma VPN'),
+  VPN_SUBSCRIPTION_PREFIX: z.string().default('https://tetherchat.ru/api/vpn/s'),
+  MARZBAN_URL: z.string().default('http://host.docker.internal:8000'),
+  MARZBAN_USERNAME: z.string().default('admin'),
+  MARZBAN_PASSWORD: z.string().default(''),
+  MARZBAN_MOCK: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+  YOOMONEY_WALLET: z.string().default(''),
+  YOOMONEY_NOTIFICATION_SECRET: z.string().default(''),
+  VPN_TRIAL_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+  VPN_TRIAL_DURATION_DAYS: z.coerce.number().int().positive().default(1),
+  VPN_TRIAL_TRAFFIC_GB: z.coerce.number().int().positive().default(5),
+  VPN_TRIAL_DEVICE_LIMIT: z.coerce.number().int().positive().default(1),
+  VPN_NODE_ID: z.string().default('nl-1'),
 });
 
 export type Config = z.infer<typeof schema>;

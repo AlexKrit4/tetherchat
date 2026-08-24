@@ -1,4 +1,4 @@
-import { Hash, Bookmark, Sparkles } from 'lucide-react';
+import { Hash, Bookmark, Shield, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Message, ServerDetail } from '@tetherchat/shared';
@@ -64,16 +64,19 @@ export function ForwardDialog({
       .map((conversation) => ({
         id: conversation.id,
         dm: true,
-        title: conversationTitle(conversation, currentUserId, t('dm.savedMessages'), t('dm.aiChat')),
+        title: conversationTitle(conversation, currentUserId, t('dm.savedMessages'), t('dm.aiChat'), t('dm.vpnChat')),
         hint: conversation.isSaved
           ? t('dm.savedHint')
           : conversation.isAi
             ? t('dm.aiHint')
-            : conversation.isGroup
-              ? t('server.membersCount', { count: conversation.members.length })
-              : t('dm.conversation'),
+            : conversation.isVpn
+              ? t('dm.vpnHint')
+              : conversation.isGroup
+                ? t('server.membersCount', { count: conversation.members.length })
+                : t('dm.conversation'),
         saved: Boolean(conversation.isSaved),
         ai: Boolean(conversation.isAi),
+        vpn: Boolean(conversation.isVpn),
       }));
     const channels = details.flatMap((server) =>
       server.channels
@@ -85,11 +88,12 @@ export function ForwardDialog({
           hint: server.name,
           saved: false,
           ai: false,
+          vpn: false,
         })),
     );
     return [...dms, ...channels]
       .filter((target) => !term || `${target.title} ${target.hint}`.toLowerCase().includes(term))
-      .sort((a, b) => Number(b.saved) - Number(a.saved) || Number(b.ai) - Number(a.ai));
+      .sort((a, b) => Number(b.saved) - Number(a.saved) || Number(b.ai) - Number(a.ai) || Number(b.vpn) - Number(a.vpn));
   }, [conversations, currentUserId, details, friends, query, t]);
 
   const sendTo = async (target: { id: string; dm: boolean }) => {
@@ -133,6 +137,8 @@ export function ForwardDialog({
                     <Bookmark size={16} />
                   ) : target.ai ? (
                     <Sparkles size={16} />
+                  ) : target.vpn ? (
+                    <Shield size={16} />
                   ) : target.dm ? null : (
                     <Hash size={16} />
                   )}

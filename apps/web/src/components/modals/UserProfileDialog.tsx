@@ -75,6 +75,9 @@ export function UserProfileDialog({ userId, open, onClose }: UserProfileDialogPr
   const aiConversation = conversations?.find(
     (conversation) => conversation.isAi && conversation.members.some((entry) => entry.id === userId),
   );
+  const vpnConversation = conversations?.find(
+    (conversation) => conversation.isVpn && conversation.members.some((entry) => entry.id === userId),
+  );
 
   const openConversation = (conversationId: string) => {
     navigate(`/channels/${DM_ROUTE}/${conversationId}`);
@@ -85,6 +88,10 @@ export function UserProfileDialog({ userId, open, onClose }: UserProfileDialogPr
   const openDm = () => {
     if (aiConversation) {
       openConversation(aiConversation.id);
+      return;
+    }
+    if (vpnConversation) {
+      openConversation(vpnConversation.id);
       return;
     }
     createConversation.mutate(

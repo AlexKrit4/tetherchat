@@ -502,6 +502,13 @@ private fun DmRow(
         ) {
           Icon(Icons.Outlined.AutoAwesome, contentDescription = null, tint = Color.White)
         }
+      } else if (conversation.isVpn) {
+        Box(
+          Modifier.size(40.dp).clip(CircleShape).background(VpnAccent),
+          contentAlignment = Alignment.Center,
+        ) {
+          Icon(Icons.Outlined.Shield, contentDescription = null, tint = Color.White)
+        }
       } else if (conversation.isGroup) {
         Box(Modifier.size(40.dp).clip(CircleShape).background(Brand), contentAlignment = Alignment.Center) {
           Text(conversation.title(meId).take(1).uppercase(), color = Color.White, fontWeight = FontWeight.SemiBold)
@@ -516,7 +523,7 @@ private fun DmRow(
         Icon(Icons.Outlined.Lock, contentDescription = "Секретный чат", tint = Online, modifier = Modifier.size(15.dp))
         Spacer(Modifier.width(6.dp))
       }
-      if (other != null && !conversation.isGroup && !conversation.isSaved && !conversation.isAi) {
+      if (other != null && !conversation.isGroup && !conversation.isSaved && !conversation.isAi && !conversation.isVpn) {
         PlusName(
           other,
           name = conversation.title(meId),

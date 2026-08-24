@@ -1697,7 +1697,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
 
   fun conversationNeedsFriendship(conversation: DirectConversation?): Boolean {
     if (conversation == null) return false
-    return !conversation.isSaved && !conversation.isAi && !conversation.isGroup
+    return !conversation.isSaved && !conversation.isAi && !conversation.isVpn && !conversation.isGroup
   }
 
   fun canMessageCurrentPeer(): Boolean {
@@ -2200,6 +2200,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     dms = merged.sortedWith(
       compareByDescending<DirectConversation> { it.isSaved }
         .thenByDescending { it.isAi }
+        .thenByDescending { it.isVpn }
         .thenByDescending { it.pinned }
         .thenByDescending { it.lastMessageAt.orEmpty() },
     )
@@ -2248,6 +2249,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
               when {
                 it.isSaved -> "Сохранённые"
                 it.isAi -> "Нейросеть"
+                it.isVpn -> "Enigma VPN"
                 else -> "Личные сообщения"
               },
               true,
