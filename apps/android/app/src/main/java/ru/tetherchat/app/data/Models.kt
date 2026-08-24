@@ -256,7 +256,7 @@ fun DirectConversation.isBotChat(meId: String): Boolean {
   return peer?.username == "tetherai" || peer?.username == "tethervpn"
 }
 
-fun DirectConversation.isVpnBotChat(meId: String): Boolean {
+fun DirectConversation.isVpnBotConversation(meId: String): Boolean {
   if (isVpn) return true
   if (isGroup || isSaved) return false
   return peer(meId)?.username == "tethervpn"

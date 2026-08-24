@@ -67,6 +67,8 @@ import ru.tetherchat.app.data.SessionStore
 import ru.tetherchat.app.data.TetherApi
 import ru.tetherchat.app.data.TotpSetup
 import ru.tetherchat.app.data.can
+import ru.tetherchat.app.data.isBotChat
+import ru.tetherchat.app.data.isVpnBotConversation
 import java.util.UUID
 
 sealed class Screen {
@@ -1715,7 +1717,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
 
   fun isVpnBotChat(): Boolean {
     val conversation = currentConversation ?: return false
-    return conversation.isVpnBotChat(me?.id.orEmpty())
+    return conversation.isVpnBotConversation(me?.id.orEmpty())
   }
 
   fun sendVpnCommand(command: String) {

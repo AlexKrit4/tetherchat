@@ -42,6 +42,7 @@ import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Tag
 import androidx.compose.material.icons.outlined.PersonOff
+import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
@@ -507,7 +508,7 @@ private fun DmRow(
           Modifier.size(40.dp).clip(CircleShape).background(VpnAccent),
           contentAlignment = Alignment.Center,
         ) {
-          Icon(Icons.Outlined.Shield, contentDescription = null, tint = Color.White)
+          Icon(Icons.Outlined.Security, contentDescription = null, tint = Color.White)
         }
       } else if (conversation.isGroup) {
         Box(Modifier.size(40.dp).clip(CircleShape).background(Brand), contentAlignment = Alignment.Center) {

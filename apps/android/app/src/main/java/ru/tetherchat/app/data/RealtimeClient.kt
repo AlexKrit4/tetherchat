@@ -2,6 +2,7 @@ package ru.tetherchat.app.data
 
 import io.socket.client.IO
 import io.socket.client.Socket
+import kotlinx.serialization.Serializable
 import org.json.JSONObject
 import ru.tetherchat.app.BuildConfig
 import java.net.URI
