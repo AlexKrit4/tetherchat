@@ -33,6 +33,8 @@ import androidx.compose.material.icons.outlined.AlternateEmail
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.DeleteForever
+import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.PersonAdd
 import androidx.compose.material.icons.outlined.People
@@ -476,6 +478,8 @@ private fun DmRow(
   val other = conversation.members.firstOrNull { it.id != meId } ?: conversation.members.firstOrNull()
   val unread = model.unread(conversation.id) || model.mentions(conversation.id) > 0
   var menu by remember { mutableStateOf(false) }
+  var confirmDeleteScope by remember { mutableStateOf<String?>(null) }
+  val title = conversation.title(meId)
   Box {
     Row(
       modifier = Modifier
@@ -547,6 +551,26 @@ private fun DmRow(
         },
         leadingIcon = { Icon(Icons.Outlined.PushPin, contentDescription = null) },
       )
+      if (!conversation.lockedInList) {
+        DropdownMenuItem(
+          text = { Text("Удалить для себя", color = Danger) },
+          onClick = {
+            menu = false
+            confirmDeleteScope = "me"
+          },
+          leadingIcon = { Icon(Icons.Outlined.DeleteOutline, contentDescription = null, tint = Danger) },
+        )
+        if (!conversation.isGroup || conversation.ownerId == meId) {
+          DropdownMenuItem(
+            text = { Text("Удалить для всех", color = Danger) },
+            onClick = {
+              menu = false
+              confirmDeleteScope = "all"
+            },
+            leadingIcon = { Icon(Icons.Outlined.DeleteForever, contentDescription = null, tint = Danger) },
+          )
+        }
+      }
       if (!conversation.isGroup && other != null && !conversation.isAi) {
         DropdownMenuItem(
           text = { Text("Заблокировать", color = Danger) },
@@ -557,6 +581,29 @@ private fun DmRow(
           leadingIcon = { Icon(Icons.Outlined.PersonOff, contentDescription = null, tint = Danger) },
         )
       }
+    }
+    confirmDeleteScope?.let { scope ->
+      val message = when {
+        scope == "all" && conversation.isGroup -> "Удалить группу «$title» для всех участников?"
+        scope == "all" -> "Удалить чат «$title» для всех? История будет удалена у обоих."
+        else -> "Удалить чат «$title» только у вас?"
+      }
+      AlertDialog(
+        onDismissRequest = { confirmDeleteScope = null },
+        title = { Text("Удалить чат") },
+        text = { Text(message) },
+        confirmButton = {
+          TextButton(
+            onClick = {
+              confirmDeleteScope = null
+              model.deleteConversation(conversation, scope)
+            },
+          ) { Text("Удалить", color = Danger) }
+        },
+        dismissButton = {
+          TextButton(onClick = { confirmDeleteScope = null }) { Text("Отмена") }
+        },
+      )
     }
   }
 }

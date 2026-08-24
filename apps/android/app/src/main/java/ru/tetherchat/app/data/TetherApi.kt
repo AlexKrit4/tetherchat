@@ -170,6 +170,7 @@ class TetherApi(private val session: SessionStore) {
   fun createSecretConversation(userId: String, keys: List<WrappedSecretKey>): DirectConversation =
     post("/api/dms/secret", SecretConversationBody(userId, keys))
   fun leaveGroup(id: String) = postRaw<Unit>("/api/dms/$id/leave", "{}")
+  fun deleteConversation(id: String, scope: String) = delete("/api/dms/$id?scope=$scope")
   fun pinConversation(id: String): DirectConversation = postRaw("/api/dms/$id/pin", "{}")
   fun unpinConversation(id: String): DirectConversation = deleteJson("/api/dms/$id/pin")
   fun chatMedia(channelId: String, dm: Boolean): List<ChatMediaItem> =

@@ -121,6 +121,14 @@ export function MessageList() {
     virtuoso.current?.scrollToIndex({ index: last, align: 'end', behavior: 'auto' });
   }, []);
 
+  const stickToBottom = useCallback(() => {
+    jumpToBottom();
+    requestAnimationFrame(() => {
+      jumpToBottom();
+      window.setTimeout(jumpToBottom, 50);
+    });
+  }, [jumpToBottom]);
+
   useEffect(() => {
     atBottomRef.current = true;
     setAtBottom(true);
@@ -138,16 +146,16 @@ export function MessageList() {
 
   useEffect(() => {
     if (!atBottomRef.current || loadingHistoryRef.current) return;
-    jumpToBottom();
-  }, [keyboardOffset, jumpToBottom]);
+    stickToBottom();
+  }, [keyboardOffset, stickToBottom]);
 
   useEffect(() => {
     if (scrollBottomNonce === 0) return;
     atBottomRef.current = true;
     setAtBottom(true);
     loadingHistoryRef.current = false;
-    jumpToBottom();
-  }, [scrollBottomNonce, jumpToBottom]);
+    stickToBottom();
+  }, [scrollBottomNonce, stickToBottom]);
 
   const newestId = messages[messages.length - 1]?.id;
   const newestMine = messages[messages.length - 1]?.authorId === currentUser?.id;
@@ -156,9 +164,21 @@ export function MessageList() {
     if (newestMine || atBottomRef.current) {
       atBottomRef.current = true;
       setAtBottom(true);
-      jumpToBottom();
+      stickToBottom();
     }
-  }, [newestId, newestMine, jumpToBottom]);
+  }, [newestId, newestMine, stickToBottom]);
+
+  const lastEntry = entries[entries.length - 1];
+  useEffect(() => {
+    if (!atBottomRef.current || loadingHistoryRef.current || !lastEntry) return;
+    stickToBottom();
+  }, [
+    lastEntry?.message.id,
+    lastEntry?.message.updatedAt,
+    lastEntry?.message.reactions.length,
+    lastEntry?.message.attachments.length,
+    stickToBottom,
+  ]);
 
   const jumpToMessage = useCallback(
     (messageId: string) => {
@@ -202,7 +222,7 @@ export function MessageList() {
             void fetchNextPage();
           }
         }}
-        increaseViewportBy={{ top: 600, bottom: 200 }}
+        increaseViewportBy={{ top: 600, bottom: 320 }}
         components={{
           Header: () => (
             <div className="pt-4">
@@ -217,7 +237,7 @@ export function MessageList() {
               )}
             </div>
           ),
-          Footer: () => <div className="h-4" />,
+          Footer: () => <div className="h-10 shrink-0" aria-hidden />,
         }}
         itemContent={(_index, entry) => {
           const { message } = entry;

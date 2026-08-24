@@ -85,6 +85,7 @@ export interface ServerToClientEvents {
   'role:update': (payload: { serverId: string; roles: Role[] }) => void;
   'dm:create': (payload: DirectConversation) => void;
   'dm:update': (payload: DirectConversation) => void;
+  'dm:remove': (payload: { conversationId: string }) => void;
   'friend:incoming': (payload: { count: number }) => void;
   'friend:accepted': (payload: { conversation: DirectConversation }) => void;
   'receipt:update': (payload: {

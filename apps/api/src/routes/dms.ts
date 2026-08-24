@@ -45,7 +45,7 @@ export async function dmRoutes(app: FastifyInstance) {
     await ensureSavedConversation(request.userId);
     await ensureAiConversation(request.userId);
     const conversations = await prisma.directConversation.findMany({
-      where: { members: { some: { userId: request.userId, leftAt: null } } },
+      where: { members: { some: { userId: request.userId, leftAt: null, hiddenAt: null } } },
       include: conversationInclude,
       orderBy: [
         { isSaved: 'desc' },
@@ -181,7 +181,12 @@ export async function dmRoutes(app: FastifyInstance) {
       }
       const existing = await findDirectConversation(request.userId, otherIds[0]);
       if (existing) {
-        reply.send(toConversation(existing, request.userId));
+        await unhideConversationForUser(existing.id, request.userId);
+        const refreshed = await prisma.directConversation.findUniqueOrThrow({
+          where: { id: existing.id },
+          include: conversationInclude,
+        });
+        reply.send(toConversation(refreshed, request.userId));
         return;
       }
     } else {
@@ -213,6 +218,7 @@ export async function dmRoutes(app: FastifyInstance) {
   app.get('/:conversationId', async (request) => {
     const { conversationId } = conversationParam.parse(request.params);
     await assertConversationMember(conversationId, request.userId);
+    await unhideConversationForUser(conversationId, request.userId);
     const conversation = await prisma.directConversation.findUniqueOrThrow({
       where: { id: conversationId },
       include: conversationInclude,
@@ -362,9 +368,84 @@ export async function dmRoutes(app: FastifyInstance) {
 
     await prisma.directConversationMember.update({
       where: { conversationId_userId: { conversationId, userId: request.userId } },
-      data: { leftAt: new Date() },
+      data: { leftAt: new Date(), pinnedAt: null },
     });
 
+    emitToUser(request.userId, 'dm:remove', { conversationId });
+    reply.status(204).send();
+  });
+
+  app.delete('/:conversationId', async (request, reply) => {
+    const { conversationId } = conversationParam.parse(request.params);
+    const { scope } = z.object({ scope: z.enum(['me', 'all']) }).parse(request.query);
+
+    const conversation = await prisma.directConversation.findUniqueOrThrow({
+      where: { id: conversationId },
+      include: { members: { select: { userId: true, leftAt: true } } },
+    });
+
+    if (conversation.isSaved || conversation.isAi) {
+      throw ApiError.badRequest('This chat cannot be deleted');
+    }
+
+    const membership = conversation.members.find((member) => member.userId === request.userId);
+    if (!membership || membership.leftAt) {
+      throw ApiError.forbidden('You are not part of this conversation');
+    }
+
+    const activeMemberIds = conversation.members
+      .filter((member) => !member.leftAt)
+      .map((member) => member.userId);
+
+    if (scope === 'me') {
+      if (conversation.isGroup) {
+        await prisma.directConversationMember.update({
+          where: { conversationId_userId: { conversationId, userId: request.userId } },
+          data: { leftAt: new Date(), pinnedAt: null },
+        });
+      } else {
+        await prisma.directConversationMember.update({
+          where: { conversationId_userId: { conversationId, userId: request.userId } },
+          data: { hiddenAt: new Date(), pinnedAt: null },
+        });
+      }
+      emitToUser(request.userId, 'dm:remove', { conversationId });
+      reply.status(204).send();
+      return;
+    }
+
+    if (conversation.isGroup) {
+      if (conversation.ownerId !== request.userId) {
+        throw ApiError.forbidden('Only the group owner can delete the group for everyone');
+      }
+      await prisma.directConversation.delete({ where: { id: conversationId } });
+      for (const userId of activeMemberIds) {
+        emitToUser(userId, 'dm:remove', { conversationId });
+      }
+      reply.status(204).send();
+      return;
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.message.deleteMany({ where: { conversationId } });
+      await tx.directConversation.update({
+        where: { id: conversationId },
+        data: { lastMessageAt: null },
+      });
+      await tx.directConversationMember.updateMany({
+        where: { conversationId, leftAt: null },
+        data: {
+          hiddenAt: new Date(),
+          pinnedAt: null,
+          lastReadMessageId: null,
+          lastReadAt: null,
+        },
+      });
+    });
+
+    for (const userId of activeMemberIds) {
+      emitToUser(userId, 'dm:remove', { conversationId });
+    }
     reply.status(204).send();
   });
 
@@ -421,6 +502,13 @@ async function ensureSavedConversation(userId: string) {
   await joinUserToRoom(userId, socketRooms.conversation(created.id));
   emitToUser(userId, 'dm:create', toConversation(created, userId));
   return created;
+}
+
+async function unhideConversationForUser(conversationId: string, userId: string) {
+  await prisma.directConversationMember.updateMany({
+    where: { conversationId, userId, hiddenAt: { not: null } },
+    data: { hiddenAt: null },
+  });
 }
 
 async function findDirectConversation(userA: string, userB: string) {

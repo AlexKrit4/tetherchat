@@ -159,6 +159,13 @@ export function useRealtime(): ConnectionState {
       });
     };
 
+    const onDmRemove = ({ conversationId }: { conversationId: string }) => {
+      client.setQueryData<DirectConversation[]>(queryKeys.dms, (current) =>
+        current?.filter((row) => row.id !== conversationId),
+      );
+      client.removeQueries({ queryKey: queryKeys.dm(conversationId) });
+    };
+
     const onFriendIncoming = () => {
       void client.invalidateQueries({ queryKey: queryKeys.friendIncoming });
     };
@@ -219,6 +226,7 @@ export function useRealtime(): ConnectionState {
     socket.on('server:join', () => void client.invalidateQueries({ queryKey: queryKeys.servers }));
     socket.on('dm:create', onDmCreate);
     socket.on('dm:update', onDmUpdate);
+    socket.on('dm:remove', onDmRemove);
     socket.on('friend:incoming', onFriendIncoming);
     socket.on('friend:accepted', onFriendIncoming);
     socket.on('receipt:update', onReceipt);
@@ -255,6 +263,7 @@ export function useRealtime(): ConnectionState {
       socket.removeAllListeners('server:join');
       socket.removeAllListeners('dm:create');
       socket.removeAllListeners('dm:update');
+      socket.removeAllListeners('dm:remove');
       socket.removeAllListeners('friend:incoming');
       socket.removeAllListeners('friend:accepted');
       socket.removeAllListeners('receipt:update');

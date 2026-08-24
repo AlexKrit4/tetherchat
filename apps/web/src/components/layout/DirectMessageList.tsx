@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Ban, Bookmark, LockKeyhole, Pin, Plus, Sparkles, Users, X } from 'lucide-react';
+import { Ban, Bookmark, LockKeyhole, Pin, Plus, Sparkles, Trash2, Users } from 'lucide-react';
 import type { DirectConversation } from '@tetherchat/shared';
 import { cn } from '@/lib/cn';
 import { DM_ROUTE } from '@/hooks/useChatTarget';
-import { conversationTitle, useConversations, useLeaveConversation } from '@/hooks/useDms';
+import { conversationTitle, useConversations, useDeleteConversation } from '@/hooks/useDms';
 import { Avatar } from '@/components/ui/Avatar';
 import { IconButton } from '@/components/ui/IconButton';
 import { SidebarSkeleton } from '@/components/ui/Skeleton';
@@ -32,7 +32,7 @@ export function DirectMessageList({
   const currentUserId = useAuthStore((state) => state.user?.id);
   const { data: conversations, isLoading } = useConversations();
   const navigate = useNavigate();
-  const leave = useLeaveConversation();
+  const remove = useDeleteConversation();
   const pin = usePinConversation();
   const block = useBlockUser();
   const [newOpen, setNewOpen] = useState(false);
@@ -42,6 +42,13 @@ export function DirectMessageList({
     const title = conversationTitle(conversation, currentUserId, t('dm.savedMessages'), t('dm.aiChat'));
     const peer = conversation.members.find((member) => member.id !== currentUserId);
     const locked = Boolean(conversation.isSaved || conversation.isAi);
+
+    const afterDelete = () => {
+      if (conversation.id === activeConversationId) {
+        navigate(`/channels/${DM_ROUTE}`);
+      }
+    };
+
     const items: MenuItem[] = [];
     if (!locked) {
       items.push({
@@ -53,13 +60,48 @@ export function DirectMessageList({
     }
     if (conversation.isGroup) {
       items.push({
-        id: 'leave',
-        label: t('nav.leaveGroup'),
-        icon: <X size={16} aria-hidden />,
+        id: 'delete-me',
+        label: t('chat.deleteForMe'),
+        icon: <Trash2 size={16} aria-hidden />,
         tone: 'danger',
-        onSelect: () => leave.mutate(conversation.id),
+        onSelect: () => {
+          if (!window.confirm(t('chat.deleteForMeConfirm', { name: title }))) return;
+          remove.mutate({ conversationId: conversation.id, scope: 'me' }, { onSuccess: afterDelete });
+        },
       });
+      if (conversation.ownerId === currentUserId) {
+        items.push({
+          id: 'delete-all',
+          label: t('chat.deleteForAll'),
+          icon: <Trash2 size={16} aria-hidden />,
+          tone: 'danger',
+          onSelect: () => {
+            if (!window.confirm(t('chat.deleteGroupForAllConfirm', { name: title }))) return;
+            remove.mutate({ conversationId: conversation.id, scope: 'all' }, { onSuccess: afterDelete });
+          },
+        });
+      }
     } else if (peer && !locked) {
+      items.push({
+        id: 'delete-me',
+        label: t('chat.deleteForMe'),
+        icon: <Trash2 size={16} aria-hidden />,
+        tone: 'danger',
+        onSelect: () => {
+          if (!window.confirm(t('chat.deleteForMeConfirm', { name: title }))) return;
+          remove.mutate({ conversationId: conversation.id, scope: 'me' }, { onSuccess: afterDelete });
+        },
+      });
+      items.push({
+        id: 'delete-all',
+        label: t('chat.deleteForAll'),
+        icon: <Trash2 size={16} aria-hidden />,
+        tone: 'danger',
+        onSelect: () => {
+          if (!window.confirm(t('chat.deleteForAllConfirm', { name: title }))) return;
+          remove.mutate({ conversationId: conversation.id, scope: 'all' }, { onSuccess: afterDelete });
+        },
+      });
       items.push({
         id: 'block',
         label: t('settings.blockUser'),
@@ -148,6 +190,7 @@ function DmRow({
         type="button"
         {...longPress}
         onContextMenu={(event) => {
+          if (locked) return;
           event.preventDefault();
           onOpenMenu(event, conversation);
         }}

@@ -416,6 +416,8 @@ model DirectConversationMember {
   wallpaperUrl      String?
   joinedAt          DateTime  @default(now())
   leftAt            DateTime?
+  /** Per-user hide: chat disappears from the list until a new message or reopen. */
+  hiddenAt          DateTime?
 
   conversation DirectConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)

@@ -24,6 +24,7 @@ import { getConfig, isTest } from '../config.js';
 import { blockedPeerIds, isBlockedEitherWay } from '../lib/blocks.js';
 import { areFriends } from '../lib/friends.js';
 import { getAiBotUserId } from '../lib/aiBot.js';
+import { emitConversationRefresh } from '../lib/conversations.js';
 
 export interface CreateMessageInput {
   authorId: string;
@@ -180,6 +181,7 @@ export async function createMessage(input: CreateMessageInput): Promise<Message>
   const durations = input.attachmentDurations ?? {};
 
   const created = await prisma.$transaction(async (tx) => {
+    let unhiddenMembers = 0;
     const message = await tx.message.create({
       data: {
         channelId: target.kind === 'channel' ? target.id : null,
@@ -244,15 +246,23 @@ export async function createMessage(input: CreateMessageInput): Promise<Message>
         where: { conversationId: target.id, userId: input.authorId, leftAt: null },
         data: { lastReadMessageId: message.id, lastReadAt: message.createdAt },
       });
+      await tx.directConversationMember.updateMany({
+        where: { conversationId: target.id, leftAt: null, hiddenAt: { not: null } },
+        data: { hiddenAt: null },
+      }).then((result) => {
+        unhiddenMembers = result.count;
+      });
     }
 
-    return message;
+    return { message, unhiddenMembers };
   });
+
+  const { message: createdMessage, unhiddenMembers } = created;
 
   const full =
     attachmentIds.length || forwarded?.attachments.length
-      ? await prisma.message.findUniqueOrThrow({ where: { id: created.id }, include: messageInclude })
-      : created;
+      ? await prisma.message.findUniqueOrThrow({ where: { id: createdMessage.id }, include: messageInclude })
+      : createdMessage;
 
   const payload: Message = {
     ...toMessage(full, null),
@@ -269,6 +279,9 @@ export async function createMessage(input: CreateMessageInput): Promise<Message>
     await bumpMentionCounts(target.id, mentionTargets);
   } else {
     emitToConversation(target.id, 'message:new', payload);
+    if (unhiddenMembers > 0) {
+      void emitConversationRefresh(target.id);
+    }
   }
 
   await notifyRecipients(target, payload, mentionsEveryone, mentionedUserIds);
@@ -310,6 +323,7 @@ export async function createEncryptedMessage(input: {
   }
 
   const created = await prisma.$transaction(async (tx) => {
+    let unhiddenMembers = 0;
     const message = await tx.message.create({
       data: {
         conversationId: input.conversationId,
@@ -329,14 +343,24 @@ export async function createEncryptedMessage(input: {
       where: { conversationId: input.conversationId, userId: input.authorId, leftAt: null },
       data: { lastReadMessageId: message.id, lastReadAt: message.createdAt },
     });
-    return message;
+    const unhide = await tx.directConversationMember.updateMany({
+      where: { conversationId: input.conversationId, leftAt: null, hiddenAt: { not: null } },
+      data: { hiddenAt: null },
+    });
+    unhiddenMembers = unhide.count;
+    return { message, unhiddenMembers };
   });
 
+  const { message: createdMessage, unhiddenMembers } = created;
+
   const payload: Message = {
-    ...toMessage(created, null),
+    ...toMessage(createdMessage, null),
     ...(input.nonce ? { nonce: input.nonce } : {}),
   };
   emitToConversation(input.conversationId, 'message:new', payload);
+  if (unhiddenMembers > 0) {
+    void emitConversationRefresh(input.conversationId);
+  }
   await notifyRecipients(target, payload, false, []);
   return payload;
 }

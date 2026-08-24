@@ -39,6 +39,20 @@ export function useLeaveConversation() {
   });
 }
 
+export function useDeleteConversation() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ conversationId, scope }: { conversationId: string; scope: 'me' | 'all' }) =>
+      api.delete(`/api/dms/${conversationId}`, { query: { scope } }),
+    onSuccess: (_data, { conversationId }) => {
+      client.setQueryData<DirectConversation[]>(queryKeys.dms, (current) =>
+        current?.filter((row) => row.id !== conversationId),
+      );
+      client.removeQueries({ queryKey: queryKeys.dm(conversationId) });
+    },
+  });
+}
+
 export function useUserSearch(query: string) {
   return useQuery({
     queryKey: queryKeys.userSearch(query),

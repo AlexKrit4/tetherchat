@@ -1583,6 +1583,22 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     }
   }
 
+  fun deleteConversation(conversation: DirectConversation, scope: String) {
+    if (conversation.lockedInList) return
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.deleteConversation(conversation.id, scope) } }
+        .onSuccess {
+          removeDm(conversation.id)
+          if (currentConversation?.id == conversation.id) {
+            messages = emptyList()
+            currentConversation = null
+            screen = Screen.Home
+          }
+        }
+        .onFailure { error = it.userMessage() }
+    }
+  }
+
   fun toggleMute() {
     val chat = screen as? Screen.Chat ?: return
     if (chat.dm) return
@@ -2137,6 +2153,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
         },
         onDmCreate = { conversation -> viewModelScope.launch { upsertDm(conversation) } },
         onDmUpdate = { conversation -> viewModelScope.launch { upsertDm(conversation) } },
+        onDmRemove = { event -> viewModelScope.launch { removeDm(event.conversationId) } },
         onFriendIncoming = { event -> viewModelScope.launch { incomingFriendCount = event.count } },
         onFriendAccepted = { event ->
           viewModelScope.launch {
@@ -2186,6 +2203,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
         .thenByDescending { it.pinned }
         .thenByDescending { it.lastMessageAt.orEmpty() },
     )
+  }
+
+  private fun removeDm(conversationId: String) {
+    dms = dms.filterNot { it.id == conversationId }
+    if (currentConversation?.id == conversationId) {
+      currentConversation = null
+      messages = emptyList()
+      if (screen is Screen.Chat) screen = Screen.Home
+    }
   }
 
   private fun applyReceipt(event: ReceiptUpdate) {

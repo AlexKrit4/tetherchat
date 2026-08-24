@@ -216,6 +216,11 @@ export const ru = {
     markSpoiler: 'Спойлер',
     pinChat: 'Закрепить',
     unpinChat: 'Открепить',
+    deleteForMe: 'Удалить для себя',
+    deleteForAll: 'Удалить для всех',
+    deleteForMeConfirm: 'Удалить чат «{name}» только у вас? История сохранится у собеседника.',
+    deleteForAllConfirm: 'Удалить чат «{name}» для всех? История будет удалена у обоих.',
+    deleteGroupForAllConfirm: 'Удалить группу «{name}» для всех участников?',
   },
   call: {
     start: 'Позвонить',
@@ -761,6 +766,11 @@ export const en = {
     markSpoiler: 'Spoiler',
     pinChat: 'Pin',
     unpinChat: 'Unpin',
+    deleteForMe: 'Delete for me',
+    deleteForAll: 'Delete for everyone',
+    deleteForMeConfirm: 'Delete chat "{name}" for you only? The other person will keep the history.',
+    deleteForAllConfirm: 'Delete chat "{name}" for everyone? History will be removed for both.',
+    deleteGroupForAllConfirm: 'Delete group "{name}" for all members?',
   },
   call: {
     start: 'Call',
