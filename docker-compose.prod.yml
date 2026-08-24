@@ -108,6 +108,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
       VPN_BRAND_NAME: ${VPN_BRAND_NAME:-Enigma VPN}
       VPN_SUBSCRIPTION_PREFIX: ${VPN_SUBSCRIPTION_PREFIX:-https://tetherchat.ru/api/vpn/s}
+      VPN_PAYMENT_SUCCESS_URL: ${VPN_PAYMENT_SUCCESS_URL:-https://bigwinzone.ru/dashboard?paid=1}
       MARZBAN_URL: ${MARZBAN_URL:-http://host.docker.internal:8000}
       MARZBAN_USERNAME: ${MARZBAN_USERNAME:-admin}
       MARZBAN_PASSWORD: ${MARZBAN_PASSWORD:-}

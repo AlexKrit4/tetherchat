@@ -55,6 +55,7 @@ export function createYooMoneyPaymentUrl(input: {
   if (!yoomoneyWallet) {
     return `${config.PUBLIC_WEB_ORIGIN}/api/vpn/pay/mock?label=${encodeURIComponent(input.label)}`;
   }
+  const successUrl = config.VPN_PAYMENT_SUCCESS_URL;
   const params = new URLSearchParams({
     receiver: yoomoneyWallet,
     'quickpay-form': 'shop',
@@ -62,7 +63,7 @@ export function createYooMoneyPaymentUrl(input: {
     paymentType: 'SB',
     sum: input.amount,
     label: input.label,
-    successURL: `${config.PUBLIC_WEB_ORIGIN}/channels/@me`,
+    successURL: successUrl,
   });
   return `https://yoomoney.ru/quickpay/confirm.xml?${params.toString()}`;
 }

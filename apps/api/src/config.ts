@@ -82,6 +82,8 @@ const schema = z.object({
   /** Enigma VPN bot (Happ + Marzban + YooMoney) */
   VPN_BRAND_NAME: z.string().default('Enigma VPN'),
   VPN_SUBSCRIPTION_PREFIX: z.string().default('https://tetherchat.ru/api/vpn/s'),
+  /** After YooMoney payment, redirect user here (Enigma site). */
+  VPN_PAYMENT_SUCCESS_URL: z.string().default('https://bigwinzone.ru/dashboard?paid=1'),
   MARZBAN_URL: z.string().default('http://host.docker.internal:8000'),
   MARZBAN_USERNAME: z.string().default('admin'),
   MARZBAN_PASSWORD: z.string().default(''),
