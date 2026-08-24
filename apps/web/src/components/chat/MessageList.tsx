@@ -174,9 +174,10 @@ export function MessageList() {
     stickToBottom();
   }, [
     lastEntry?.message.id,
-    lastEntry?.message.updatedAt,
+    lastEntry?.message.editedAt,
     lastEntry?.message.reactions.length,
     lastEntry?.message.attachments.length,
+    lastEntry?.message.previews.length,
     stickToBottom,
   ]);
 
