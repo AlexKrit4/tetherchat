@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Check, UserPlus } from 'lucide-react';
 import type { PublicUser } from '@tetherchat/shared';
 import { useT } from '@/i18n/useT';
-import { useSendFriendRequest } from '@/hooks/useFriends';
+import { useSendFriendRequest, useFriends } from '@/hooks/useFriends';
 import { useUserSearch } from '@/hooks/useDms';
 import { AdaptiveDialog } from '@/components/ui/AdaptiveDialog';
 import { Avatar } from '@/components/ui/Avatar';
@@ -29,7 +29,11 @@ export function FriendRequestDialog({ open, onClose }: { open: boolean; onClose:
     }
   }, [open]);
 
+  const { data: friends } = useFriends();
   const { data: results, isFetching } = useUserSearch(debounced);
+  const visibleResults = (results ?? []).filter(
+    (user) => !friends?.some((friend) => friend.id === user.id),
+  );
 
   return (
     <AdaptiveDialog
@@ -73,9 +77,9 @@ export function FriendRequestDialog({ open, onClose }: { open: boolean; onClose:
             </div>
           ) : debounced.trim().length < 2 ? (
             <p className="py-6 text-center text-sm text-text-muted">{t('dm.searchHintShort')}</p>
-          ) : results && results.length > 0 ? (
+          ) : visibleResults.length > 0 ? (
             <ul className="flex flex-col gap-0.5">
-              {results.map((user) => {
+              {visibleResults.map((user) => {
                 const selected = picked?.id === user.id;
                 return (
                   <li key={user.id}>

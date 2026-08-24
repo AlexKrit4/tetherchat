@@ -6,6 +6,7 @@ import { Permission, can } from '@tetherchat/shared';
 import { api, errorMessage } from '@/lib/api';
 import { queryKeys } from '@/lib/queryKeys';
 import { conversationTitle, useConversations } from '@/hooks/useDms';
+import { conversationNeedsFriendship, isFriendOf, useFriends } from '@/hooks/useFriends';
 import { useServers } from '@/hooks/useServers';
 import { messagesPath, useNonce } from '@/hooks/useMessages';
 import { Modal } from '@/components/ui/Modal';
@@ -26,6 +27,7 @@ export function ForwardDialog({
   const nonce = useNonce();
   const currentUserId = useAuthStore((state) => state.user?.id);
   const { data: conversations } = useConversations();
+  const { data: friends } = useFriends();
   const { data: servers } = useServers();
   const [query, setQuery] = useState('');
   const [details, setDetails] = useState<ServerDetail[]>([]);
@@ -53,20 +55,26 @@ export function ForwardDialog({
 
   const targets = useMemo(() => {
     const term = query.trim().toLowerCase();
-    const dms = (conversations ?? []).map((conversation) => ({
-      id: conversation.id,
-      dm: true,
-      title: conversationTitle(conversation, currentUserId, t('dm.savedMessages'), t('dm.aiChat')),
-      hint: conversation.isSaved
-        ? t('dm.savedHint')
-        : conversation.isAi
-          ? t('dm.aiHint')
-          : conversation.isGroup
-            ? t('server.membersCount', { count: conversation.members.length })
-            : t('dm.conversation'),
-      saved: Boolean(conversation.isSaved),
-      ai: Boolean(conversation.isAi),
-    }));
+    const dms = (conversations ?? [])
+      .filter((conversation) => {
+        if (!conversationNeedsFriendship(conversation)) return true;
+        const peer = conversation.members.find((member) => member.id !== currentUserId);
+        return isFriendOf(friends, peer?.id);
+      })
+      .map((conversation) => ({
+        id: conversation.id,
+        dm: true,
+        title: conversationTitle(conversation, currentUserId, t('dm.savedMessages'), t('dm.aiChat')),
+        hint: conversation.isSaved
+          ? t('dm.savedHint')
+          : conversation.isAi
+            ? t('dm.aiHint')
+            : conversation.isGroup
+              ? t('server.membersCount', { count: conversation.members.length })
+              : t('dm.conversation'),
+        saved: Boolean(conversation.isSaved),
+        ai: Boolean(conversation.isAi),
+      }));
     const channels = details.flatMap((server) =>
       server.channels
         .filter(() => can(server.permissions, Permission.SEND_MESSAGES))
@@ -82,7 +90,7 @@ export function ForwardDialog({
     return [...dms, ...channels]
       .filter((target) => !term || `${target.title} ${target.hint}`.toLowerCase().includes(term))
       .sort((a, b) => Number(b.saved) - Number(a.saved) || Number(b.ai) - Number(a.ai));
-  }, [conversations, currentUserId, details, query, t]);
+  }, [conversations, currentUserId, details, friends, query, t]);
 
   const sendTo = async (target: { id: string; dm: boolean }) => {
     if (!message) return;

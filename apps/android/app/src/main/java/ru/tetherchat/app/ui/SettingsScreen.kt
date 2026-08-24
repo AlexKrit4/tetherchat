@@ -447,8 +447,31 @@ fun UserProfileScreen(model: AppViewModel) {
     Text(user.label, color = TextPrimary, fontSize = 22.sp, fontWeight = FontWeight.Bold)
     Text("@${user.username}", color = TextMuted)
     user.bio?.takeIf { it.isNotBlank() }?.let { Text(it, color = TextPrimary) }
-    Button(onClick = model::openDmFromProfile, modifier = Modifier.fillMaxWidth()) { Text("Написать") }
     if (user.id != model.me?.id) {
+      val incoming = model.incomingRequestFrom(user.id)
+      val requestPending = user.id in model.pendingOutgoingFriendIds
+      val isAiPeer = model.dms.any { it.isAi && it.members.any { member -> member.id == user.id } }
+      when {
+        isAiPeer || model.isFriend(user.id) -> {
+          Button(onClick = model::openDmFromProfile, modifier = Modifier.fillMaxWidth()) {
+            Text("Написать")
+          }
+        }
+        incoming != null -> {
+          Button(onClick = model::acceptFriendFromProfile, modifier = Modifier.fillMaxWidth()) {
+            Text("Принять заявку")
+          }
+        }
+        else -> {
+          Button(
+            onClick = model::addFriendFromProfile,
+            enabled = !requestPending && !model.busy,
+            modifier = Modifier.fillMaxWidth(),
+          ) {
+            Text(if (requestPending) "Заявка отправлена" else "Добавить в друзья")
+          }
+        }
+      }
       Button(
         onClick = { model.blockUser(user.id) },
         colors = ButtonDefaults.buttonColors(containerColor = Danger),

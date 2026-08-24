@@ -247,6 +247,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     private set
   var friends by mutableStateOf<List<PublicUser>>(emptyList())
     private set
+  var pendingOutgoingFriendIds by mutableStateOf(setOf<String>())
+    private set
   var totpTicket by mutableStateOf<String?>(null)
   var totpSetup by mutableStateOf<TotpSetup?>(null)
   var adminCredentials by mutableStateOf<AdminCredentials?>(null)
@@ -646,9 +648,17 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   fun openProfile(userId: String) {
     screen = Screen.UserProfile(userId)
     viewModelScope.launch {
-      runCatching { withContext(Dispatchers.IO) { api.user(userId) } }
-        .onSuccess { profileUser = it }
-        .onFailure { error = it.userMessage() }
+      runCatching {
+        withContext(Dispatchers.IO) {
+          Triple(api.user(userId), api.friends(), api.incomingFriends())
+        }
+      }.onSuccess { (user, acceptedFriends, incoming) ->
+        profileUser = user
+        friends = acceptedFriends
+        incomingFriends = incoming
+        incomingFriendCount = incoming.size
+        pendingOutgoingFriendIds = pendingOutgoingFriendIds - acceptedFriends.map { it.id }.toSet()
+      }.onFailure { error = it.userMessage() }
     }
   }
 
@@ -729,12 +739,24 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   fun sendFriendRequest(user: PublicUser) {
     viewModelScope.launch {
       runCatching { withContext(Dispatchers.IO) { api.sendFriendRequest(user.id) } }
-        .onSuccess {
+        .onSuccess { result ->
           showNewDm = false
           searchQuery = ""
           searchResults = emptyList()
           selectedDmUsers = emptyList()
-          error = "Заявка отправлена"
+          if (result.accepted) {
+            pendingOutgoingFriendIds = pendingOutgoingFriendIds - user.id
+            runCatching {
+              withContext(Dispatchers.IO) { api.friends() to api.dms() }
+            }.onSuccess { (acceptedFriends, conversations) ->
+              friends = acceptedFriends
+              dms = conversations
+            }
+            error = "Теперь вы друзья"
+          } else {
+            pendingOutgoingFriendIds = pendingOutgoingFriendIds + user.id
+            error = "Заявка отправлена"
+          }
         }
         .onFailure { error = it.userMessage() }
     }
@@ -1433,9 +1455,39 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     showChannelSettings = true
   }
 
+  fun isFriend(userId: String): Boolean = friends.any { it.id == userId }
+
+  fun incomingRequestFrom(userId: String): FriendRequest? =
+    incomingFriends.find { it.from.id == userId }
+
+  fun conversationNeedsFriendship(conversation: DirectConversation?): Boolean {
+    if (conversation == null) return false
+    return !conversation.isSaved && !conversation.isAi && !conversation.isGroup
+  }
+
+  fun canMessageCurrentPeer(): Boolean {
+    val conversation = currentConversation ?: return true
+    if (!conversationNeedsFriendship(conversation)) return true
+    val meId = me?.id ?: return true
+    val peer = conversation.peer(meId) ?: return true
+    return isFriend(peer.id)
+  }
+
   fun openDmFromProfile() {
     val user = profileUser ?: return
+    if (user.id == me?.id) return
     startDm(user)
+  }
+
+  fun addFriendFromProfile() {
+    val user = profileUser ?: return
+    sendFriendRequest(user)
+  }
+
+  fun acceptFriendFromProfile() {
+    val user = profileUser ?: return
+    val request = incomingRequestFrom(user.id) ?: return
+    acceptFriend(request)
   }
 
   fun updateDraft(text: String) {
@@ -1941,7 +1993,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
       runCatching {
         withContext(Dispatchers.IO) {
           val meId = me?.id.orEmpty()
-          val dmTargets = dms.map {
+          val dmTargets = dms.filter { conversation ->
+            !conversationNeedsFriendship(conversation) ||
+              conversation.peer(meId)?.id?.let(::isFriend) == true
+          }.map {
             ForwardTarget(
               it.id,
               it.title(meId),

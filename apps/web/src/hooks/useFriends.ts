@@ -7,6 +7,22 @@ import { errorMessage } from '@/lib/api';
 import { t } from '@/i18n';
 import { sortDirectConversations } from './useDms';
 
+/** 1:1 chats (including secret) require an accepted friendship. Saved / AI / groups do not. */
+export function conversationNeedsFriendship(
+  conversation: DirectConversation | null | undefined,
+): boolean {
+  if (!conversation) return false;
+  return !conversation.isSaved && !conversation.isAi && !conversation.isGroup;
+}
+
+export function isFriendOf(
+  friends: PublicUser[] | undefined,
+  userId: string | undefined,
+): boolean {
+  if (!friends || !userId) return false;
+  return friends.some((friend) => friend.id === userId);
+}
+
 export function useIncomingFriendRequests() {
   return useQuery({
     queryKey: queryKeys.friendIncoming,

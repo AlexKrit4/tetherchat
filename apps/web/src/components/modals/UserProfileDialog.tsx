@@ -1,12 +1,20 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Ban, MessageSquare } from 'lucide-react';
+import { Ban, MessageSquare, UserPlus } from 'lucide-react';
 import type { PublicUser } from '@tetherchat/shared';
 import { api, errorMessage } from '@/lib/api';
 import { memberSince } from '@/lib/time';
 import { useT } from '@/i18n/useT';
 import { DM_ROUTE, useChatTarget } from '@/hooks/useChatTarget';
-import { useCreateConversation } from '@/hooks/useDms';
+import { useConversations, useCreateConversation } from '@/hooks/useDms';
+import {
+  isFriendOf,
+  useAcceptFriendRequest,
+  useFriends,
+  useIncomingFriendRequests,
+  useSendFriendRequest,
+} from '@/hooks/useFriends';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import { useMembers } from '@/hooks/useServers';
 import { AdaptiveDialog } from '@/components/ui/AdaptiveDialog';
@@ -33,8 +41,14 @@ export function UserProfileDialog({ userId, open, onClose }: UserProfileDialogPr
   const pushMobileView = useUiStore((state) => state.pushMobileView);
   const { serverId, server } = useChatTarget();
   const { data: members } = useMembers(serverId);
+  const { data: friends } = useFriends();
+  const { data: incoming } = useIncomingFriendRequests();
+  const { data: conversations } = useConversations();
   const createConversation = useCreateConversation();
+  const sendRequest = useSendFriendRequest();
+  const acceptRequest = useAcceptFriendRequest();
   const block = useBlockUser();
+  const [requestSent, setRequestSent] = useState(false);
 
   const { data: user, isLoading } = useQuery({
     queryKey: ['user', userId],
@@ -42,10 +56,40 @@ export function UserProfileDialog({ userId, open, onClose }: UserProfileDialogPr
     enabled: open,
   });
 
+  useEffect(() => {
+    setRequestSent(false);
+  }, [userId, open]);
+
   const member = members?.find((entry) => entry.userId === userId);
   const roles = (server?.roles ?? [])
     .filter((role) => !role.isDefault && member?.roleIds.includes(role.id))
     .sort((a, b) => b.position - a.position);
+
+  const isFriend = isFriendOf(friends, userId);
+  const incomingRequest = incoming?.find((request) => request.from.id === userId);
+  const aiConversation = conversations?.find(
+    (conversation) => conversation.isAi && conversation.members.some((entry) => entry.id === userId),
+  );
+
+  const openConversation = (conversationId: string) => {
+    navigate(`/channels/${DM_ROUTE}/${conversationId}`);
+    if (isMobile) pushMobileView('chat');
+    onClose();
+  };
+
+  const openDm = () => {
+    if (aiConversation) {
+      openConversation(aiConversation.id);
+      return;
+    }
+    createConversation.mutate(
+      { userIds: [userId] },
+      {
+        onSuccess: (conversation) => openConversation(conversation.id),
+        onError: (error) => toast.error(errorMessage(error)),
+      },
+    );
+  };
 
   return (
     <AdaptiveDialog open={open} onClose={onClose} width="sm">
@@ -123,47 +167,67 @@ export function UserProfileDialog({ userId, open, onClose }: UserProfileDialogPr
 
             {userId !== currentUserId ? (
               <>
-              <Button
-                fullWidth
-                className="mt-4"
-                loading={createConversation.isPending}
-                onClick={() =>
-                  createConversation.mutate(
-                    { userIds: [userId] },
-                    {
-                      onSuccess: (conversation) => {
-                        navigate(`/channels/${DM_ROUTE}/${conversation.id}`);
-                        if (isMobile) pushMobileView('chat');
+                {aiConversation || isFriend ? (
+                  <Button
+                    fullWidth
+                    className="mt-4"
+                    loading={createConversation.isPending}
+                    onClick={openDm}
+                  >
+                    <MessageSquare size={16} aria-hidden />
+                    {t('profile.sendDm')}
+                  </Button>
+                ) : incomingRequest ? (
+                  <Button
+                    fullWidth
+                    className="mt-4"
+                    loading={acceptRequest.isPending}
+                    onClick={() => acceptRequest.mutate(incomingRequest.id)}
+                  >
+                    <UserPlus size={16} aria-hidden />
+                    {t('friends.accept')}
+                  </Button>
+                ) : (
+                  <Button
+                    fullWidth
+                    className="mt-4"
+                    disabled={requestSent}
+                    loading={sendRequest.isPending}
+                    onClick={() =>
+                      sendRequest.mutate(
+                        { userId },
+                        {
+                          onSuccess: (result) => {
+                            if (!result.accepted) setRequestSent(true);
+                          },
+                        },
+                      )
+                    }
+                  >
+                    <UserPlus size={16} aria-hidden />
+                    {requestSent ? t('profile.requestSent') : t('profile.addFriend')}
+                  </Button>
+                )}
+                <Button
+                  fullWidth
+                  variant="danger"
+                  className="mt-2"
+                  loading={block.isPending}
+                  onClick={() => {
+                    if (!window.confirm(t('settings.blockConfirm', { name: user.displayName ?? user.username }))) {
+                      return;
+                    }
+                    block.mutate(userId, {
+                      onSuccess: () => {
+                        navigate(`/channels/${DM_ROUTE}`);
                         onClose();
                       },
-                      onError: (error) => toast.error(errorMessage(error)),
-                    },
-                  )
-                }
-              >
-                <MessageSquare size={16} aria-hidden />
-                {t('profile.sendDm')}
-              </Button>
-              <Button
-                fullWidth
-                variant="danger"
-                className="mt-2"
-                loading={block.isPending}
-                onClick={() => {
-                  if (!window.confirm(t('settings.blockConfirm', { name: user.displayName ?? user.username }))) {
-                    return;
-                  }
-                  block.mutate(userId, {
-                    onSuccess: () => {
-                      navigate(`/channels/${DM_ROUTE}`);
-                      onClose();
-                    },
-                  });
-                }}
-              >
-                <Ban size={16} aria-hidden />
-                {t('settings.blockUser')}
-              </Button>
+                    });
+                  }}
+                >
+                  <Ban size={16} aria-hidden />
+                  {t('settings.blockUser')}
+                </Button>
               </>
             ) : null}
           </div>

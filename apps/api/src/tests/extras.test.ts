@@ -118,6 +118,45 @@ describe('friend requests', () => {
       [alice.id, bob.id].sort(),
     );
   });
+
+  it('blocks further messages in an existing DM after unfriend', async () => {
+    const alice = await createUser();
+    const bob = await createUser();
+    created.push(alice, bob);
+    await linkFriends(alice, bob);
+    const app = await testApp();
+
+    const opened = await app.inject({
+      method: 'POST',
+      url: '/api/dms',
+      headers: alice.auth,
+      payload: { userIds: [bob.id] },
+    });
+    const conversation = opened.json<DirectConversation>();
+
+    const sent = await app.inject({
+      method: 'POST',
+      url: `/api/dms/${conversation.id}/messages`,
+      headers: alice.auth,
+      payload: { content: 'hello' },
+    });
+    expect(sent.statusCode).toBe(201);
+
+    const removed = await app.inject({
+      method: 'DELETE',
+      url: `/api/friends/${bob.id}`,
+      headers: alice.auth,
+    });
+    expect(removed.statusCode).toBe(204);
+
+    const blocked = await app.inject({
+      method: 'POST',
+      url: `/api/dms/${conversation.id}/messages`,
+      headers: alice.auth,
+      payload: { content: 'still here' },
+    });
+    expect(blocked.statusCode).toBe(403);
+  });
 });
 
 describe('pinned conversations', () => {

@@ -181,9 +181,11 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
   val recordPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
     if (!granted) model.error = "Нужен доступ к микрофону"
   }
-  val canSend = chat.dm || model.canPerm(Perm.SEND_MESSAGES) || model.isOwner()
+  val canSend =
+    (chat.dm || model.canPerm(Perm.SEND_MESSAGES) || model.isOwner()) && model.canMessageCurrentPeer()
   val canAttach =
-    model.currentConversation?.isSecret != true &&
+    model.canMessageCurrentPeer() &&
+      model.currentConversation?.isSecret != true &&
       (chat.dm || model.canPerm(Perm.ATTACH_FILES) || model.isOwner())
   val canManage = !chat.dm && (model.canPerm(Perm.MANAGE_MESSAGES) || model.isOwner())
   val topic = model.serverDetail?.channels?.firstOrNull { it.id == chat.channelId }?.topic
@@ -191,7 +193,8 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
     model.currentConversation?.isSaved != true &&
     model.currentConversation?.isAi != true &&
     model.currentConversation?.isGroup != true &&
-    model.callPhase == ru.tetherchat.app.data.CallPhase.Idle
+    model.callPhase == ru.tetherchat.app.data.CallPhase.Idle &&
+    model.canMessageCurrentPeer()
 
   LaunchedEffect(listState, chat.channelId) {
     snapshotFlow {
@@ -449,7 +452,8 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
       }
     } else {
       Text(
-        "Нет права писать в этот канал",
+        if (!model.canMessageCurrentPeer()) "Личные сообщения можно отправлять только друзьям"
+        else "Нет права писать в этот канал",
         color = TextMuted,
         modifier = Modifier.fillMaxWidth().background(SurfacePanel).padding(16.dp),
       )

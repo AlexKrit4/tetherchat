@@ -20,6 +20,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useUiStore } from '@/stores/uiStore';
 import { toast } from '@/stores/toastStore';
 import { useT } from '@/i18n/useT';
+import { conversationNeedsFriendship, isFriendOf, useFriends } from '@/hooks/useFriends';
 import { formatBytes } from './Attachments';
 
 const TYPING_THROTTLE_MS = 3_000;
@@ -36,6 +37,7 @@ export function MessageInput() {
   const isSecret = Boolean(conversation?.isSecret);
   const user = useAuthStore((state) => state.user);
   const { data: members } = useMembers(serverId);
+  const { data: friends } = useFriends();
 
   const draft = useUiStore((state) =>
     channelId
@@ -83,9 +85,17 @@ export function MessageInput() {
   const maxHeight = isMobile ? 120 : 350;
   useAutoResize(textareaRef, draft, maxHeight);
 
-  const canSend = isDm || !server || can(server.permissions, Permission.SEND_MESSAGES);
+  const needsFriendship = conversationNeedsFriendship(conversation);
+  const peerId = conversation?.members.find((member) => member.id !== user?.id)?.id;
+  const friendsReady = !needsFriendship || friends !== undefined;
+  const canMessagePeer = !needsFriendship || isFriendOf(friends, peerId);
+  const canSend =
+    (isDm || !server || can(server.permissions, Permission.SEND_MESSAGES)) &&
+    (!friendsReady || canMessagePeer);
   const canAttach =
-    !conversation?.isSecret && (isDm || !server || can(server.permissions, Permission.ATTACH_FILES));
+    canSend &&
+    !conversation?.isSecret &&
+    (isDm || !server || can(server.permissions, Permission.ATTACH_FILES));
   const enterToSend = isMobile ? false : (user?.enterToSend ?? true);
 
   // Focus the composer when the user starts typing anywhere on desktop.
@@ -468,7 +478,13 @@ export function MessageInput() {
             rows={1}
             value={draft}
             disabled={!canSend}
-            placeholder={canSend ? placeholder : t('chat.noPermission')}
+            placeholder={
+              !canSend
+                ? needsFriendship && !canMessagePeer
+                  ? t('chat.friendsOnly')
+                  : t('chat.noPermission')
+                : placeholder
+            }
             inputMode="text"
             enterKeyHint={enterToSend ? 'send' : 'enter'}
             aria-label={placeholder}

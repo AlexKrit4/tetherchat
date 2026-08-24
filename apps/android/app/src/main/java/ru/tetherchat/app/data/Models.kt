@@ -556,6 +556,12 @@ data class FriendRequest(
 data class FriendRequestBody(val userId: String? = null, val username: String? = null)
 
 @Serializable
+data class FriendRequestResult(
+  val accepted: Boolean = false,
+  val user: PublicUser? = null,
+)
+
+@Serializable
 data class CountBody(val count: Int = 0)
 
 @Serializable

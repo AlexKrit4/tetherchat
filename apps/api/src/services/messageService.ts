@@ -22,6 +22,7 @@ import { bumpMentionCounts } from './readStateService.js';
 import { filterNotifiableUsers } from './pushService.js';
 import { getConfig, isTest } from '../config.js';
 import { blockedPeerIds, isBlockedEitherWay } from '../lib/blocks.js';
+import { areFriends } from '../lib/friends.js';
 import { getAiBotUserId } from '../lib/aiBot.js';
 
 export interface CreateMessageInput {
@@ -90,10 +91,13 @@ async function resolveTarget(input: CreateMessageInput): Promise<Target> {
     });
 
     const recipientIds = conversation.members.map((member) => member.userId);
-    if (!conversation.isGroup && !conversation.isAi) {
+    if (!conversation.isGroup && !conversation.isAi && !conversation.isSaved) {
       const otherId = recipientIds.find((id) => id !== input.authorId);
       if (otherId && (await isBlockedEitherWay(input.authorId, otherId))) {
         throw ApiError.forbidden('You cannot message this user');
+      }
+      if (otherId && !(await areFriends(input.authorId, otherId))) {
+        throw ApiError.forbidden('Сначала добавьте пользователя в друзья');
       }
     }
 

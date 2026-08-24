@@ -10,6 +10,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { ChatSettingsButton } from './ChatSettingsButton';
 import { useCallStore } from '@/stores/callStore';
 import { getSecretSafetyNumber } from '@/lib/e2ee';
+import { conversationNeedsFriendship, isFriendOf, useFriends } from '@/hooks/useFriends';
 
 /**
  * 48px bar above the message list. On mobile the leading slot becomes a back
@@ -33,6 +34,7 @@ export function ChatHeader() {
   const pushMobileView = useUiStore((state) => state.pushMobileView);
   const startOutgoingCall = useCallStore((state) => state.startOutgoing);
   const callPhase = useCallStore((state) => state.phase);
+  const { data: friends } = useFriends();
 
   const dmPeer = conversation?.members.find((member) => member.id !== currentUserId);
   const canCall =
@@ -42,7 +44,8 @@ export function ChatHeader() {
     !conversation?.isAi &&
     !conversation?.isGroup &&
     conversation?.id &&
-    callPhase === 'idle';
+    callPhase === 'idle' &&
+    (!conversationNeedsFriendship(conversation) || isFriendOf(friends, dmPeer.id));
   const membersVisible = isDesktop ? membersColumnOpen : membersOverlayOpen;
   const showSafetyNumber = async () => {
     if (!currentUserId || !dmPeer) return;

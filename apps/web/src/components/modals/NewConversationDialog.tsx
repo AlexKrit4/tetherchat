@@ -7,7 +7,8 @@ import { cn } from '@/lib/cn';
 import { errorMessage } from '@/lib/api';
 import { useT } from '@/i18n/useT';
 import { DM_ROUTE } from '@/hooks/useChatTarget';
-import { useCreateConversation, useUserSearch } from '@/hooks/useDms';
+import { useCreateConversation } from '@/hooks/useDms';
+import { useFriends } from '@/hooks/useFriends';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import { AdaptiveDialog } from '@/components/ui/AdaptiveDialog';
 import { Avatar } from '@/components/ui/Avatar';
@@ -26,13 +27,7 @@ export function NewConversationDialog({ open, onClose }: { open: boolean; onClos
   const create = useCreateConversation();
 
   const [term, setTerm] = useState('');
-  const [debounced, setDebounced] = useState('');
   const [selected, setSelected] = useState<PublicUser[]>([]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => setDebounced(term), 250);
-    return () => window.clearTimeout(timer);
-  }, [term]);
 
   useEffect(() => {
     if (!open) {
@@ -41,7 +36,16 @@ export function NewConversationDialog({ open, onClose }: { open: boolean; onClos
     }
   }, [open]);
 
-  const { data: results, isFetching } = useUserSearch(debounced);
+  const { data: friends, isLoading } = useFriends();
+  const results = useMemo(() => {
+    const query = term.trim().toLowerCase();
+    const list = friends ?? [];
+    if (!query) return list;
+    return list.filter((user) => {
+      const name = (user.displayName ?? '').toLowerCase();
+      return user.username.toLowerCase().includes(query) || name.includes(query);
+    });
+  }, [friends, term]);
   const selectedIds = useMemo(() => new Set(selected.map((user) => user.id)), [selected]);
   const limitReached = selected.length >= LIMITS.groupDmMembers - 1;
 
@@ -104,13 +108,11 @@ export function NewConversationDialog({ open, onClose }: { open: boolean; onClos
         />
 
         <div className="min-h-[120px]">
-          {isFetching ? (
+          {isLoading ? (
             <div className="flex justify-center py-6">
               <Spinner />
             </div>
-          ) : debounced.trim().length < 2 ? (
-            <p className="py-6 text-center text-sm text-text-muted">{t('dm.searchHintShort')}</p>
-          ) : results && results.length > 0 ? (
+          ) : results.length > 0 ? (
             <ul className="flex flex-col gap-0.5">
               {results.map((user) => {
                 const picked = selectedIds.has(user.id);
@@ -152,7 +154,9 @@ export function NewConversationDialog({ open, onClose }: { open: boolean; onClos
               })}
             </ul>
           ) : (
-            <p className="py-6 text-center text-sm text-text-muted">{t('dm.nobodyMatched')}</p>
+            <p className="py-6 text-center text-sm text-text-muted">
+              {(friends?.length ?? 0) === 0 ? t('friends.empty') : t('dm.nobodyMatched')}
+            </p>
           )}
         </div>
       </div>

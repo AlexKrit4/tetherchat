@@ -165,9 +165,8 @@ class TetherApi(private val session: SessionStore) {
     get("/api/e2ee/conversations/$conversationId/key/$deviceId")
   fun incomingFriends(): List<FriendRequest> = get("/api/friends/incoming")
   fun incomingFriendCount(): Int = get<CountBody>("/api/friends/incoming/count").count
-  fun sendFriendRequest(userId: String) {
-    post<FriendRequestBody, Unit>("/api/friends/requests", FriendRequestBody(userId = userId))
-  }
+  fun sendFriendRequest(userId: String): FriendRequestResult =
+    post("/api/friends/requests", FriendRequestBody(userId = userId))
   fun acceptFriend(id: String) = postRaw<Unit>("/api/friends/requests/$id/accept", "{}")
   fun declineFriend(id: String) = postRaw<Unit>("/api/friends/requests/$id/decline", "{}")
 
