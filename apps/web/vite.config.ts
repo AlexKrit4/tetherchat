@@ -57,10 +57,14 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url)),
-        // Point at source so shared changes hot-reload without a rebuild step.
-        '@tetherchat/shared': fileURLToPath(
-          new URL('../../packages/shared/src/index.ts', import.meta.url),
-        ),
+        // Dev-only: point at shared source so package changes hot-reload without rebuilding dist.
+        ...(mode === 'development'
+          ? {
+              '@tetherchat/shared': fileURLToPath(
+                new URL('../../packages/shared/src/index.ts', import.meta.url),
+              ),
+            }
+          : {}),
       },
     },
     server: {
