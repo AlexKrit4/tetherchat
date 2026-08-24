@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "ru.tetherchat.app",
+      "sha256_cert_fingerprints": [
+        "3C:EB:64:39:10:32:07:C7:DF:4B:BB:CE:53:F6:EF:02:2E:30:A2:8D:D4:3D:7B:29:11:7F:D8:7B:0D:ED:E1:74"
+      ]
+    }
+  }
+]

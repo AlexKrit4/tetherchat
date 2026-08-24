@@ -1,0 +1,9 @@
+/** Keep in sync with apps/android versionCode/versionName and public/app/version.json. */
+export const ANDROID_RELEASE = {
+  versionCode: 32,
+  versionName: '1.3.2',
+  url: 'https://tetherchat.ru/app/tetherchat.apk',
+  requiresReinstall: false,
+  releaseNotes:
+    'В профиле незнакомого пользователя — «Добавить в друзья» вместо «Написать». ЛС и звонки только между друзьями.',
+} as const;
