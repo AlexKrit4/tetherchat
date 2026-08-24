@@ -145,6 +145,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   var me by mutableStateOf<SelfUser?>(null)
     private set
   var plusUpsell by mutableStateOf<String?>(null)
+  var error by mutableStateOf<String?>(null)
   var otherAccount by mutableStateOf<AccountSlot?>(null)
     private set
   var addingAccount by mutableStateOf(false)

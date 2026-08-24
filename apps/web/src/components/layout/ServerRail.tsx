@@ -14,6 +14,7 @@ import { JoinServerDialog } from '@/components/modals/JoinServerDialog';
 import { TetherLogo } from '@/components/brand/TetherLogo';
 import { AccountSwitcher } from '@/components/plus/AccountSwitcher';
 import { useUiStore } from '@/stores/uiStore';
+import { useT } from '@/i18n/useT';
 
 /**
  * The 72px column of round server icons. The active server is marked by a white
