@@ -16,8 +16,9 @@ import { prisma } from '../db.js';
 
 export async function vpnRoutes(app: FastifyInstance) {
   await app.register(formbody);
-  app.get('/plans', async () => {
-    const plans = await listActivePlans();
+  app.get('/plans', async (request) => {
+    const group = (request.query as { group?: string }).group?.trim();
+    const plans = await listActivePlans(group || undefined);
     return plans.map((plan) => ({
       id: plan.id,
       slug: plan.slug,

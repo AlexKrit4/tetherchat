@@ -24,6 +24,7 @@ import { toast } from '@/stores/toastStore';
 import { useT } from '@/i18n/useT';
 import { conversationNeedsFriendship, isFriendOf, useFriends } from '@/hooks/useFriends';
 import { formatBytes } from './Attachments';
+import { VpnBotKeyboard } from './VpnBotKeyboard';
 
 const TYPING_THROTTLE_MS = 3_000;
 
@@ -91,11 +92,13 @@ export function MessageInput() {
 
   const needsFriendship = conversationNeedsFriendship(conversation, user?.id);
   const peerId = conversation?.members.find((member) => member.id !== user?.id)?.id;
+  const peerUsername = conversation?.members.find((member) => member.id !== user?.id)?.username;
+  const isVpnBot = Boolean(conversation?.isVpn) || peerUsername === 'tethervpn';
   const friendsReady = !needsFriendship || friends !== undefined;
-  const canMessagePeer = !needsFriendship || isFriendOf(friends, peerId);
+  const canMessagePeer = isVpnBot || !needsFriendship || isFriendOf(friends, peerId);
   const canSend =
     (isDm || !server || can(server.permissions, Permission.SEND_MESSAGES)) &&
-    (!friendsReady || canMessagePeer);
+    (isVpnBot || !friendsReady || canMessagePeer);
   const canAttach =
     canSend &&
     !conversation?.isSecret &&
@@ -317,6 +320,16 @@ export function MessageInput() {
     nudgeScrollBottom();
   };
 
+  const sendVpnCommand = (command: string) => {
+    if (!channelId || !canSend) return;
+    send.mutate({
+      content: command,
+      nonce: nonce(),
+    });
+    stopTyping();
+    nudgeScrollBottom();
+  };
+
   const applyMention = (replacement: { text: string; start: number; length: number }) => {
     if (!channelId) return;
     const next =
@@ -371,6 +384,8 @@ export function MessageInput() {
   return (
     <div className={cn('relative shrink-0 px-4 pb-2 md:pb-6', isMobile && 'pb-safe')}>
       {replyTo ? <ReplyBar message={replyTo} onCancel={() => setReplyDraft(channelId, null)} /> : null}
+
+      {isVpnBot ? <VpnBotKeyboard disabled={!canSend || send.isPending} onCommand={sendVpnCommand} /> : null}
 
       {pending.length > 0 ? (
         <div className="mb-1 flex flex-wrap gap-2 rounded-t-lg bg-surface-input p-2">

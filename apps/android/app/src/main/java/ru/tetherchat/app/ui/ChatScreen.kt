@@ -191,8 +191,10 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
   val recordPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
     if (!granted) model.error = "Нужен доступ к микрофону"
   }
+  val isVpnBot = model.isVpnBotChat()
   val canSend =
-    (chat.dm || model.canPerm(Perm.SEND_MESSAGES) || model.isOwner()) && model.canMessageCurrentPeer()
+    (chat.dm || model.canPerm(Perm.SEND_MESSAGES) || model.isOwner()) &&
+      (isVpnBot || model.canMessageCurrentPeer())
   val canAttach =
     model.canMessageCurrentPeer() &&
       model.currentConversation?.isSecret != true &&
@@ -385,6 +387,9 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
           .zIndex(1f)
           .background(SurfacePanel),
       ) {
+        if (isVpnBot) {
+          VpnBotKeyboard(model, enabled = !model.busy)
+        }
         if (model.recording) {
           Text(
             formatVoiceClock(model.recordElapsedMs),
@@ -492,7 +497,7 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
         }
       }
       }
-    } else {
+    } else if (!isVpnBot) {
       Text(
         if (!model.canMessageCurrentPeer()) "Личные сообщения можно отправлять только друзьям"
         else "Нет права писать в этот канал",
@@ -1502,5 +1507,56 @@ private fun ReportDialog(
       ) { Text("Отправить", color = Brand) }
     },
     dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
+  )
+}
+
+@Composable
+private fun VpnBotKeyboard(model: AppViewModel, enabled: Boolean) {
+  val mainButtons = listOf(
+    "🛒 Тарифы" to "тарифы",
+    "📱 Моя подписка" to "подписка",
+    "❓ Помощь" to "помощь",
+    "💬 Поддержка" to "поддержка",
+  )
+  val tariffButtons = listOf(
+    "📦 Ограниченный" to "tarif:limited",
+    "♾️ Вечный" to "tarif:eternal",
+    "🛠 Свой тариф" to "tarif:custom",
+  )
+  Column(
+    modifier = Modifier
+      .fillMaxWidth()
+      .padding(horizontal = 8.dp, vertical = 4.dp),
+    verticalArrangement = Arrangement.spacedBy(6.dp),
+  ) {
+    Row(
+      modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+      horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+      mainButtons.forEach { (label, command) ->
+        VpnBotChip(label = label, enabled = enabled, onClick = { model.sendVpnCommand(command) })
+      }
+    }
+    Row(
+      modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+      horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+      tariffButtons.forEach { (label, command) ->
+        VpnBotChip(label = label, enabled = enabled, onClick = { model.sendVpnCommand(command) })
+      }
+    }
+  }
+}
+
+@Composable
+private fun VpnBotChip(label: String, enabled: Boolean, onClick: () -> Unit) {
+  Text(
+    text = label,
+    fontSize = 12.sp,
+    color = if (enabled) TextPrimary else TextMuted,
+    modifier = Modifier
+      .background(SurfaceDeep, RoundedCornerShape(16.dp))
+      .clickable(enabled = enabled, onClick = onClick)
+      .padding(horizontal = 12.dp, vertical = 8.dp),
   )
 }

@@ -1706,10 +1706,23 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
 
   fun canMessageCurrentPeer(): Boolean {
     val conversation = currentConversation ?: return true
+    if (conversation.isBotChat(me?.id.orEmpty())) return true
     if (!conversationNeedsFriendship(conversation)) return true
     val meId = me?.id ?: return true
     val peer = conversation.peer(meId) ?: return true
     return isFriend(peer.id)
+  }
+
+  fun isVpnBotChat(): Boolean {
+    val conversation = currentConversation ?: return false
+    return conversation.isVpnBotChat(me?.id.orEmpty())
+  }
+
+  fun sendVpnCommand(command: String) {
+    val chat = screen as? Screen.Chat ?: return
+    if (!isVpnBotChat()) return
+    draft = command
+    send()
   }
 
   fun openDmFromProfile() {

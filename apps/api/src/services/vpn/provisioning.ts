@@ -1,31 +1,68 @@
 import type { VpnPlan, VpnSubscription } from '@prisma/client';
 import { prisma } from '../../db.js';
 import { buildPaymentLabel, buildSubUrl, createYooMoneyPaymentUrl, getVpnConfig } from './config.js';
+import {
+  calculateCustomPrice,
+  clearOrderMeta,
+  getOrderMeta,
+  setOrderMeta,
+  type CustomOrderMeta,
+} from './custom.js';
 import { createMarzbanUser, modifyMarzbanUser, toUnix } from './marzban.js';
 
 const ACTIVE_STATUSES = ['trial', 'active'] as const;
 
+const LEGACY_SLUGS = [
+  'self-1m',
+  'self-3m',
+  'self-1y',
+  'family-1m',
+  'family-3m',
+  'family-1y',
+] as const;
+
 export async function seedVpnPlans(): Promise<void> {
   const plans = [
-    { slug: 'self-1m', name: 'Для себя — 1 месяц', groupName: 'для себя', durationDays: 30, trafficGb: 50, deviceLimit: 2, priceRub: '100.00', sortOrder: 10 },
-    { slug: 'self-3m', name: 'Для себя — 3 месяца', groupName: 'для себя', durationDays: 90, trafficGb: 150, deviceLimit: 2, priceRub: '299.00', sortOrder: 20 },
-    { slug: 'self-1y', name: 'Для себя — 1 год', groupName: 'для себя', durationDays: 365, trafficGb: 700, deviceLimit: 2, priceRub: '999.00', sortOrder: 30 },
-    { slug: 'family-1m', name: 'Семейный — 1 месяц', groupName: 'семейный', durationDays: 30, trafficGb: 100, deviceLimit: 4, priceRub: '225.00', sortOrder: 40 },
-    { slug: 'family-3m', name: 'Семейный — 3 месяца', groupName: 'семейный', durationDays: 90, trafficGb: 300, deviceLimit: 4, priceRub: '649.00', sortOrder: 50 },
-    { slug: 'family-1y', name: 'Семейный — 1 год', groupName: 'семейный', durationDays: 365, trafficGb: 1300, deviceLimit: 4, priceRub: '2249.00', sortOrder: 60 },
+    { slug: 'limited-30gb', name: '30 ГБ — 1 месяц', groupName: 'ограниченный', durationDays: 30, trafficGb: 30, deviceLimit: 3, priceRub: '100.00', sortOrder: 10 },
+    { slug: 'limited-100gb', name: '100 ГБ — 1 месяц', groupName: 'ограниченный', durationDays: 30, trafficGb: 100, deviceLimit: 3, priceRub: '300.00', sortOrder: 20 },
+    { slug: 'limited-250gb', name: '250 ГБ — 1 месяц', groupName: 'ограниченный', durationDays: 30, trafficGb: 250, deviceLimit: 3, priceRub: '600.00', sortOrder: 30 },
+    { slug: 'eternal-1m', name: 'Вечный — 1 месяц', groupName: 'вечный', durationDays: 30, trafficGb: null, deviceLimit: 3, priceRub: '200.00', sortOrder: 40 },
+    { slug: 'eternal-3m', name: 'Вечный — 3 месяца', groupName: 'вечный', durationDays: 90, trafficGb: null, deviceLimit: 3, priceRub: '500.00', sortOrder: 50 },
+    { slug: 'eternal-6m', name: 'Вечный — 6 месяцев', groupName: 'вечный', durationDays: 180, trafficGb: null, deviceLimit: 3, priceRub: '800.00', sortOrder: 60 },
+    { slug: 'custom', name: 'Свой тариф', groupName: 'свой', durationDays: 30, trafficGb: null, deviceLimit: 3, priceRub: '0.00', sortOrder: 999 },
   ];
 
   for (const plan of plans) {
     await prisma.vpnPlan.upsert({
       where: { slug: plan.slug },
-      create: { ...plan, isActive: true },
-      update: { ...plan, isActive: true },
+      create: { ...plan, isActive: plan.slug !== 'custom' },
+      update: {
+        ...plan,
+        isActive: plan.slug !== 'custom',
+      },
     });
   }
+
+  await prisma.vpnPlan.updateMany({
+    where: { slug: { in: [...LEGACY_SLUGS] } },
+    data: { isActive: false },
+  });
 }
 
-export async function listActivePlans() {
-  return prisma.vpnPlan.findMany({ where: { isActive: true }, orderBy: { sortOrder: 'asc' } });
+export async function listActivePlans(groupName?: string) {
+  return prisma.vpnPlan.findMany({
+    where: {
+      isActive: true,
+      ...(groupName ? { groupName } : {}),
+    },
+    orderBy: { sortOrder: 'asc' },
+  });
+}
+
+async function getCustomPlanTemplate() {
+  const plan = await prisma.vpnPlan.findUnique({ where: { slug: 'custom' } });
+  if (!plan) throw new Error('Custom plan template missing');
+  return plan;
 }
 
 export async function getActiveSubscription(userId: string) {
@@ -122,48 +159,98 @@ export async function createOrder(userId: string, planId: string) {
   return { order, paymentUrl };
 }
 
+export async function createCustomOrder(userId: string, meta: CustomOrderMeta) {
+  const template = await getCustomPlanTemplate();
+  const amount = calculateCustomPrice(meta.trafficGb, meta.durationDays, meta.deviceLimit);
+  if (amount < 50) throw new Error('Minimum order amount is 50 RUB');
+
+  const order = await prisma.vpnOrder.create({
+    data: {
+      userId,
+      planId: template.id,
+      amount: amount.toFixed(2),
+      paymentLabel: buildPaymentLabel(),
+    },
+    include: { plan: true },
+  });
+
+  await setOrderMeta(order.paymentLabel, meta);
+
+  const trafficLabel = meta.trafficGb != null ? `${meta.trafficGb} GB` : '∞';
+  const description = `Свой тариф (${meta.durationDays} дн., ${trafficLabel}, ${meta.deviceLimit} устр.) — ${getVpnConfig().brandName}`;
+  const paymentUrl = createYooMoneyPaymentUrl({
+    amount: order.amount.toString(),
+    label: order.paymentLabel,
+    description,
+  });
+
+  return { order, paymentUrl, meta };
+}
+
+function resolveOrderTerms(
+  plan: VpnPlan,
+  meta: CustomOrderMeta | null,
+): { durationDays: number; trafficGb: number | null; deviceLimit: number } {
+  if (meta) {
+    return {
+      durationDays: meta.durationDays,
+      trafficGb: meta.trafficGb,
+      deviceLimit: meta.deviceLimit,
+    };
+  }
+  return {
+    durationDays: plan.durationDays,
+    trafficGb: plan.trafficGb,
+    deviceLimit: plan.deviceLimit,
+  };
+}
+
 async function activatePaidOrder(orderId: string) {
   const order = await prisma.vpnOrder.findUniqueOrThrow({
     where: { id: orderId },
     include: { plan: true },
   });
   const plan = order.plan;
+  const meta = await getOrderMeta(order.paymentLabel);
+  const terms = resolveOrderTerms(plan, meta);
   const active = await getActiveSubscription(order.userId);
 
   if (active?.marzbanUsername) {
     const base = active.endsAt > new Date() ? active.endsAt : new Date();
-    const endsAt = new Date(base.getTime() + plan.durationDays * 86_400_000);
+    const endsAt = new Date(base.getTime() + terms.durationDays * 86_400_000);
     const updated = await prisma.vpnSubscription.update({
       where: { id: active.id },
       data: {
         status: 'active',
-        planId: plan.id,
+        planId: plan.slug === 'custom' ? null : plan.id,
         orderId: order.id,
         endsAt,
-        trafficLimitGb: plan.trafficGb,
-        deviceLimit: plan.deviceLimit,
+        trafficLimitGb: terms.trafficGb,
+        deviceLimit: terms.deviceLimit,
       },
     });
     await modifyMarzbanUser(active.marzbanUsername, {
       expireTs: toUnix(endsAt),
       status: 'active',
-      dataLimitBytes: plan.trafficGb != null ? plan.trafficGb * 1024 ** 3 : 0,
+      dataLimitBytes: terms.trafficGb != null ? terms.trafficGb * 1024 ** 3 : 0,
     });
+    await clearOrderMeta(order.paymentLabel);
     return updated;
   }
 
-  const endsAt = new Date(Date.now() + plan.durationDays * 86_400_000);
+  const endsAt = new Date(Date.now() + terms.durationDays * 86_400_000);
   const sub = await prisma.vpnSubscription.create({
     data: {
       userId: order.userId,
-      planId: plan.id,
+      planId: plan.slug === 'custom' ? null : plan.id,
       orderId: order.id,
       status: 'active',
       endsAt,
-      trafficLimitGb: plan.trafficGb,
-      deviceLimit: plan.deviceLimit,
+      trafficLimitGb: terms.trafficGb,
+      deviceLimit: terms.deviceLimit,
     },
   });
+  await clearOrderMeta(order.paymentLabel);
   return provisionSubscription(sub);
 }
 

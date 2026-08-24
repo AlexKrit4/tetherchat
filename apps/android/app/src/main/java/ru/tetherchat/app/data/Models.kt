@@ -249,6 +249,19 @@ data class DirectConversation(
   val lockedInList: Boolean get() = isSaved || isAi || isVpn
 }
 
+fun DirectConversation.isBotChat(meId: String): Boolean {
+  if (isSaved || isGroup) return false
+  if (isAi || isVpn) return true
+  val peer = peer(meId)
+  return peer?.username == "tetherai" || peer?.username == "tethervpn"
+}
+
+fun DirectConversation.isVpnBotChat(meId: String): Boolean {
+  if (isVpn) return true
+  if (isGroup || isSaved) return false
+  return peer(meId)?.username == "tethervpn"
+}
+
 @Serializable
 data class LoginBody(val login: String, val password: String)
 
