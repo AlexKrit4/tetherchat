@@ -78,6 +78,7 @@ export function UserProfileDialog({ userId, open, onClose }: UserProfileDialogPr
   const vpnConversation = conversations?.find(
     (conversation) => conversation.isVpn && conversation.members.some((entry) => entry.id === userId),
   );
+  const isBuiltInBot = user?.username === 'tethervpn' || user?.username === 'tetherai';
 
   const openConversation = (conversationId: string) => {
     navigate(`/channels/${DM_ROUTE}/${conversationId}`);
@@ -184,7 +185,7 @@ export function UserProfileDialog({ userId, open, onClose }: UserProfileDialogPr
 
             {userId !== currentUserId ? (
               <>
-                {aiConversation || isFriend ? (
+                {aiConversation || vpnConversation || isBuiltInBot || isFriend ? (
                   <Button
                     fullWidth
                     className="mt-4"

@@ -26,6 +26,19 @@ export function isReservedUsername(username: string): boolean {
   return Object.values(BOT_PROFILES).some((bot) => bot.username === normalized);
 }
 
+export function botKindForUsername(username: string): BotKind | null {
+  const normalized = username.trim().toLowerCase();
+  for (const [kind, profile] of Object.entries(BOT_PROFILES) as [BotKind, (typeof BOT_PROFILES)[BotKind]][]) {
+    if (profile.username === normalized) return kind;
+  }
+  return null;
+}
+
+export async function isBuiltInBotUserId(userId: string): Promise<boolean> {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { isBot: true, username: true } });
+  return Boolean(user?.isBot && botKindForUsername(user.username));
+}
+
 export async function getBotUserId(kind: BotKind): Promise<string> {
   const cached = cache.get(kind);
   if (cached) return cached;

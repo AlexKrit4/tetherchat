@@ -89,7 +89,7 @@ export function MessageInput() {
   const maxHeight = isMobile ? 120 : 350;
   useAutoResize(textareaRef, draft, maxHeight);
 
-  const needsFriendship = conversationNeedsFriendship(conversation);
+  const needsFriendship = conversationNeedsFriendship(conversation, user?.id);
   const peerId = conversation?.members.find((member) => member.id !== user?.id)?.id;
   const friendsReady = !needsFriendship || friends !== undefined;
   const canMessagePeer = !needsFriendship || isFriendOf(friends, peerId);

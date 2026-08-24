@@ -1697,7 +1697,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
 
   fun conversationNeedsFriendship(conversation: DirectConversation?): Boolean {
     if (conversation == null) return false
-    return !conversation.isSaved && !conversation.isAi && !conversation.isVpn && !conversation.isGroup
+    if (conversation.isSaved || conversation.isAi || conversation.isVpn || conversation.isGroup) return false
+    val meId = me?.id.orEmpty()
+    val peer = conversation.peer(meId)
+    if (peer?.username == "tetherai" || peer?.username == "tethervpn") return false
+    return true
   }
 
   fun canMessageCurrentPeer(): Boolean {

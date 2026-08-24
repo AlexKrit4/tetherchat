@@ -24,6 +24,7 @@ import { getConfig, isTest } from '../config.js';
 import { blockedPeerIds, isBlockedEitherWay } from '../lib/blocks.js';
 import { areFriends } from '../lib/friends.js';
 import { getAiBotUserId } from '../lib/aiBot.js';
+import { isBuiltInBotUserId } from '../lib/bots.js';
 import { emitConversationRefresh } from '../lib/conversations.js';
 
 export interface CreateMessageInput {
@@ -99,7 +100,7 @@ async function resolveTarget(input: CreateMessageInput): Promise<Target> {
       if (otherId && (await isBlockedEitherWay(input.authorId, otherId))) {
         throw ApiError.forbidden('You cannot message this user');
       }
-      if (otherId && !(await areFriends(input.authorId, otherId))) {
+      if (otherId && !(await areFriends(input.authorId, otherId)) && !(await isBuiltInBotUserId(otherId))) {
         throw ApiError.forbidden('Сначала добавьте пользователя в друзья');
       }
     }

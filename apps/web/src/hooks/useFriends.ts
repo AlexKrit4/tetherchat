@@ -7,12 +7,23 @@ import { toast } from '@/stores/toastStore';
 import { t } from '@/i18n';
 import { sortDirectConversations } from './useDms';
 
-/** 1:1 chats (including secret) require an accepted friendship. Saved / AI / groups do not. */
+/** Built-in bots (@tetherai, @tethervpn) — no friendship required. */
+export function isBuiltInBotUsername(username: string | undefined): boolean {
+  return username === 'tetherai' || username === 'tethervpn';
+}
+
+/** 1:1 chats (including secret) require an accepted friendship. Saved / AI / VPN / groups / bots do not. */
 export function conversationNeedsFriendship(
   conversation: DirectConversation | null | undefined,
+  currentUserId?: string,
 ): boolean {
   if (!conversation) return false;
-  return !conversation.isSaved && !conversation.isAi && !conversation.isVpn && !conversation.isGroup;
+  if (conversation.isSaved || conversation.isAi || conversation.isVpn || conversation.isGroup) return false;
+  const peer = currentUserId
+    ? conversation.members.find((member) => member.id !== currentUserId)
+    : conversation.members[0];
+  if (isBuiltInBotUsername(peer?.username)) return false;
+  return true;
 }
 
 export function isFriendOf(

@@ -9,6 +9,9 @@ import {
   createFriendshipPair,
   incomingRequestCount,
 } from '../lib/friends.js';
+import { botKindForUsername } from '../lib/bots.js';
+import { ensureAiConversation } from '../lib/aiBot.js';
+import { ensureVpnConversation } from '../lib/vpnBot.js';
 import { conversationInclude, publicUserSelect, toConversation, toPublicUser } from '../lib/serialize.js';
 import { emitToUser, joinUserToRoom } from '../ws/realtime.js';
 import { socketRooms } from '@tetherchat/shared';
@@ -107,7 +110,20 @@ export async function friendRoutes(app: FastifyInstance) {
         : null;
     if (!target) throw ApiError.notFound('Пользователь не найден');
     const { isBot, ...publicTarget } = target;
-    if (isBot) throw ApiError.badRequest('Нейросеть уже есть в списке чатов');
+    if (isBot) {
+      const kind = botKindForUsername(publicTarget.username);
+      const conversation =
+        kind === 'vpn'
+          ? await ensureVpnConversation(request.userId)
+          : await ensureAiConversation(request.userId);
+      reply.status(200).send({
+        accepted: false,
+        user: toPublicUser(publicTarget),
+        conversation: toConversation(conversation, request.userId),
+        botChat: true,
+      });
+      return;
+    }
 
     await assertCanRequest(request.userId, publicTarget.id);
 

@@ -50,7 +50,7 @@ export function ChatHeader() {
     !conversation?.isGroup &&
     conversation?.id &&
     callPhase === 'idle' &&
-    (!conversationNeedsFriendship(conversation) || isFriendOf(friends, dmPeer.id));
+    (!conversationNeedsFriendship(conversation, currentUserId) || isFriendOf(friends, dmPeer.id));
   const membersVisible = isDesktop ? membersColumnOpen : membersOverlayOpen;
   const showSafetyNumber = async () => {
     if (!currentUserId || !dmPeer) return;

@@ -529,6 +529,7 @@ async function findDirectConversation(userA: string, userB: string) {
       isGroup: false,
       isSaved: false,
       isAi: false,
+      isVpn: false,
       isSecret: false,
       AND: [
         { members: { some: { userId: userA, leftAt: null } } },
