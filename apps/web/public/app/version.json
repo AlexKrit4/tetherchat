@@ -1,7 +1,7 @@
 {
-  "versionCode": 31,
-  "versionName": "1.3.1",
+  "versionCode": 32,
+  "versionName": "1.3.2",
   "url": "https://tetherchat.ru/app/tetherchat.apk",
   "requiresReinstall": false,
-  "releaseNotes": "Исправлена отправка секретных сообщений; добавлена отдельная вкладка друзей и новый выбор по кнопке «+»."
+  "releaseNotes": "В профиле незнакомого пользователя — «Добавить в друзья» вместо «Написать». ЛС и звонки только между друзьями."
 }
