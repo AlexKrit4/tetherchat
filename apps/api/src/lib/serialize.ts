@@ -1,0 +1,334 @@
+import type { Prisma } from '@prisma/client';
+import type {
+  Attachment,
+  Ban,
+  Category,
+  Channel,
+  DirectConversation,
+  Invite,
+  LinkPreview,
+  Message,
+  PresenceStatus,
+  PublicUser,
+  Reaction,
+  Role,
+  SelfUser,
+  ServerMember,
+} from '@tetherchat/shared';
+import { isPlusActive } from './plus.js';
+
+export const publicUserSelect = {
+  id: true,
+  username: true,
+  displayName: true,
+  avatarUrl: true,
+  bannerColor: true,
+  accentColor: true,
+  bio: true,
+  customStatus: true,
+  status: true,
+  createdAt: true,
+  isPlus: true,
+  plusUntil: true,
+  hideLastSeen: true,
+  lastSeenAt: true,
+} satisfies Prisma.UserSelect;
+
+export type PublicUserRow = Prisma.UserGetPayload<{ select: typeof publicUserSelect }>;
+
+/** Invisible users are indistinguishable from offline ones for everybody else. */
+function visibleStatus(status: PublicUserRow['status']): PresenceStatus {
+  return status === 'invisible' ? 'offline' : status;
+}
+
+export function toPublicUser(row: PublicUserRow): PublicUser {
+  const plus = isPlusActive(row);
+  return {
+    id: row.id,
+    username: row.username,
+    displayName: row.displayName,
+    avatarUrl: row.avatarUrl,
+    bannerColor: row.bannerColor,
+    accentColor: plus ? row.accentColor : null,
+    bio: row.bio,
+    customStatus: row.customStatus,
+    status: visibleStatus(row.status),
+    createdAt: row.createdAt.toISOString(),
+    isPlus: plus,
+    lastSeenAt: plus && row.hideLastSeen ? null : row.lastSeenAt.toISOString(),
+  };
+}
+
+export function toSelfUser(
+  row: PublicUserRow & {
+    email: string;
+    emailVerified: boolean;
+    enterToSend: boolean;
+    totpEnabled?: boolean;
+    isPlatformAdmin?: boolean;
+  },
+): SelfUser {
+  const plus = isPlusActive(row);
+  return {
+    ...toPublicUser(row),
+    status: row.status,
+    lastSeenAt: row.lastSeenAt.toISOString(),
+    email: row.email,
+    emailVerified: row.emailVerified,
+    enterToSend: row.enterToSend,
+    totpEnabled: Boolean(row.totpEnabled),
+    isPlatformAdmin: Boolean(row.isPlatformAdmin),
+    isPlus: plus,
+    hideLastSeen: row.hideLastSeen,
+    plusUntil: row.plusUntil?.toISOString() ?? null,
+    accentColor: plus ? row.accentColor : null,
+  };
+}
+
+export const messageInclude = {
+  author: { select: publicUserSelect },
+  attachments: true,
+  reactions: true,
+  previews: true,
+  replyTo: { include: { author: { select: publicUserSelect } } },
+  forwardedFrom: { include: { author: { select: publicUserSelect } } },
+} satisfies Prisma.MessageInclude;
+
+export type MessageRow = Prisma.MessageGetPayload<{ include: typeof messageInclude }>;
+
+export function toAttachment(row: MessageRow['attachments'][number]): Attachment {
+  return {
+    id: row.id,
+    url: row.url,
+    filename: row.filename,
+    contentType: row.contentType,
+    size: row.size,
+    width: row.width,
+    height: row.height,
+    durationMs: row.durationMs ?? null,
+    spoiler: row.spoiler ?? false,
+    transcript: row.transcript ?? null,
+  };
+}
+
+export function toLinkPreview(row: MessageRow['previews'][number]): LinkPreview {
+  return {
+    url: row.url,
+    title: row.title,
+    description: row.description,
+    imageUrl: row.imageUrl,
+    siteName: row.siteName,
+  };
+}
+
+export function toReactions(
+  rows: { emoji: string; userId: string }[],
+  currentUserId: string | null,
+): Reaction[] {
+  const grouped = new Map<string, string[]>();
+  for (const row of rows) {
+    const list = grouped.get(row.emoji) ?? [];
+    list.push(row.userId);
+    grouped.set(row.emoji, list);
+  }
+  return Array.from(grouped.entries()).map(([emoji, userIds]) => ({
+    emoji,
+    count: userIds.length,
+    userIds,
+    me: currentUserId ? userIds.includes(currentUserId) : false,
+  }));
+}
+
+function toReference(
+  row:
+    | NonNullable<MessageRow['replyTo']>
+    | NonNullable<MessageRow['forwardedFrom']>
+    | null,
+): Message['replyTo'] {
+  if (!row) return null;
+  return {
+    id: row.id,
+    authorId: row.authorId,
+    author: row.author ? toPublicUser(row.author) : null,
+    content: row.deletedAt ? '' : row.content,
+    deleted: Boolean(row.deletedAt),
+  };
+}
+
+export function toMessage(row: MessageRow, currentUserId: string | null): Message {
+  return {
+    id: row.id,
+    channelId: row.channelId ?? row.conversationId ?? '',
+    serverId: null,
+    authorId: row.authorId,
+    author: toPublicUser(row.author),
+    content: row.deletedAt ? '' : row.content,
+    encrypted:
+      !row.deletedAt && row.encryptionVersion === 1 && row.encryptionIv && row.ciphertext
+        ? {
+            version: 1,
+            iv: row.encryptionIv,
+            ciphertext: row.ciphertext,
+          }
+        : null,
+    createdAt: row.createdAt.toISOString(),
+    editedAt: row.editedAt?.toISOString() ?? null,
+    pinned: row.pinned,
+    system: row.system,
+    replyTo: toReference(row.replyTo),
+    forwardedFrom: toReference(row.forwardedFrom),
+    attachments: row.attachments.map(toAttachment),
+    reactions: toReactions(row.reactions, currentUserId),
+    previews: row.previews.map(toLinkPreview),
+    mentionedUserIds: row.mentionedUserIds,
+    mentionsEveryone: row.mentionsEveryone,
+  };
+}
+
+/** Guild messages carry the owning server id so the client can route mentions. */
+export function withServerId(message: Message, serverId: string | null): Message {
+  return { ...message, serverId };
+}
+
+export function toRole(row: {
+  id: string;
+  serverId: string;
+  name: string;
+  color: string | null;
+  permissions: number;
+  position: number;
+  isDefault: boolean;
+  hoist: boolean;
+}): Role {
+  return {
+    id: row.id,
+    serverId: row.serverId,
+    name: row.name,
+    color: row.color,
+    permissions: row.permissions,
+    position: row.position,
+    isDefault: row.isDefault,
+    hoist: row.hoist,
+  };
+}
+
+export function toChannel(row: {
+  id: string;
+  serverId: string;
+  categoryId: string | null;
+  name: string;
+  topic: string | null;
+  position: number;
+  createdAt: Date;
+}): Channel {
+  return {
+    id: row.id,
+    serverId: row.serverId,
+    categoryId: row.categoryId,
+    name: row.name,
+    topic: row.topic,
+    position: row.position,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+export function toCategory(row: {
+  id: string;
+  serverId: string;
+  name: string;
+  position: number;
+}): Category {
+  return { id: row.id, serverId: row.serverId, name: row.name, position: row.position };
+}
+
+export const memberInclude = {
+  user: { select: publicUserSelect },
+  roles: { select: { roleId: true } },
+} satisfies Prisma.ServerMemberInclude;
+
+export type MemberRow = Prisma.ServerMemberGetPayload<{ include: typeof memberInclude }>;
+
+export function toMember(row: MemberRow): ServerMember {
+  return {
+    userId: row.userId,
+    serverId: row.serverId,
+    nickname: row.nickname,
+    joinedAt: row.joinedAt.toISOString(),
+    roleIds: row.roles.map((entry) => entry.roleId),
+    user: toPublicUser(row.user),
+  };
+}
+
+export const conversationInclude = {
+  members: { include: { user: { select: publicUserSelect } } },
+} satisfies Prisma.DirectConversationInclude;
+
+export type ConversationRow = Prisma.DirectConversationGetPayload<{
+  include: typeof conversationInclude;
+}>;
+
+export function toConversation(row: ConversationRow, currentUserId?: string): DirectConversation {
+  const active = row.members.filter((member) => !member.leftAt);
+  const isSaved = row.isSaved;
+  const isAi = row.isAi;
+  const isOneToOne = !row.isGroup && !isSaved && !isAi && active.length === 2;
+  const peer =
+    currentUserId && isOneToOne ? active.find((member) => member.userId !== currentUserId) : undefined;
+  const selfMember = currentUserId ? row.members.find((member) => member.userId === currentUserId) : undefined;
+
+  return {
+    id: row.id,
+    isGroup: row.isGroup,
+    isSaved,
+    isAi,
+    isSecret: row.isSecret,
+    name: row.name,
+    iconUrl: row.iconUrl,
+    ownerId: row.ownerId,
+    members: active.map((member) => toPublicUser(member.user)),
+    lastMessageAt: row.lastMessageAt?.toISOString() ?? null,
+    peerLastReadMessageId: isOneToOne ? (peer?.lastReadMessageId ?? null) : null,
+    peerLastReadAt: isOneToOne ? (peer?.lastReadAt?.toISOString() ?? null) : null,
+    pinned: Boolean(selfMember?.pinnedAt),
+    wallpaperUrl: selfMember?.wallpaperUrl ?? null,
+    peerHasPlusProtect: Boolean(row.isSecret && peer && isPlusActive(peer.user)),
+  };
+}
+
+export function toInvite(row: {
+  code: string;
+  serverId: string;
+  inviterId: string;
+  uses: number;
+  maxUses: number | null;
+  expiresAt: Date | null;
+  createdAt: Date;
+}): Invite {
+  return {
+    code: row.code,
+    serverId: row.serverId,
+    inviterId: row.inviterId,
+    uses: row.uses,
+    maxUses: row.maxUses,
+    expiresAt: row.expiresAt?.toISOString() ?? null,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+export const banInclude = {
+  user: { select: publicUserSelect },
+  moderator: { select: publicUserSelect },
+} satisfies Prisma.BanInclude;
+
+export type BanRow = Prisma.BanGetPayload<{ include: typeof banInclude }>;
+
+export function toBan(row: BanRow): Ban {
+  return {
+    userId: row.userId,
+    serverId: row.serverId,
+    reason: row.reason,
+    createdAt: row.createdAt.toISOString(),
+    user: toPublicUser(row.user),
+    moderator: row.moderator ? toPublicUser(row.moderator) : null,
+  };
+}
