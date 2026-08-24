@@ -75,8 +75,26 @@ class TetherApi(private val session: SessionStore) {
       }
     } catch (_: Exception) {
     } finally {
-      session.clear()
+      session.clearActiveKeepOther()
     }
+  }
+
+  fun transcribe(attachmentId: String): TranscriptResponse =
+    postRaw("/api/attachments/$attachmentId/transcribe", "{}")
+
+  fun setPlus(userId: String, enabled: Boolean): PublicUser =
+    patch("/api/admin/users/$userId/plus", PatchPlusBody(enabled))
+
+  fun uploadDmWallpaper(id: String, bytes: ByteArray, filename: String, mime: String): DirectConversation =
+    upload("/api/dms/$id/wallpaper", bytes, filename, mime)
+
+  fun deleteDmWallpaper(id: String): DirectConversation = deleteJson("/api/dms/$id/wallpaper")
+
+  fun uploadChannelWallpaper(id: String, bytes: ByteArray, filename: String, mime: String): ChannelNotifications =
+    upload("/api/channels/$id/wallpaper", bytes, filename, mime)
+
+  fun deleteChannelWallpaper(id: String) {
+    delete("/api/channels/$id/wallpaper")
   }
 
   fun me(): SelfUser = get("/api/users/@me")

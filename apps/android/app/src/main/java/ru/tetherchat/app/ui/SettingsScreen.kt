@@ -11,6 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -20,10 +21,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -36,6 +39,8 @@ import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.PersonOff
+import androidx.compose.material.icons.outlined.People
+import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -56,6 +61,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -63,6 +69,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import ru.tetherchat.app.IconPack
 import ru.tetherchat.app.NotificationHelper
 import ru.tetherchat.app.data.Perm
 import ru.tetherchat.app.data.Role
@@ -97,6 +104,8 @@ fun SettingsScreen(model: AppViewModel) {
       SettingsRow(Icons.Outlined.Lock, "Аккаунт", "Имя пользователя и почта") { model.openAccountSettings() }
       SettingsRow(Icons.Outlined.Devices, "Сессии", "Где выполнен вход") { model.openSessions() }
       SettingsRow(Icons.Outlined.ColorLens, "Оформление", "Отправка по Enter") { model.openAppearanceSettings() }
+      SettingsRow(Icons.Outlined.Star, "TetherChat Plus", "Лимиты, бейдж, фон чата") { model.openPlusSettings() }
+      SettingsRow(Icons.Outlined.People, "Аккаунты", "Быстрое переключение") { model.openAccounts() }
       SettingsRow(Icons.Outlined.PersonOff, "Чёрный список", "Заблокированные пользователи") { model.openBlacklist() }
       Spacer(Modifier.height(12.dp))
       Button(
@@ -118,6 +127,9 @@ fun ProfileSettingsScreen(model: AppViewModel) {
   var displayName by rememberSaveable(user.id) { mutableStateOf(user.displayName.orEmpty()) }
   var customStatus by rememberSaveable(user.id) { mutableStateOf(user.customStatus.orEmpty()) }
   var bio by rememberSaveable(user.id) { mutableStateOf(user.bio.orEmpty()) }
+  var bannerColor by rememberSaveable(user.id) { mutableStateOf(user.bannerColor ?: "#5865f2") }
+  var accentColor by rememberSaveable(user.id) { mutableStateOf(user.accentColor ?: user.bannerColor ?: "#5865f2") }
+  var hideLastSeen by rememberSaveable(user.id) { mutableStateOf(user.hideLastSeen) }
   val pickAvatar = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
     if (uri != null) model.uploadAvatar(uri)
   }
@@ -150,7 +162,46 @@ fun ProfileSettingsScreen(model: AppViewModel) {
       }
       Field("Отображаемое имя", displayName, 32) { displayName = it }
       Field("Статус", customStatus, 128) { customStatus = it }
-      Field("О себе", bio, 256, single = false) { bio = it }
+      Field("О себе", bio, if (user.isPlus) 500 else 50, single = false) { bio = it }
+      Text("${bio.length} / ${if (user.isPlus) 500 else 50}", color = TextMuted, fontSize = 12.sp)
+      val colors = listOf("#5865f2", "#3ba55d", "#faa81a", "#ed4245", "#eb459e", "#9b59b6", "#1abc9c", "#3498db")
+      Text("Цвет баннера", color = TextMuted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+      Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+        colors.forEach { hex ->
+          Box(
+            modifier = Modifier
+              .size(28.dp)
+              .clip(CircleShape)
+              .background(Color(android.graphics.Color.parseColor(hex)))
+              .clickable {
+                if (user.isPlus) bannerColor = hex else model.showPlusUpsell("colors")
+              },
+          )
+        }
+      }
+      Text("Цвет имени", color = TextMuted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+      Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+        colors.forEach { hex ->
+          Box(
+            modifier = Modifier
+              .size(28.dp)
+              .clip(CircleShape)
+              .background(Color(android.graphics.Color.parseColor(hex)))
+              .clickable {
+                if (user.isPlus) accentColor = hex else model.showPlusUpsell("colors")
+              },
+          )
+        }
+      }
+      Row(verticalAlignment = Alignment.CenterVertically) {
+        Switch(
+          checked = hideLastSeen,
+          onCheckedChange = {
+            if (user.isPlus) hideLastSeen = it else model.showPlusUpsell("lastSeen")
+          },
+        )
+        Text("Скрывать время захода", color = TextPrimary, modifier = Modifier.padding(start = 8.dp))
+      }
       Text("Видимость", color = TextMuted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
       Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
         Statuses.forEach { (id, label) ->
@@ -167,7 +218,16 @@ fun ProfileSettingsScreen(model: AppViewModel) {
         }
       }
       Button(
-        onClick = { model.saveProfile(displayName, customStatus, bio) },
+        onClick = {
+          model.saveProfile(
+            displayName,
+            customStatus,
+            bio,
+            bannerColor = if (user.isPlus) bannerColor else null,
+            accentColor = if (user.isPlus) accentColor else null,
+            hideLastSeen = if (user.isPlus) hideLastSeen else null,
+          )
+        },
         enabled = !model.busy,
         colors = ButtonDefaults.buttonColors(containerColor = Brand),
         modifier = Modifier.fillMaxWidth(),
@@ -444,9 +504,11 @@ fun UserProfileScreen(model: AppViewModel) {
       return
     }
     UserAvatar(user, 72.dp, model.statusOf(user.id, user.status))
-    Text(user.label, color = TextPrimary, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+    PlusName(user, fontSize = 22.sp, fontWeight = FontWeight.Bold)
     Text("@${user.username}", color = TextMuted)
-    user.bio?.takeIf { it.isNotBlank() }?.let { Text(it, color = TextPrimary) }
+    val live = model.statusOf(user.id, user.status)
+    Text(lastSeenSubtitle(user, live), color = if (live == "online") Online else TextMuted)
+    user.bio?.takeIf { it.isNotBlank() }?.let { BioText(it, user.isPlus) }
     if (user.id != model.me?.id) {
       val incoming = model.incomingRequestFrom(user.id)
       val requestPending = user.id in model.pendingOutgoingFriendIds
@@ -508,7 +570,7 @@ fun MembersScreen(model: AppViewModel) {
         ) {
           UserAvatar(m.user, 36.dp, model.statusOf(m.user.id, m.user.status))
           Column(Modifier.weight(1f)) {
-            Text(m.label, color = TextPrimary)
+            PlusName(m.user, name = m.label)
             Text("@${m.user.username}", color = TextMuted, fontSize = 12.sp)
           }
         }
@@ -939,4 +1001,89 @@ private fun parseHex(hex: String?): Color = try {
   Color(android.graphics.Color.parseColor(if (hex.isNullOrBlank()) "#5865F2" else if (hex.startsWith("#")) hex else "#$hex"))
 } catch (_: Exception) {
   Brand
+}
+
+@Composable
+fun PlusSettingsScreen(model: AppViewModel) {
+  val user = model.me
+  val context = LocalContext.current
+  var grantName by remember { mutableStateOf("") }
+  val pickShortcut = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    if (uri != null) IconPack.createGalleryShortcut(context, uri)
+  }
+  Column(
+    modifier = Modifier
+      .fillMaxSize()
+      .background(SurfaceDeep)
+      .statusBarsPadding()
+      .navigationBarsPadding()
+      .verticalScroll(rememberScrollState())
+      .padding(16.dp),
+    verticalArrangement = Arrangement.spacedBy(12.dp),
+  ) {
+    SettingsHeader("TetherChat Plus", model::back)
+    Text(
+      if (user?.isPlus == true) "Подписка активна." else "Напишите администратору, чтобы подключить Plus. Оплата появится позже.",
+      color = TextMuted,
+    )
+    Text("Бесплатно → Plus", color = TextPrimary, fontWeight = FontWeight.SemiBold)
+    Text("Файлы 10 / 30 МБ\nЗакрепы 5 / 10\nО себе 50 / 500\nАккаунты 1 / 2\nТранскрипт голосовых\nСкрытие last seen\nЗащита секретного чата\nСвои цвета и бейдж\nФон чата и иконки", color = TextMuted, fontSize = 14.sp)
+    Text("Скриншот система не блокирует на 100% — как в Telegram.", color = TextMuted, fontSize = 12.sp)
+    if (user?.isPlatformAdmin == true) {
+      Button(
+        onClick = { model.grantPlus(user.id, !user.isPlus) },
+        colors = ButtonDefaults.buttonColors(containerColor = Brand),
+        modifier = Modifier.fillMaxWidth(),
+      ) { Text(if (user.isPlus) "Выключить Plus себе" else "Включить Plus себе") }
+      Field("Имя пользователя", grantName, 32) { grantName = it }
+      TextButton(onClick = { model.grantPlusByUsername(grantName, true) }) {
+        Text("Выдать Plus", color = Brand)
+      }
+      TextButton(onClick = { model.grantPlusByUsername(grantName, false) }) {
+        Text("Снять Plus", color = Danger)
+      }
+    }
+    if (user?.isPlus == true) {
+      Text("Иконка приложения", color = TextPrimary, fontWeight = FontWeight.SemiBold)
+      Text("Система не даёт заменить иконку на любой файл. Можно выбрать одну из готовых или создать ярлык из своей картинки.", color = TextMuted, fontSize = 12.sp)
+      Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+        IconPack.ALIASES.forEach { alias ->
+          FilterChip(
+            selected = false,
+            onClick = { IconPack.setAlias(context, alias.id) },
+            label = { Text(alias.label) },
+          )
+        }
+      }
+      TextButton(onClick = { pickShortcut.launch("image/*") }) {
+        Text("Ярлык со своей картинкой", color = Brand)
+      }
+    }
+  }
+}
+
+@Composable
+fun AccountsScreen(model: AppViewModel) {
+  val other = model.otherAccount
+  Column(
+    modifier = Modifier
+      .fillMaxSize()
+      .background(SurfaceDeep)
+      .statusBarsPadding()
+      .navigationBarsPadding()
+      .padding(16.dp),
+    verticalArrangement = Arrangement.spacedBy(12.dp),
+  ) {
+    SettingsHeader("Аккаунты", model::back)
+    Text("Текущий: ${model.me?.label ?: ""}", color = TextPrimary, fontWeight = FontWeight.SemiBold)
+    if (other != null) {
+      Button(onClick = model::switchAccount, modifier = Modifier.fillMaxWidth()) {
+        Text("Переключиться на ${other.label}")
+      }
+    } else {
+      Button(onClick = model::beginAddAccount, modifier = Modifier.fillMaxWidth()) {
+        Text("Добавить аккаунт")
+      }
+    }
+  }
 }

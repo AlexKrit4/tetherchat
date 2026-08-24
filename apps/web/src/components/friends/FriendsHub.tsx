@@ -1,6 +1,7 @@
 import { MessageCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Avatar } from '@/components/ui/Avatar';
+import { DisplayName } from '@/components/plus/DisplayName';
 import { Spinner } from '@/components/ui/Spinner';
 import { useFriends } from '@/hooks/useFriends';
 import { useCreateConversation } from '@/hooks/useDms';
@@ -48,7 +49,7 @@ export function FriendsHub() {
                     <Avatar user={friend} size={44} showStatus />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-medium text-text-heading">
-                        {friend.displayName ?? friend.username}
+                        <DisplayName user={friend} name={friend.displayName ?? friend.username} />
                       </span>
                       <span className="block truncate text-sm text-text-muted">@{friend.username}</span>
                     </span>

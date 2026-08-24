@@ -80,7 +80,7 @@ export function useChannelNotificationSetting(channelId: string | undefined) {
   return useQuery({
     queryKey: queryKeys.channelNotifications(channelId ?? 'none'),
     queryFn: () =>
-      api.get<{ channelId: string; level: 'all' | 'mentions' | 'nothing'; muted: boolean }>(
+      api.get<{ channelId: string; level: 'all' | 'mentions' | 'nothing'; muted: boolean; wallpaperUrl?: string | null }>(
         `/api/channels/${channelId}/notifications`,
       ),
     enabled: Boolean(channelId),

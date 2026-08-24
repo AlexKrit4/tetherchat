@@ -66,6 +66,15 @@ export function refreshSession(): Promise<string | null> {
   return refreshPromise;
 }
 
+export async function refreshWithToken(refreshToken: string): Promise<AuthResponse> {
+  return apiFetch<AuthResponse>('/api/auth/refresh', {
+    method: 'POST',
+    body: {},
+    skipRefresh: true,
+    headers: { 'x-refresh-token': refreshToken },
+  });
+}
+
 export interface RequestOptions extends Omit<RequestInit, 'body'> {
   body?: unknown;
   /** Set for the auth endpoints, which must not recurse into a refresh. */

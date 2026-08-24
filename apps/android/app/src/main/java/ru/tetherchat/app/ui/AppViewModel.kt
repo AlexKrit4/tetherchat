@@ -31,6 +31,7 @@ import ru.tetherchat.app.CallForegroundService
 import ru.tetherchat.app.ForegroundState
 import ru.tetherchat.app.NotificationHelper
 import ru.tetherchat.app.PushRegistrar
+import ru.tetherchat.app.data.AccountSlot
 import ru.tetherchat.app.data.AdminCredentials
 import ru.tetherchat.app.data.AndroidRelease
 import ru.tetherchat.app.data.ApiException
@@ -83,6 +84,8 @@ sealed class Screen {
   data object Sessions : Screen()
   data object QrScanner : Screen()
   data object AppearanceSettings : Screen()
+  data object PlusSettings : Screen()
+  data object Accounts : Screen()
   data object Blacklist : Screen()
   data object IncomingFriends : Screen()
   data object AdminCredentials : Screen()
@@ -141,7 +144,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     private set
   var me by mutableStateOf<SelfUser?>(null)
     private set
-  var error by mutableStateOf<String?>(null)
+  var plusUpsell by mutableStateOf<String?>(null)
+  var otherAccount by mutableStateOf<AccountSlot?>(null)
+    private set
+  var addingAccount by mutableStateOf(false)
+    private set
+  var transcribingId by mutableStateOf<String?>(null)
+    private set
   var busy by mutableStateOf(false)
     private set
   var notificationsEnabled by mutableStateOf(session.notificationsEnabled)
@@ -213,6 +222,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   var dialogText by mutableStateOf("")
 
   var currentConversation by mutableStateOf<DirectConversation?>(null)
+  var chatWallpaperUrl by mutableStateOf<String?>(null)
     private set
   var pendingUploads by mutableStateOf<List<PendingUpload>>(emptyList())
     private set
@@ -301,6 +311,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
 
   private fun loadWorkspace() {
     me = api.me()
+    otherAccount = session.otherAccount()
     runCatching { e2ee.ensureDevice(me!!.id) }
     servers = api.servers()
     dms = api.dms()
@@ -370,6 +381,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
       val result = runCatching { withContext(Dispatchers.IO) { loadWorkspace() } }
       busy = false
       result.onSuccess {
+        addingAccount = false
         notificationsEnabled = session.notificationsEnabled
         screen = Screen.Home
         connectRealtime()
@@ -541,14 +553,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
         runCatching { api.logout() }
       }
       realtime.disconnect()
+      val other = session.otherAccount()
+      if (other != null) {
+        session.promoteOther()
+        resetWorkspace()
+        finishAuth()
+        return@launch
+      }
       me = null
-      servers = emptyList()
-      dms = emptyList()
-      messages = emptyList()
-      blockedUsers = emptyList()
-      incomingFriends = emptyList()
-      friends = emptyList()
-      incomingFriendCount = 0
+      resetWorkspace()
       totpTicket = null
       totpSetup = null
       adminCredentials = null
@@ -556,10 +569,189 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     }
   }
 
+  private fun resetWorkspace() {
+    servers = emptyList()
+    dms = emptyList()
+    messages = emptyList()
+    blockedUsers = emptyList()
+    incomingFriends = emptyList()
+    friends = emptyList()
+    incomingFriendCount = 0
+    currentConversation = null
+    selectedServerId = null
+    serverDetail = null
+    members = emptyList()
+  }
+
+  fun showPlusUpsell(reason: String = "generic") {
+    plusUpsell = reason
+  }
+
+  fun dismissPlusUpsell() {
+    plusUpsell = null
+  }
+
+  fun openPlusSettings() { screen = Screen.PlusSettings }
+
+  fun openAccounts() {
+    otherAccount = session.otherAccount()
+    screen = Screen.Accounts
+  }
+
+  fun switchAccount() {
+    if (session.otherAccount() == null) return
+    if (!session.switchSlots()) return
+    viewModelScope.launch {
+      realtime.disconnect()
+      resetWorkspace()
+      runCatching {
+        withContext(Dispatchers.IO) {
+          api.refresh()
+          loadWorkspace()
+        }
+      }.onSuccess {
+        screen = Screen.Home
+        connectRealtime()
+        PushRegistrar.sync(getApplication())
+      }.onFailure { error = it.userMessage(); screen = Screen.Login }
+    }
+  }
+
+  fun beginAddAccount() {
+    if (me?.isPlus != true) {
+      showPlusUpsell("accounts")
+      return
+    }
+    if (session.otherAccount() != null) {
+      error = "Уже сохранены два аккаунта"
+      return
+    }
+    addingAccount = true
+    session.pendingAddAccount = true
+    screen = Screen.Login
+  }
+
+  fun cancelAddAccount() {
+    addingAccount = false
+    session.pendingAddAccount = false
+    error = null
+    totpTicket = null
+    screen = Screen.Home
+  }
+
+  fun transcribeAttachment(id: String) {
+    if (me?.isPlus != true) {
+      showPlusUpsell("transcript")
+      return
+    }
+    if (transcribingId != null) return
+    transcribingId = id
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.transcribe(id) } }
+        .onSuccess { result ->
+          messages = messages.map { message ->
+            if (message.attachments.none { it.id == id }) message
+            else message.copy(
+              attachments = message.attachments.map { attachment ->
+                if (attachment.id == id) attachment.copy(transcript = result.transcript) else attachment
+              },
+            )
+          }
+        }
+        .onFailure { error = it.userMessage() }
+      transcribingId = null
+    }
+  }
+
+  fun grantPlus(userId: String, enabled: Boolean) {
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.setPlus(userId, enabled) } }
+        .onSuccess {
+          if (it.id == me?.id) me = me?.copy(isPlus = it.isPlus)
+        }
+        .onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun grantPlusByUsername(username: String, enabled: Boolean) {
+    val query = username.trim().trimStart('@')
+    if (query.isBlank()) {
+      error = "Введите имя пользователя"
+      return
+    }
+    viewModelScope.launch {
+      runCatching {
+        withContext(Dispatchers.IO) {
+          val found = api.searchUsers(query)
+          val match = found.firstOrNull { it.username.equals(query, ignoreCase = true) }
+            ?: throw ApiException(404, "not_found", "Пользователь не найден")
+          api.setPlus(match.id, enabled)
+        }
+      }.onSuccess {
+        error = if (it.isPlus) "Plus выдан @${it.username}" else "Plus снят с @${it.username}"
+      }.onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun setChatWallpaper(uri: Uri) {
+    if (me?.isPlus != true) {
+      showPlusUpsell("wallpaper")
+      return
+    }
+    val chat = screen as? Screen.Chat ?: return
+    val resolver = getApplication<Application>().contentResolver
+    viewModelScope.launch {
+      runCatching {
+        withContext(Dispatchers.IO) {
+          val bytes = resolver.openInputStream(uri)?.use { it.readBytes() }
+            ?: throw IllegalStateException("Не удалось прочитать файл")
+          val name = queryName(resolver, uri)
+          val mime = resolver.getType(uri) ?: "image/jpeg"
+          if (chat.dm) {
+            val updated = api.uploadDmWallpaper(chat.channelId, bytes, name, mime)
+            withContext(Dispatchers.Main) {
+              upsertDm(updated)
+              currentConversation = updated
+            }
+            updated.wallpaperUrl
+          } else {
+            api.uploadChannelWallpaper(chat.channelId, bytes, name, mime).wallpaperUrl
+          }
+        }
+      }.onSuccess { url -> chatWallpaperUrl = url }
+        .onFailure { error = it.userMessage() }
+    }
+  }
+
+  fun clearChatWallpaper() {
+    val chat = screen as? Screen.Chat ?: return
+    viewModelScope.launch {
+      runCatching {
+        withContext(Dispatchers.IO) {
+          if (chat.dm) {
+            val updated = api.deleteDmWallpaper(chat.channelId)
+            withContext(Dispatchers.Main) {
+              upsertDm(updated)
+              currentConversation = updated
+            }
+          } else {
+            api.deleteChannelWallpaper(chat.channelId)
+          }
+        }
+      }.onSuccess { chatWallpaperUrl = null }
+        .onFailure { error = it.userMessage() }
+    }
+  }
+
   fun goHome() { screen = Screen.Home }
 
   fun goRegister() { error = null; screen = Screen.Register }
-  fun goLogin() { error = null; totpTicket = null; screen = Screen.Login }
+  fun goLogin() {
+    error = null
+    totpTicket = null
+    session.pendingAddAccount = false
+    screen = Screen.Login
+  }
   fun goForgot() { error = null; screen = Screen.ForgotPassword }
 
   fun openSettings() { screen = Screen.Settings }
@@ -799,7 +991,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
           if (pinned) api.pinConversation(conversation.id) else api.unpinConversation(conversation.id)
         }
       }.onSuccess { updated -> upsertDm(updated) }
-        .onFailure { error = it.userMessage() }
+        .onFailure {
+          if (it is ApiException && it.status == 403) showPlusUpsell("pins")
+          else error = it.userMessage()
+        }
     }
   }
 
@@ -944,7 +1139,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
       Screen.AdminCredentials -> screen = Screen.AccountSettings
       Screen.Sessions -> screen = Screen.AccountSettings
       Screen.QrScanner -> screen = Screen.Sessions
-      Screen.ProfileSettings, Screen.AccountSettings, Screen.AppearanceSettings -> screen = Screen.Settings
+      Screen.ProfileSettings, Screen.AccountSettings, Screen.AppearanceSettings, Screen.PlusSettings, Screen.Accounts -> screen = Screen.Settings
       Screen.Settings, Screen.ServerSettings -> screen = Screen.Home
       Screen.Members -> screen = lastChat ?: Screen.Home
       is Screen.UserProfile -> screen = lastChat ?: Screen.Home
@@ -1017,6 +1212,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
         withContext(Dispatchers.IO) {
           if (dm) {
             currentConversation = dms.firstOrNull { it.id == channelId } ?: runCatching { api.conversation(channelId) }.getOrNull()
+            chatWallpaperUrl = currentConversation?.wallpaperUrl
           } else {
             currentConversation = null
             if (serverId != null && selectedServerId != serverId) {
@@ -1025,7 +1221,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
               members = api.members(serverId)
               rememberChannels(serverDetail)
             }
-            channelMuted = runCatching { api.notifications(channelId).muted }.getOrDefault(false)
+            val notif = runCatching { api.notifications(channelId) }.getOrNull()
+            channelMuted = notif?.muted ?: false
+            chatWallpaperUrl = notif?.wallpaperUrl
           }
           val page = api.messages(channelId, dm = dm)
           messages =
@@ -1153,7 +1351,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
         withContext(Dispatchers.IO) {
           val bytes = resolver.openInputStream(uri)?.use { it.readBytes() }
             ?: throw IllegalStateException("Не удалось прочитать файл")
-          if (bytes.size > 10 * 1024 * 1024) throw IllegalStateException("Файл больше 10 МБ")
+          if (bytes.size > 10 * 1024 * 1024 && me?.isPlus != true) {
+            if (bytes.size <= 30 * 1024 * 1024) {
+              withContext(Dispatchers.Main) { showPlusUpsell("files") }
+              throw IllegalStateException("Файл больше 10 МБ")
+            }
+            throw IllegalStateException("Файл больше 10 МБ")
+          }
+          if (bytes.size > 30 * 1024 * 1024) throw IllegalStateException("Файл больше 30 МБ")
           api.uploadFile(bytes, filename, mime)
         }
       }
@@ -1273,7 +1478,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     }
   }
 
-  fun saveProfile(displayName: String, customStatus: String, bio: String) {
+  fun saveProfile(
+    displayName: String,
+    customStatus: String,
+    bio: String,
+    bannerColor: String? = null,
+    accentColor: String? = null,
+    hideLastSeen: Boolean? = null,
+  ) {
     viewModelScope.launch {
       busy = true
       runCatching {
@@ -1283,11 +1495,17 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
               displayName = displayName.trim().ifBlank { null },
               customStatus = customStatus.trim().ifBlank { null },
               bio = bio.trim().ifBlank { null },
+              bannerColor = bannerColor,
+              accentColor = accentColor,
+              hideLastSeen = hideLastSeen,
             ),
           )
         }
       }.onSuccess { me = it }
-        .onFailure { error = it.userMessage() }
+        .onFailure {
+          if (it is ApiException && it.status == 403) showPlusUpsell("colors")
+          else error = it.userMessage()
+        }
       busy = false
     }
   }

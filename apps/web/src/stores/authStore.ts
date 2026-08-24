@@ -1,9 +1,23 @@
 import { create } from 'zustand';
 import type { AuthResponse, QrLoginPollResult, QrLoginStart, SelfUser, TotpChallenge } from '@tetherchat/shared';
-import { api, setAccessToken } from '@/lib/api';
+import { api, refreshWithToken, setAccessToken } from '@/lib/api';
 import { disconnectSocket } from '@/lib/socket';
+import { queryClient } from '@/lib/queryClient';
+import {
+  clearAccounts,
+  loadAccounts,
+  rememberCurrent,
+  saveAccounts,
+  snapUser,
+  stashOtherFromCurrent,
+} from '@/lib/accounts';
 
 type AuthStatus = 'loading' | 'authenticated' | 'anonymous';
+
+function applySession(session: AuthResponse): void {
+  setAccessToken(session.accessToken);
+  rememberCurrent(session.user, session.refreshToken);
+}
 
 interface AuthState {
   status: AuthStatus;
@@ -23,16 +37,18 @@ interface AuthState {
   startQrLogin: () => Promise<QrLoginStart>;
   pollQrLogin: (ticket: string) => Promise<QrLoginPollResult>;
   cancelQrLogin: (ticket: string) => Promise<void>;
+  switchAccount: () => Promise<void>;
+  addAccount: (login: string, password: string) => Promise<void>;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   status: 'loading',
   user: null,
 
   bootstrap: async () => {
     try {
       const session = await api.post<AuthResponse>('/api/auth/refresh', {}, { skipRefresh: true });
-      setAccessToken(session.accessToken);
+      applySession(session);
       set({ status: 'authenticated', user: session.user });
     } catch {
       setAccessToken(null);
@@ -50,7 +66,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       throw Object.assign(new Error('totp_required'), { ticket: session.ticket, code: 'totp_required' });
     }
     const authed = session as AuthResponse;
-    setAccessToken(authed.accessToken);
+    applySession(authed);
     set({ status: 'authenticated', user: authed.user });
   },
 
@@ -60,20 +76,35 @@ export const useAuthStore = create<AuthState>((set) => ({
       { ticket, code },
       { skipRefresh: true },
     );
-    setAccessToken(session.accessToken);
+    applySession(session);
     set({ status: 'authenticated', user: session.user });
   },
 
   register: async (input) => {
     const session = await api.post<AuthResponse>('/api/auth/register', input, { skipRefresh: true });
-    setAccessToken(session.accessToken);
+    applySession(session);
     set({ status: 'authenticated', user: session.user });
   },
 
   logout: async () => {
+    const other = loadAccounts().other;
     await api.post('/api/auth/logout').catch(() => undefined);
-    setAccessToken(null);
     disconnectSocket();
+    queryClient.clear();
+    if (other?.refreshToken) {
+      try {
+        const session = await refreshWithToken(other.refreshToken);
+        applySession(session);
+        saveAccounts({ current: snapUser(session.user, session.refreshToken ?? other.refreshToken), other: null });
+        set({ status: 'authenticated', user: session.user });
+        return;
+      } catch {
+        clearAccounts();
+      }
+    } else {
+      clearAccounts();
+    }
+    setAccessToken(null);
     set({ status: 'anonymous', user: null });
   },
 
@@ -89,7 +120,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       { skipRefresh: true },
     );
     if (result.status === 'approved') {
-      setAccessToken(result.accessToken);
+      applySession(result);
       set({ status: 'authenticated', user: result.user });
     }
     return result;
@@ -97,5 +128,34 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   cancelQrLogin: async (ticket) => {
     await api.post('/api/auth/qr/cancel', { ticket }, { skipRefresh: true }).catch(() => undefined);
+  },
+
+  switchAccount: async () => {
+    const store = loadAccounts();
+    if (!store.other?.refreshToken) return;
+    const previous = get().user && store.current ? store.current : null;
+    disconnectSocket();
+    queryClient.clear();
+    const session = await refreshWithToken(store.other.refreshToken);
+    applySession(session);
+    saveAccounts({
+      current: snapUser(session.user, session.refreshToken ?? store.other.refreshToken),
+      other: previous,
+    });
+    set({ status: 'authenticated', user: session.user });
+  },
+
+  addAccount: async (login, password) => {
+    const me = get().user;
+    if (!me?.isPlus) throw new Error('plus_required');
+    if (loadAccounts().other) throw new Error('accounts_full');
+    stashOtherFromCurrent();
+    try {
+      await get().login(login, password);
+    } catch (error) {
+      const store = loadAccounts();
+      saveAccounts({ current: store.other ?? store.current, other: null });
+      throw error;
+    }
   },
 }));

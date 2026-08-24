@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { DirectConversation, FriendRequest, PublicUser } from '@tetherchat/shared';
-import { api } from '@/lib/api';
+import { api, ApiRequestError, errorMessage } from '@/lib/api';
+import { usePlusStore } from '@/stores/plusStore';
 import { queryKeys } from '@/lib/queryKeys';
 import { toast } from '@/stores/toastStore';
-import { errorMessage } from '@/lib/api';
 import { t } from '@/i18n';
 import { sortDirectConversations } from './useDms';
 
@@ -95,6 +95,12 @@ export function usePinConversation() {
         );
       });
     },
-    onError: (error) => toast.error(errorMessage(error)),
+    onError: (error) => {
+      if (error instanceof ApiRequestError && error.status === 403) {
+        usePlusStore.getState().show('pins');
+        return;
+      }
+      toast.error(errorMessage(error));
+    },
   });
 }

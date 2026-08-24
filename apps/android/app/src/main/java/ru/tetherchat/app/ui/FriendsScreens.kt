@@ -69,7 +69,7 @@ private fun FriendRequestRow(model: AppViewModel, request: FriendRequest) {
     UserAvatar(request.from, 40.dp, model.statusOf(request.from.id, request.from.status))
     Spacer(Modifier.width(12.dp))
     Column(Modifier.weight(1f)) {
-      Text(request.from.label, color = TextPrimary, fontWeight = FontWeight.Medium, fontSize = 16.sp)
+      PlusName(request.from, fontWeight = FontWeight.Medium, fontSize = 16.sp)
       Text("@${request.from.username}", color = TextMuted, fontSize = 13.sp)
     }
     IconButton(onClick = { model.declineFriend(request) }) {

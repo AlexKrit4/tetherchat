@@ -8,6 +8,8 @@ import { areFriends } from '../lib/friends.js';
 import { assertConversationMember } from '../lib/permissions.js';
 import { conversationInclude, toConversation } from '../lib/serialize.js';
 import { ensureAiConversation, getAiBotUserId } from '../lib/aiBot.js';
+import { assertPlus, loadPlus, pinnedDmLimit } from '../lib/plus.js';
+import { readWallpaperUpload } from '../lib/wallpaper.js';
 import {
   createMessage,
   createEncryptedMessage,
@@ -292,6 +294,24 @@ export async function dmRoutes(app: FastifyInstance) {
   app.post('/:conversationId/pin', async (request) => {
     const { conversationId } = conversationParam.parse(request.params);
     await assertConversationMember(conversationId, request.userId);
+
+    const member = await prisma.directConversationMember.findUniqueOrThrow({
+      where: { conversationId_userId: { conversationId, userId: request.userId } },
+      select: { pinnedAt: true },
+    });
+
+    if (!member.pinnedAt) {
+      const plus = await loadPlus(request.userId);
+      const limit = pinnedDmLimit(plus);
+      const pinnedCount = await prisma.directConversationMember.count({
+        where: { userId: request.userId, leftAt: null, pinnedAt: { not: null } },
+      });
+      if (pinnedCount >= limit) {
+        if (!plus) throw ApiError.forbidden('Это функция TetherChat Plus');
+        throw ApiError.badRequest(`Можно закрепить до ${limit} чатов`);
+      }
+    }
+
     await prisma.directConversationMember.update({
       where: { conversationId_userId: { conversationId, userId: request.userId } },
       data: { pinnedAt: new Date() },
@@ -346,6 +366,36 @@ export async function dmRoutes(app: FastifyInstance) {
     });
 
     reply.status(204).send();
+  });
+
+  app.post('/:conversationId/wallpaper', async (request) => {
+    const { conversationId } = conversationParam.parse(request.params);
+    await assertConversationMember(conversationId, request.userId);
+    await assertPlus(request.userId);
+    const url = await readWallpaperUpload(request, request.userId);
+    await prisma.directConversationMember.update({
+      where: { conversationId_userId: { conversationId, userId: request.userId } },
+      data: { wallpaperUrl: url },
+    });
+    const conversation = await prisma.directConversation.findUniqueOrThrow({
+      where: { id: conversationId },
+      include: conversationInclude,
+    });
+    return toConversation(conversation, request.userId);
+  });
+
+  app.delete('/:conversationId/wallpaper', async (request) => {
+    const { conversationId } = conversationParam.parse(request.params);
+    await assertConversationMember(conversationId, request.userId);
+    await prisma.directConversationMember.update({
+      where: { conversationId_userId: { conversationId, userId: request.userId } },
+      data: { wallpaperUrl: null },
+    });
+    const conversation = await prisma.directConversation.findUniqueOrThrow({
+      where: { id: conversationId },
+      include: conversationInclude,
+    });
+    return toConversation(conversation, request.userId);
   });
 }
 

@@ -38,6 +38,7 @@ model User {
   passwordHash  String
   avatarUrl     String?
   bannerColor   String?
+  accentColor   String?
   bio           String?
   customStatus  String?
   status        PresenceStatus @default(offline)
@@ -46,6 +47,9 @@ model User {
   totpEnabled      Boolean        @default(false)
   totpSecretEnc    String?
   isPlatformAdmin  Boolean        @default(false)
+  isPlus           Boolean        @default(false)
+  plusUntil        DateTime?
+  hideLastSeen     Boolean        @default(false)
   /** Reserved system accounts such as the built-in AI assistant. */
   isBot            Boolean        @default(false)
   lastSeenAt       DateTime       @default(now())
@@ -313,6 +317,7 @@ model Attachment {
   height      Int?
   durationMs  Int?
   spoiler     Boolean  @default(false)
+  transcript  String?
   createdAt   DateTime @default(now())
 
   message  Message? @relation(fields: [messageId], references: [id], onDelete: Cascade)
@@ -408,6 +413,7 @@ model DirectConversationMember {
   lastReadMessageId String?
   lastReadAt        DateTime?
   pinnedAt          DateTime?
+  wallpaperUrl      String?
   joinedAt          DateTime  @default(now())
   leftAt            DateTime?
 
@@ -469,6 +475,7 @@ model ChannelNotificationSetting {
   channelId String
   level     NotificationLevel @default(all)
   muted     Boolean           @default(false)
+  wallpaperUrl String?
 
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)

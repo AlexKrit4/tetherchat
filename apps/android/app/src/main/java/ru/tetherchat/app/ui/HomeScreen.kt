@@ -3,6 +3,8 @@ package ru.tetherchat.app.ui
 import android.content.ClipData
 import android.content.ClipboardManager
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -212,7 +214,24 @@ private fun ServerRail(model: AppViewModel) {
       .width(72.dp)
       .fillMaxHeight()
       .background(SurfaceDeep)
-      .padding(vertical = 8.dp),
+      .padding(vertical = 8.dp)
+      .pointerInput(model.otherAccount?.userId) {
+        var total = 0f
+        var switched = false
+        detectHorizontalDragGestures(
+          onDragStart = {
+            total = 0f
+            switched = false
+          },
+          onHorizontalDrag = { _, dragAmount ->
+            total += dragAmount
+            if (!switched && total > 80f && model.otherAccount != null) {
+              switched = true
+              model.switchAccount()
+            }
+          },
+        )
+      },
     horizontalAlignment = Alignment.CenterHorizontally,
     verticalArrangement = Arrangement.spacedBy(8.dp),
   ) {
@@ -428,7 +447,7 @@ private fun FriendsHomeList(model: AppViewModel) {
         UserAvatar(friend, 42.dp, model.statusOf(friend.id, friend.status))
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-          Text(friend.label, color = TextPrimary, fontWeight = FontWeight.Medium, fontSize = 16.sp)
+          PlusName(friend, fontWeight = FontWeight.Medium, fontSize = 16.sp)
           Text("@${friend.username}", color = TextMuted, fontSize = 13.sp)
         }
         Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = "Открыть чат", tint = TextMuted)
@@ -493,15 +512,24 @@ private fun DmRow(
         Icon(Icons.Outlined.Lock, contentDescription = "Секретный чат", tint = Online, modifier = Modifier.size(15.dp))
         Spacer(Modifier.width(6.dp))
       }
-      Text(
-        conversation.title(meId),
-        color = TextPrimary,
-        fontSize = 16.sp,
-        fontWeight = if (unread) FontWeight.SemiBold else FontWeight.Normal,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        modifier = Modifier.weight(1f),
-      )
+      if (other != null && !conversation.isGroup && !conversation.isSaved && !conversation.isAi) {
+        PlusName(
+          other,
+          name = conversation.title(meId),
+          fontWeight = if (unread) FontWeight.SemiBold else FontWeight.Normal,
+          modifier = Modifier.weight(1f),
+        )
+      } else {
+        Text(
+          conversation.title(meId),
+          color = TextPrimary,
+          fontSize = 16.sp,
+          fontWeight = if (unread) FontWeight.SemiBold else FontWeight.Normal,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
+          modifier = Modifier.weight(1f),
+        )
+      }
       if (conversation.pinned && !conversation.lockedInList) {
         Icon(Icons.Outlined.PushPin, contentDescription = null, tint = TextMuted, modifier = Modifier.size(14.dp))
         Spacer(Modifier.width(8.dp))
@@ -547,7 +575,7 @@ private fun UserFooter(model: AppViewModel) {
     UserAvatar(user.asPublic(), 32.dp, model.statusOf(user.id, user.status))
     Spacer(Modifier.width(10.dp))
     Column(Modifier.weight(1f)) {
-      Text(user.label, color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+      PlusName(user.asPublic(), fontSize = 14.sp, fontWeight = FontWeight.Medium)
       Text(
         user.customStatus?.takeIf { it.isNotBlank() } ?: "@${user.username}",
         color = TextMuted,

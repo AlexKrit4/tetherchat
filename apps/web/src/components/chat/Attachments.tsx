@@ -1,10 +1,14 @@
 import { useState } from 'react';
-import { Download, FileText } from 'lucide-react';
+import { Download, FileText, Captions } from 'lucide-react';
 import { isAudioMime, isImageMime, isVideoMime } from '@tetherchat/shared';
 import type { Attachment, LinkPreview } from '@tetherchat/shared';
 import { cn } from '@/lib/cn';
 import { useT } from '@/i18n/useT';
 import { MediaLightbox } from './MediaLightbox';
+import { api, errorMessage } from '@/lib/api';
+import { useAuthStore } from '@/stores/authStore';
+import { usePlusStore } from '@/stores/plusStore';
+import { toast } from '@/stores/toastStore';
 
 const MAX_INLINE_WIDTH = 520;
 const MAX_INLINE_HEIGHT = 350;
@@ -86,15 +90,7 @@ export function Attachments({ attachments }: { attachments: Attachment[] }) {
           }
 
           if (isAudioMime(attachment.contentType)) {
-            return (
-              <audio
-                key={attachment.id}
-                src={attachment.url}
-                controls
-                preload="metadata"
-                className="w-full max-w-[420px]"
-              />
-            );
+            return <VoiceBubble key={attachment.id} attachment={attachment} />;
           }
 
           return <FileCard key={attachment.id} attachment={attachment} />;
@@ -105,6 +101,55 @@ export function Attachments({ attachments }: { attachments: Attachment[] }) {
         <MediaLightbox items={gallery} current={lightbox} onClose={() => setLightbox(null)} onChange={setLightbox} />
       ) : null}
     </>
+  );
+}
+
+function VoiceBubble({ attachment }: { attachment: Attachment }) {
+  const t = useT();
+  const plus = useAuthStore((state) => state.user?.isPlus);
+  const showPlus = usePlusStore((state) => state.show);
+  const [transcript, setTranscript] = useState(attachment.transcript ?? '');
+  const [busy, setBusy] = useState(false);
+  const seconds = Math.max(1, Math.round((attachment.durationMs ?? 0) / 1000));
+
+  const transcribe = async () => {
+    if (!plus) {
+      showPlus('transcript');
+      return;
+    }
+    if (transcript) return;
+    setBusy(true);
+    try {
+      const result = await api.post<{ transcript: string }>(`/api/attachments/${attachment.id}/transcribe`);
+      setTranscript(result.transcript);
+    } catch (error) {
+      toast.error(errorMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex max-w-[420px] flex-col gap-2 rounded-2xl bg-surface-secondary px-3 py-2.5">
+      <div className="flex items-center gap-3">
+        <audio src={attachment.url} controls preload="metadata" className="min-w-0 flex-1" />
+        <button
+          type="button"
+          onClick={() => void transcribe()}
+          disabled={busy}
+          className={cn(
+            'inline-flex h-9 shrink-0 items-center gap-1 rounded-full px-3 text-sm font-medium',
+            plus ? 'bg-brand text-white hover:bg-brand-hover' : 'bg-surface-tertiary text-text-muted',
+          )}
+          title={t('plus.transcribe')}
+        >
+          <Captions size={16} aria-hidden />
+          {busy ? t('plus.transcribing') : t('plus.transcribe')}
+        </button>
+      </div>
+      <p className="text-xs text-text-muted">{seconds}с</p>
+      {transcript ? <p className="whitespace-pre-wrap text-sm text-text">{transcript}</p> : null}
+    </div>
   );
 }
 

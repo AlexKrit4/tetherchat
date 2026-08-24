@@ -25,7 +25,7 @@ import { pushRoutes } from './routes/push.js';
 import { callRoutes } from './routes/calls.js';
 import { e2eeRoutes } from './routes/e2ee.js';
 import { serverRoutes } from './routes/servers.js';
-import { uploadRoutes } from './routes/uploads.js';
+import { uploadRoutes, attachmentRoutes } from './routes/uploads.js';
 import { userRoutes } from './routes/users.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
@@ -56,7 +56,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(cookie, { secret: config.JWT_REFRESH_SECRET });
 
   await app.register(multipart, {
-    limits: { fileSize: LIMITS.attachmentBytes, files: 1, fields: 10 },
+    limits: { fileSize: LIMITS.attachmentBytesPlus, files: 1, fields: 10 },
   });
 
   await app.register(rateLimit, {
@@ -98,6 +98,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(adminRoutes, { prefix: '/api/admin' });
   await app.register(inviteRoutes, { prefix: '/api/invite' });
   await app.register(uploadRoutes, { prefix: '/api/upload' });
+  await app.register(attachmentRoutes, { prefix: '/api/attachments' });
   await app.register(pushRoutes, { prefix: '/api/push' });
   await app.register(callRoutes, { prefix: '/api/calls' });
   await app.register(e2eeRoutes, { prefix: '/api/e2ee' });

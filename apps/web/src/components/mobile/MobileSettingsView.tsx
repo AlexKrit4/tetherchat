@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bell, Ban, ChevronRight, LogOut, Palette, ShieldCheck, User } from 'lucide-react';
+import { Bell, Ban, ChevronRight, LogOut, Palette, ShieldCheck, Sparkles, User } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { useT } from '@/i18n/useT';
@@ -11,10 +11,11 @@ import { NotificationSettings } from '@/components/settings/NotificationSettings
 import { AppearanceSettings } from '@/components/settings/AppearanceSettings';
 import { AccountSettings } from '@/components/settings/AccountSettings';
 import { BlacklistSettings } from '@/components/settings/BlacklistSettings';
+import { PlusSettings } from '@/components/plus/PlusSettings';
 import { useAuthStore } from '@/stores/authStore';
 import { useUiStore } from '@/stores/uiStore';
 
-type Section = 'root' | 'profile' | 'account' | 'notifications' | 'appearance' | 'blocked';
+type Section = 'root' | 'profile' | 'account' | 'notifications' | 'appearance' | 'blocked' | 'plus';
 
 /** Full-screen settings with a second level, instead of a desktop modal. */
 export function MobileSettingsView() {
@@ -30,6 +31,7 @@ export function MobileSettingsView() {
     notifications: t('settings.notifications'),
     appearance: t('settings.appearance'),
     blocked: t('settings.blockedUsers'),
+    plus: t('settings.plus'),
   };
 
   if (section !== 'root') {
@@ -42,6 +44,7 @@ export function MobileSettingsView() {
           {section === 'notifications' ? <NotificationSettings /> : null}
           {section === 'appearance' ? <AppearanceSettings /> : null}
           {section === 'blocked' ? <BlacklistSettings /> : null}
+          {section === 'plus' ? <PlusSettings /> : null}
         </div>
       </div>
     );
@@ -92,6 +95,11 @@ export function MobileSettingsView() {
             icon={Ban}
             label={t('settings.blockedUsers')}
             onSelect={() => setSection('blocked')}
+          />
+          <SettingsRow
+            icon={Sparkles}
+            label={t('settings.plus')}
+            onSelect={() => setSection('plus')}
           />
         </SettingsGroup>
 

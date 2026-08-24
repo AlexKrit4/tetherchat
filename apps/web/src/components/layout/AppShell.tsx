@@ -12,6 +12,8 @@ import { ConnectionBanner } from './ConnectionBanner';
 import { NotificationBanner } from './NotificationBanner';
 import { CallOverlay } from '@/components/call/CallOverlay';
 import { CallBanner } from '@/components/call/CallBanner';
+import { PlusUpsellSheet } from '@/components/plus/PlusUpsellSheet';
+import { SecretProtectOverlay } from '@/components/plus/SecretProtectOverlay';
 import { useLiveKitRoom } from '@/hooks/useLiveKitRoom';
 import { useAuthStore } from '@/stores/authStore';
 import { ensureE2eeDevice } from '@/lib/e2ee';
@@ -49,6 +51,8 @@ export function AppShell() {
       <NotificationBanner />
       <CallOverlay />
       <CallBanner />
+      <PlusUpsellSheet />
+      <SecretProtectOverlay />
       {layout === 'mobile' ? <MobileLayout /> : null}
       {layout === 'tablet' ? <TabletLayout /> : null}
       {layout === 'desktop' ? <DesktopLayout /> : null}

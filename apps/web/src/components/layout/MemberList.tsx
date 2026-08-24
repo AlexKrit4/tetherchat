@@ -7,6 +7,7 @@ import { useT } from '@/i18n/useT';
 import { useChatTarget } from '@/hooks/useChatTarget';
 import { useMembers } from '@/hooks/useServers';
 import { Avatar } from '@/components/ui/Avatar';
+import { DisplayName } from '@/components/plus/DisplayName';
 import { SidebarSkeleton } from '@/components/ui/Skeleton';
 import { UserProfileDialog } from '@/components/modals/UserProfileDialog';
 import { usePresenceStore } from '@/stores/presenceStore';
@@ -210,12 +211,7 @@ function MemberRow({
 
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="flex items-center gap-1">
-          <span
-            className="truncate text-base font-medium"
-            style={{ color: colour ?? 'var(--text-normal)' }}
-          >
-            {label}
-          </span>
+          <DisplayName user={user} name={label} color={colour ?? 'var(--text-normal)'} className="text-base" />
           {isSelf ? <span className="shrink-0 text-2xs text-text-faint">{t('common.you')}</span> : null}
           {isOwner ? (
             <Crown size={13} className="shrink-0 text-warning" aria-label={t('common.owner')} />

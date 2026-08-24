@@ -53,14 +53,14 @@ fun LoginScreen(model: AppViewModel) {
     return
   }
   AuthScaffold(
-    title = "С возвращением",
-    subtitle = "Войдите в TetherChat",
+    title = if (model.addingAccount) "Добавить аккаунт" else "С возвращением",
+    subtitle = if (model.addingAccount) "Войдите во второй аккаунт. Текущий сохранится." else "Войдите в TetherChat",
     error = model.error,
     busy = model.busy,
     action = "Войти",
     onAction = { model.login(login, password) },
-    alt = "Нет аккаунта? Регистрация",
-    onAlt = model::goRegister,
+    alt = if (model.addingAccount) "Отмена" else "Нет аккаунта? Регистрация",
+    onAlt = if (model.addingAccount) model::cancelAddAccount else model::goRegister,
     extra = {
       TextButton(onClick = model::goForgot) { Text("Забыли пароль?", color = Brand) }
     },

@@ -12,7 +12,7 @@ import { Tooltip } from '@/components/ui/Tooltip';
 import { CreateServerDialog } from '@/components/modals/CreateServerDialog';
 import { JoinServerDialog } from '@/components/modals/JoinServerDialog';
 import { TetherLogo } from '@/components/brand/TetherLogo';
-import { useT } from '@/i18n/useT';
+import { AccountSwitcher } from '@/components/plus/AccountSwitcher';
 import { useUiStore } from '@/stores/uiStore';
 
 /**
@@ -63,6 +63,8 @@ export function ServerRail() {
           <Compass size={22} strokeWidth={2} aria-hidden />
         </RailButton>
       </div>
+
+      <AccountSwitcher />
 
       <CreateServerDialog open={createOpen} onClose={() => setCreateOpen(false)} />
       <JoinServerDialog open={joinOpen} onClose={() => setJoinOpen(false)} />

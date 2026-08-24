@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Trash2, Upload, Smartphone } from 'lucide-react';
-import { LIMITS } from '@tetherchat/shared';
+import { LIMITS, PLUS_COLORS } from '@tetherchat/shared';
 import type { SelfUser } from '@tetherchat/shared';
 import { api, errorMessage } from '@/lib/api';
 import { useT } from '@/i18n/useT';
@@ -12,6 +12,8 @@ import { useAuthStore } from '@/stores/authStore';
 import { toast } from '@/stores/toastStore';
 import { queryKeys } from '@/lib/queryKeys';
 import { ANDROID_APK_FILENAME, ANDROID_APK_PATH, isInstalledAndroidApp } from '@/lib/androidApp';
+import { bioMax } from '@/lib/plusDisplay';
+import { usePlusStore } from '@/stores/plusStore';
 
 /** Avatar, display name, bio and custom status. Shared by desktop and mobile. */
 export function ProfileSettings() {
@@ -20,14 +22,19 @@ export function ProfileSettings() {
   const user = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
   const fileRef = useRef<HTMLInputElement>(null);
+  const showPlus = usePlusStore((state) => state.show);
 
   const [displayName, setDisplayName] = useState(user?.displayName ?? '');
   const [customStatus, setCustomStatus] = useState(user?.customStatus ?? '');
   const [bio, setBio] = useState(user?.bio ?? '');
+  const [bannerColor, setBannerColor] = useState(user?.bannerColor ?? PLUS_COLORS[0]);
+  const [accentColor, setAccentColor] = useState(user?.accentColor ?? user?.bannerColor ?? PLUS_COLORS[0]);
+  const [hideLastSeen, setHideLastSeen] = useState(Boolean(user?.hideLastSeen));
+
+  const maxBio = bioMax(user);
 
   const save = useMutation({
-    mutationFn: (input: Partial<Pick<SelfUser, 'displayName' | 'customStatus' | 'bio'>>) =>
-      api.patch<SelfUser>('/api/users/@me', input),
+    mutationFn: (input: Partial<SelfUser>) => api.patch<SelfUser>('/api/users/@me', input),
     onSuccess: (updated) => {
       setUser(updated);
       void client.invalidateQueries({ queryKey: queryKeys.me });
@@ -57,6 +64,12 @@ export function ProfileSettings() {
   });
 
   if (!user) return null;
+
+  const requirePlus = (reason: 'colors' | 'lastSeen' | 'bio') => {
+    if (user.isPlus) return false;
+    showPlus(reason);
+    return true;
+  };
 
   return (
     <div className="flex flex-col gap-5">
@@ -108,10 +121,75 @@ export function ProfileSettings() {
         label={t('settings.about')}
         rows={4}
         value={bio}
-        maxLength={LIMITS.bio.max}
+        maxLength={maxBio}
         placeholder={t('settings.aboutPlaceholder')}
-        onChange={(event) => setBio(event.target.value)}
+        hint={`${bio.length} / ${maxBio}`}
+        onChange={(event) => {
+          const next = event.target.value;
+          if (next.length > LIMITS.bio.max && !user.isPlus) {
+            showPlus('bio');
+            return;
+          }
+          setBio(next);
+        }}
       />
+
+      <div>
+        <p className="mb-2 text-sm font-medium text-text-heading">{t('plus.bannerColor')}</p>
+        <div className="flex flex-wrap gap-2">
+          {PLUS_COLORS.map((color) => (
+            <button
+              key={color}
+              type="button"
+              aria-label={color}
+              className="h-8 w-8 rounded-full"
+              style={{
+                background: color,
+                boxShadow: bannerColor === color ? '0 0 0 2px var(--header-primary)' : undefined,
+              }}
+              onClick={() => {
+                if (requirePlus('colors')) return;
+                setBannerColor(color);
+              }}
+            />
+          ))}
+        </div>
+        <p className="mb-2 mt-3 text-sm font-medium text-text-heading">{t('plus.accentColor')}</p>
+        <div className="flex flex-wrap gap-2">
+          {PLUS_COLORS.map((color) => (
+            <button
+              key={`accent-${color}`}
+              type="button"
+              aria-label={color}
+              className="h-8 w-8 rounded-full"
+              style={{
+                background: color,
+                boxShadow: accentColor === color ? '0 0 0 2px var(--header-primary)' : undefined,
+              }}
+              onClick={() => {
+                if (requirePlus('colors')) return;
+                setAccentColor(color);
+              }}
+            />
+          ))}
+        </div>
+        {!user.isPlus ? <p className="mt-2 text-xs text-text-muted">{t('plus.colorsHint')}</p> : null}
+      </div>
+
+      <label className="flex items-center gap-3 text-sm text-text">
+        <input
+          type="checkbox"
+          checked={hideLastSeen}
+          onChange={(event) => {
+            if (requirePlus('lastSeen')) return;
+            setHideLastSeen(event.target.checked);
+          }}
+        />
+        <span>
+          <span className="block font-medium">{t('plus.hideLastSeen')}</span>
+          <span className="text-text-muted">{t('plus.hideLastSeenHint')}</span>
+        </span>
+      </label>
 
       <Button
         loading={save.isPending}
@@ -120,6 +198,7 @@ export function ProfileSettings() {
             displayName: displayName.trim() || null,
             customStatus: customStatus.trim() || null,
             bio: bio.trim() || null,
+            ...(user.isPlus ? { bannerColor, accentColor, hideLastSeen } : {}),
           })
         }
       >
@@ -139,7 +218,7 @@ export function ProfileSettings() {
             <a
               href={ANDROID_APK_PATH}
               download={ANDROID_APK_FILENAME}
-              className="mt-3 inline-flex h-9 min-h-touch items-center justify-center gap-2 rounded bg-brand px-4 text-base font-medium text-white transition-colors hover:bg-brand-hover active:bg-brand-active md:min-h-0"
+              className="mt-3 inline-flex h-9 min-h-touch items-center justify-center gap-3 rounded bg-brand px-4 text-base font-medium text-white transition-colors hover:bg-brand-hover active:bg-brand-active md:min-h-0"
             >
               {t('settings.downloadApk')}
             </a>

@@ -11,6 +11,9 @@ import { ChatSettingsButton } from './ChatSettingsButton';
 import { useCallStore } from '@/stores/callStore';
 import { getSecretSafetyNumber } from '@/lib/e2ee';
 import { conversationNeedsFriendship, isFriendOf, useFriends } from '@/hooks/useFriends';
+import { lastSeenLabel } from '@/lib/plusDisplay';
+import { DisplayName } from '@/components/plus/DisplayName';
+import { usePresenceStore } from '@/stores/presenceStore';
 
 /**
  * 48px bar above the message list. On mobile the leading slot becomes a back
@@ -35,6 +38,7 @@ export function ChatHeader() {
   const startOutgoingCall = useCallStore((state) => state.startOutgoing);
   const callPhase = useCallStore((state) => state.phase);
   const { data: friends } = useFriends();
+  const liveStatuses = usePresenceStore((state) => state.statuses);
 
   const dmPeer = conversation?.members.find((member) => member.id !== currentUserId);
   const canCall =
@@ -96,7 +100,19 @@ export function ChatHeader() {
           <Hash size={22} strokeWidth={2} className="shrink-0 text-text-faint" aria-hidden />
         )}
 
-        <h1 className="truncate text-lg font-semibold text-text-heading">{title || '…'}</h1>
+        {isDm && dmPeer && !conversation?.isGroup && !conversation?.isSaved && !conversation?.isAi ? (
+          <div className="min-w-0 flex-1">
+            <h1 className="min-w-0 truncate text-lg font-semibold text-text-heading">
+              <DisplayName user={dmPeer} name={title || '…'} />
+            </h1>
+            <p className="truncate text-xs text-text-muted">{lastSeenLabel(dmPeer, liveStatuses[dmPeer.id])}</p>
+            {conversation?.peerHasPlusProtect ? (
+              <p className="truncate text-xs text-text-muted">{t('plus.peerProtect')}</p>
+            ) : null}
+          </div>
+        ) : (
+          <h1 className="truncate text-lg font-semibold text-text-heading">{title || '…'}</h1>
+        )}
         {conversation?.isSecret ? (
           <span className="hidden text-xs font-medium text-success sm:inline">E2EE · ключи только на устройствах</span>
         ) : null}

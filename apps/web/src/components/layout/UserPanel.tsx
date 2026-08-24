@@ -3,6 +3,7 @@ import { Mic, MicOff, Settings, UserPlus } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { useT } from '@/i18n/useT';
 import { Avatar } from '@/components/ui/Avatar';
+import { DisplayName } from '@/components/plus/DisplayName';
 import { IconButton } from '@/components/ui/IconButton';
 import { UserSettingsDialog } from '@/components/modals/UserSettingsDialog';
 import { IncomingFriendsDialog } from '@/components/friends/IncomingFriends';
@@ -45,7 +46,7 @@ export function UserPanel({ className }: { className?: string }) {
         <Avatar user={user} size={32} showStatus ringColor="#232428" />
         <span className="flex min-w-0 flex-col">
           <span className="truncate text-sm font-semibold text-text-heading">
-            {user.displayName ?? user.username}
+            <DisplayName user={user} name={user.displayName ?? user.username} />
           </span>
           <span className="truncate text-xs text-text-muted">
             {user.customStatus ?? `@${user.username}`}

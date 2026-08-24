@@ -14,6 +14,8 @@ import {
 } from '../services/messageService.js';
 import { ackChannel } from '../services/readStateService.js';
 import { emitToServer } from '../ws/realtime.js';
+import { assertPlus } from '../lib/plus.js';
+import { readWallpaperUpload } from '../lib/wallpaper.js';
 
 const channelParam = z.object({ channelId: z.string().min(1) });
 
@@ -203,7 +205,7 @@ export async function channelRoutes(app: FastifyInstance) {
       },
     });
 
-    return { channelId, level: setting.level, muted: setting.muted };
+    return { channelId, level: setting.level, muted: setting.muted, wallpaperUrl: setting.wallpaperUrl };
   });
 
   app.get('/:channelId/notifications', async (request) => {
@@ -212,6 +214,45 @@ export async function channelRoutes(app: FastifyInstance) {
     const setting = await prisma.channelNotificationSetting.findUnique({
       where: { userId_channelId: { userId: request.userId, channelId } },
     });
-    return { channelId, level: setting?.level ?? 'all', muted: setting?.muted ?? false };
+    return {
+      channelId,
+      level: setting?.level ?? 'all',
+      muted: setting?.muted ?? false,
+      wallpaperUrl: setting?.wallpaperUrl ?? null,
+    };
+  });
+
+  app.post('/:channelId/wallpaper', async (request) => {
+    const { channelId } = channelParam.parse(request.params);
+    await loadChannelContext(channelId, request.userId);
+    await assertPlus(request.userId);
+    const url = await readWallpaperUpload(request, request.userId);
+    const setting = await prisma.channelNotificationSetting.upsert({
+      where: { userId_channelId: { userId: request.userId, channelId } },
+      create: { userId: request.userId, channelId, wallpaperUrl: url },
+      update: { wallpaperUrl: url },
+    });
+    return {
+      channelId,
+      level: setting.level,
+      muted: setting.muted,
+      wallpaperUrl: setting.wallpaperUrl,
+    };
+  });
+
+  app.delete('/:channelId/wallpaper', async (request) => {
+    const { channelId } = channelParam.parse(request.params);
+    await loadChannelContext(channelId, request.userId);
+    const setting = await prisma.channelNotificationSetting.upsert({
+      where: { userId_channelId: { userId: request.userId, channelId } },
+      create: { userId: request.userId, channelId, wallpaperUrl: null },
+      update: { wallpaperUrl: null },
+    });
+    return {
+      channelId,
+      level: setting.level,
+      muted: setting.muted,
+      wallpaperUrl: setting.wallpaperUrl,
+    };
   });
 }

@@ -17,10 +17,13 @@ data class PublicUser(
   val displayName: String? = null,
   val avatarUrl: String? = null,
   val bannerColor: String? = null,
+  val accentColor: String? = null,
   val bio: String? = null,
   val customStatus: String? = null,
   val status: String = "offline",
   val createdAt: String = "",
+  val isPlus: Boolean = false,
+  val lastSeenAt: String? = null,
 ) {
   val label: String get() = displayName?.takeIf { it.isNotBlank() } ?: username
 }
@@ -32,6 +35,7 @@ data class SelfUser(
   val displayName: String? = null,
   val avatarUrl: String? = null,
   val bannerColor: String? = null,
+  val accentColor: String? = null,
   val bio: String? = null,
   val customStatus: String? = null,
   val status: String = "online",
@@ -41,6 +45,10 @@ data class SelfUser(
   val enterToSend: Boolean = true,
   val totpEnabled: Boolean = false,
   val isPlatformAdmin: Boolean = false,
+  val isPlus: Boolean = false,
+  val hideLastSeen: Boolean = false,
+  val plusUntil: String? = null,
+  val lastSeenAt: String? = null,
 ) {
   val label: String get() = displayName?.takeIf { it.isNotBlank() } ?: username
 
@@ -50,10 +58,13 @@ data class SelfUser(
     displayName = displayName,
     avatarUrl = avatarUrl,
     bannerColor = bannerColor,
+    accentColor = accentColor,
     bio = bio,
     customStatus = customStatus,
     status = status,
     createdAt = createdAt,
+    isPlus = isPlus,
+    lastSeenAt = lastSeenAt,
   )
 }
 
@@ -145,6 +156,7 @@ data class Attachment(
   val height: Int? = null,
   val durationMs: Int? = null,
   val spoiler: Boolean = false,
+  val transcript: String? = null,
 ) {
   val isImage: Boolean get() = contentType.startsWith("image/")
   val isVideo: Boolean get() = contentType.startsWith("video/")
@@ -219,6 +231,8 @@ data class DirectConversation(
   val peerLastReadMessageId: String? = null,
   val peerLastReadAt: String? = null,
   val pinned: Boolean = false,
+  val wallpaperUrl: String? = null,
+  val peerHasPlusProtect: Boolean = false,
 ) {
   fun title(meId: String): String {
     if (isSaved) return "Избранное"
@@ -322,9 +336,12 @@ data class PresenceEvent(val userId: String, val status: String)
 
 @Serializable
 data class PatchProfileBody(
-  val displayName: String?,
-  val customStatus: String?,
-  val bio: String?,
+  val displayName: String? = null,
+  val customStatus: String? = null,
+  val bio: String? = null,
+  val bannerColor: String? = null,
+  val accentColor: String? = null,
+  val hideLastSeen: Boolean? = null,
 )
 
 @Serializable
@@ -347,6 +364,7 @@ data class ChannelNotifications(
   val channelId: String = "",
   val level: String = "all",
   val muted: Boolean = false,
+  val wallpaperUrl: String? = null,
 )
 
 @Serializable
@@ -432,6 +450,12 @@ data class PatchUsernameBody(val username: String)
 
 @Serializable
 data class PatchEnterToSendBody(val enterToSend: Boolean)
+
+@Serializable
+data class PatchPlusBody(val enabled: Boolean)
+
+@Serializable
+data class TranscriptResponse(val transcript: String = "", val cached: Boolean = false)
 
 @Serializable
 data class PatchServerBody(val name: String? = null, val description: String? = null)

@@ -13,6 +13,7 @@ import { MessageContent } from './MessageContent';
 import { Attachments, LinkPreviews } from './Attachments';
 import { Reactions } from './Reactions';
 import { MessageEditor } from './MessageEditor';
+import { DisplayName } from '@/components/plus/DisplayName';
 
 export interface MessageActionSet {
   canEdit: boolean;
@@ -172,9 +173,12 @@ export const MessageGroup = memo(function MessageGroup({
                 type="button"
                 onClick={() => onOpenProfile(message.authorId)}
                 className="text-message font-medium hover:underline"
-                style={{ color: roleColor ?? 'var(--header-primary)' }}
               >
-                {displayName}
+                <DisplayName
+                  user={message.author}
+                  name={displayName}
+                  color={roleColor ?? 'var(--header-primary)'}
+                />
               </button>
               <Tooltip content={messageTimestamp(message.createdAt)}>
                 <span className="inline-flex items-center gap-1 text-xs text-text-muted">

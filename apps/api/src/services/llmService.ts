@@ -12,7 +12,7 @@ const SYSTEM_PROMPT = `Ты — встроенный помощник мессе
 О TetherChat:
 - Сайт: https://tetherchat.ru. Это текстовый мессенджер в духе Discord: серверы, каналы, личные сообщения.
 - Есть веб и Android. Приложение: https://tetherchat.ru/app/tetherchat.apk
-- Звонков и видеосвязи нет. Платной подписки нет.
+- Звонки 1:1 есть. TetherChat Plus — платная подписка (пока выдаёт администратор): больше файлы, закрепления, расшифровка голосовых и оформление.
 - Ты не бот из Telegram и не умеешь писать в Telegram.
 
 Как пользоваться:
@@ -83,6 +83,41 @@ export async function completeAiChat(botId: string, history: ChatTurn[]): Promis
   const text = stripThink(data.choices?.[0]?.message?.content ?? '');
   if (!text) return 'Не удалось получить ответ. Попробуйте переформулировать вопрос.';
   return text.slice(0, LIMITS.messageContent.max);
+}
+
+export const TEST_TRANSCRIPT = 'Тестовая расшифровка голосового.';
+
+export async function transcribeAudio(
+  buffer: Buffer,
+  filename: string,
+  contentType: string,
+): Promise<string> {
+  if (isTest()) return TEST_TRANSCRIPT;
+
+  const config = getConfig();
+  const key = config.GROQ_API_KEY?.trim();
+  if (!key) throw new Error('GROQ_API_KEY is not configured');
+
+  const form = new FormData();
+  form.append('file', new Blob([buffer], { type: contentType || 'audio/webm' }), filename || 'voice.webm');
+  form.append('model', 'whisper-large-v3-turbo');
+  form.append('response_format', 'text');
+
+  const response = await fetch(`${config.LLM_BASE_URL.replace(/\/$/, '')}/audio/transcriptions`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${key}` },
+    body: form,
+    signal: AbortSignal.timeout(45_000),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '');
+    console.error('[whisper] Groq error', response.status, detail.slice(0, 300));
+    throw new Error('Не удалось расшифровать голосовое');
+  }
+
+  const text = (await response.text()).trim();
+  return text.slice(0, 8000) || 'Пустая расшифровка.';
 }
 
 function stripThink(raw: string): string {

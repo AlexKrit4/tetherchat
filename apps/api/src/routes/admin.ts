@@ -9,10 +9,28 @@ import {
   mskDateKey,
 } from '../lib/adminCredentials.js';
 import { reportInclude, toMessageReport, toSiteBan } from '../lib/reports.js';
-import { publicUserSelect } from '../lib/serialize.js';
+import { publicUserSelect, toPublicUser } from '../lib/serialize.js';
 import { signAdminToken } from '../lib/tokens.js';
+import { assertPlatformAdmin } from '../lib/platformAdmin.js';
 
 export async function adminRoutes(app: FastifyInstance) {
+  app.patch('/users/:userId/plus', { preHandler: app.requireAuth }, async (request) => {
+    await assertPlatformAdmin(request.userId);
+    const { userId } = z.object({ userId: z.string().min(1) }).parse(request.params);
+    const { enabled } = z.object({ enabled: z.boolean() }).parse(request.body);
+    const target = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+    if (!target) throw ApiError.notFound('User not found');
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: { isPlus: enabled, plusUntil: enabled ? null : new Date(0) },
+      select: publicUserSelect,
+    });
+    return toPublicUser(updated);
+  });
+
   app.post('/login', async (request) => {
     const body = z
       .object({

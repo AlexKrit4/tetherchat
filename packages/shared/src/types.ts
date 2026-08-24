@@ -6,10 +6,14 @@ export interface PublicUser {
   displayName: string | null;
   avatarUrl: string | null;
   bannerColor: string | null;
+  accentColor?: string | null;
   bio: string | null;
   customStatus: string | null;
   status: PresenceStatus;
   createdAt: string;
+  isPlus?: boolean;
+  /** ISO timestamp, or null when the user hides last seen (Plus). */
+  lastSeenAt?: string | null;
 }
 
 export interface SelfUser extends PublicUser {
@@ -19,6 +23,9 @@ export interface SelfUser extends PublicUser {
   enterToSend: boolean;
   totpEnabled: boolean;
   isPlatformAdmin: boolean;
+  isPlus: boolean;
+  hideLastSeen: boolean;
+  plusUntil: string | null;
 }
 
 export interface Role {
@@ -85,6 +92,7 @@ export interface Attachment {
   height: number | null;
   durationMs?: number | null;
   spoiler?: boolean;
+  transcript?: string | null;
 }
 
 export interface Reaction {
@@ -160,6 +168,9 @@ export interface DirectConversation {
   peerLastReadAt?: string | null;
   /** Per-member pin in the DM list. Saved Messages stays above pinned chats. */
   pinned?: boolean;
+  wallpaperUrl?: string | null;
+  /** Secret chat: the other member has Plus screen protection enabled. */
+  peerHasPlusProtect?: boolean;
 }
 
 export interface CryptoDevice {
@@ -213,6 +224,7 @@ export interface ChannelNotificationSetting {
   channelId: string;
   level: NotificationLevel;
   muted: boolean;
+  wallpaperUrl?: string | null;
 }
 
 export interface Ban {

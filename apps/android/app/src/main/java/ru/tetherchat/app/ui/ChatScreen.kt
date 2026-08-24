@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.core.content.ContextCompat
 import android.media.MediaPlayer
+import android.view.WindowManager
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Mic
@@ -147,11 +148,20 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
   val context = LocalContext.current
   val density = LocalDensity.current
   val imeBottom = WindowInsets.ime.getBottom(density)
+  val secretProtect = model.me?.isPlus == true && model.currentConversation?.isSecret == true
+  DisposableEffect(secretProtect) {
+    val window = (context as? android.app.Activity)?.window
+    if (secretProtect) window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+    onDispose { window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }
+  }
   var pinnedToLatest by remember(chat.channelId) { mutableStateOf(true) }
   var selected by remember { mutableStateOf<Message?>(null) }
   var showSettings by remember { mutableStateOf(false) }
   var preview by remember { mutableStateOf<Attachment?>(null) }
   var reportTarget by remember { mutableStateOf<Message?>(null) }
+  val pickWallpaper = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    if (uri != null) model.setChatWallpaper(uri)
+  }
   val cropImage = rememberLauncherForActivityResult(CropImageContract()) { result ->
     if (result.isSuccessful) {
       result.uriContent?.let { model.attachUris(listOf(it)) }
@@ -223,10 +233,20 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
     }
   }
 
+  Box(Modifier.fillMaxSize()) {
+    model.chatWallpaperUrl?.takeIf { it.isNotBlank() }?.let { url ->
+      AsyncImage(
+        model = url,
+        contentDescription = null,
+        contentScale = ContentScale.Crop,
+        modifier = Modifier.fillMaxSize(),
+        alpha = 0.28f,
+      )
+    }
   Column(
     modifier = Modifier
       .fillMaxSize()
-      .background(SurfaceRaised)
+      .then(if (model.chatWallpaperUrl.isNullOrBlank()) Modifier.background(SurfaceRaised) else Modifier)
       .safeDrawingPadding(),
   ) {
     if (!model.connected) {
@@ -253,16 +273,35 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
         }
       }
       Column(Modifier.weight(1f)) {
-        Text(
-          chat.title,
-          color = TextPrimary,
-          fontWeight = FontWeight.SemiBold,
-          fontSize = 16.sp,
-          maxLines = 1,
-          overflow = TextOverflow.Ellipsis,
-        )
+        val peer = model.me?.id?.let { model.currentConversation?.peer(it) }
+        if (peer != null && chat.dm && model.currentConversation?.isGroup != true &&
+          model.currentConversation?.isSaved != true && model.currentConversation?.isAi != true
+        ) {
+          PlusName(peer, name = chat.title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+        } else {
+          Text(
+            chat.title,
+            color = TextPrimary,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 16.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+          )
+        }
         if (model.currentConversation?.isSecret == true) {
           Text("E2EE · ключи только на устройствах", color = Online, fontSize = 11.sp, maxLines = 1)
+          if (model.currentConversation?.peerHasPlusProtect == true) {
+            Text("У собеседника защита экрана", color = TextMuted, fontSize = 11.sp, maxLines = 1)
+          }
+        } else if (peer != null && chat.dm && model.currentConversation?.isGroup != true) {
+          val live = model.statusOf(peer.id, peer.status)
+          Text(
+            lastSeenSubtitle(peer, live),
+            color = if (live == "online") Online else TextMuted,
+            fontSize = 12.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+          )
         } else if (!topic.isNullOrBlank()) {
           Text(topic, color = TextMuted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
@@ -491,7 +530,15 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
   }
 
   if (showSettings) {
-    ChatSettingsSheet(model, chat, onDismiss = { showSettings = false })
+    ChatSettingsSheet(
+      model,
+      chat,
+      onDismiss = { showSettings = false },
+      onPickWallpaper = {
+        if (model.me?.isPlus != true) model.showPlusUpsell("wallpaper")
+        else pickWallpaper.launch("image/*")
+      },
+    )
   }
   if (model.showSearch) {
     SearchSheet(model, chat) { model.showSearch = false }
@@ -523,6 +570,7 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
       listOf(ViewerMedia(lightbox.id, lightbox.url, lightbox.filename, lightbox.contentType, lightbox.spoiler))
     }
     MediaViewer(items = gallery, currentId = lightbox.id, onClose = { preview = null })
+  }
   }
 }
 
@@ -711,11 +759,14 @@ private fun MessageRow(
         Row(verticalAlignment = Alignment.Bottom) {
           Text(
             message.author.label,
-            color = TextPrimary,
+            color = plusAccentColor(message.author),
             fontWeight = FontWeight.SemiBold,
             fontSize = 15.sp,
             modifier = Modifier.clickable(onClick = onOpenProfile),
           )
+          if (message.author.isPlus) {
+            Text("★", color = Brand, fontSize = 11.sp, modifier = Modifier.padding(start = 4.dp))
+          }
           Spacer(Modifier.width(8.dp))
           Text(formatTime(message.createdAt), color = TextMuted, fontSize = 12.sp)
           if (showReceipt) {
@@ -803,7 +854,12 @@ private fun MessageRow(
             )
           }
           attachment.isAudio -> {
-            VoiceBubble(attachment)
+            VoiceBubble(
+              attachment,
+              isPlus = model.me?.isPlus == true,
+              transcribing = model.transcribingId == attachment.id,
+              onTranscribe = { model.transcribeAttachment(attachment.id) },
+            )
           }
           else -> {
             Text(
@@ -921,7 +977,12 @@ private fun MessageActionSheet(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ChatSettingsSheet(model: AppViewModel, chat: Screen.Chat, onDismiss: () -> Unit) {
+private fun ChatSettingsSheet(
+  model: AppViewModel,
+  chat: Screen.Chat,
+  onDismiss: () -> Unit,
+  onPickWallpaper: () -> Unit,
+) {
   val meId = model.me?.id.orEmpty()
   val conversation = model.currentConversation
   val people: List<PublicUser> = when {
@@ -952,7 +1013,8 @@ private fun ChatSettingsSheet(model: AppViewModel, chat: Screen.Chat, onDismiss:
       ) {
         UserAvatar(user, 32.dp, model.statusOf(user.id, user.status))
         Spacer(Modifier.width(10.dp))
-        Text(user.label, color = TextPrimary, fontSize = 15.sp)
+        Text(user.label, color = plusAccentColor(user), fontSize = 15.sp)
+        if (user.isPlus) Text("★", color = Brand, fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp))
       }
     }
     if (!chat.dm) {
@@ -968,6 +1030,14 @@ private fun ChatSettingsSheet(model: AppViewModel, chat: Screen.Chat, onDismiss:
     if (chat.dm && peer != null && conversation?.isGroup != true) {
       TextButton(onClick = { model.blockUser(peer.id); onDismiss() }, modifier = Modifier.padding(horizontal = 8.dp)) {
         Text("Заблокировать ${peer.label}", color = Danger)
+      }
+    }
+    TextButton(onClick = onPickWallpaper, modifier = Modifier.padding(horizontal = 8.dp)) {
+      Text("Фон чата", color = TextPrimary)
+    }
+    if (!model.chatWallpaperUrl.isNullOrBlank()) {
+      TextButton(onClick = { model.clearChatWallpaper(); onDismiss() }, modifier = Modifier.padding(horizontal = 8.dp)) {
+        Text("Убрать фон", color = TextMuted)
       }
     }
     Spacer(Modifier.height(20.dp))
@@ -1237,7 +1307,12 @@ private fun VoiceDraftPreview(
 }
 
 @Composable
-private fun VoiceBubble(attachment: Attachment) {
+private fun VoiceBubble(
+  attachment: Attachment,
+  isPlus: Boolean,
+  transcribing: Boolean,
+  onTranscribe: () -> Unit,
+) {
   var playing by remember { mutableStateOf(false) }
   val player = remember { MediaPlayer() }
   DisposableEffect(attachment.url) {
@@ -1252,26 +1327,40 @@ private fun VoiceBubble(attachment: Attachment) {
     }
   }
   val seconds = ((attachment.durationMs ?: 0) / 1000).coerceAtLeast(1)
-  Row(
-    modifier = Modifier
-      .padding(top = 6.dp)
-      .clip(RoundedCornerShape(16.dp))
-      .background(SurfaceDeep)
-      .clickable {
-        if (playing) {
-          runCatching { player.pause() }
-          playing = false
-        } else {
-          runCatching { player.start() }
-          playing = true
-        }
+  Column(modifier = Modifier.padding(top = 6.dp)) {
+    Row(
+      modifier = Modifier
+        .clip(RoundedCornerShape(16.dp))
+        .background(SurfaceDeep)
+        .padding(horizontal = 12.dp, vertical = 8.dp),
+      verticalAlignment = Alignment.CenterVertically,
+    ) {
+      Text(
+        if (playing) "❚❚" else "▶",
+        color = Brand,
+        fontSize = 16.sp,
+        modifier = Modifier.clickable {
+          if (playing) {
+            runCatching { player.pause() }
+            playing = false
+          } else {
+            runCatching { player.start() }
+            playing = true
+          }
+        },
+      )
+      Spacer(Modifier.width(8.dp))
+      Text("Голосовое · ${seconds}с", color = TextPrimary, fontSize = 14.sp, modifier = Modifier.weight(1f))
+      TextButton(onClick = onTranscribe, enabled = !transcribing) {
+        Text(
+          if (transcribing) "…" else "Текст",
+          color = if (isPlus) Brand else TextMuted,
+        )
       }
-      .padding(horizontal = 12.dp, vertical = 8.dp),
-    verticalAlignment = Alignment.CenterVertically,
-  ) {
-    Text(if (playing) "❚❚" else "▶", color = Brand, fontSize = 16.sp)
-    Spacer(Modifier.width(8.dp))
-    Text("Голосовое · ${seconds}с", color = TextPrimary, fontSize = 14.sp)
+    }
+    attachment.transcript?.takeIf { it.isNotBlank() }?.let {
+      Text(it, color = TextMuted, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp, start = 4.dp))
+    }
   }
 }
 

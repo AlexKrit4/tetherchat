@@ -5,6 +5,10 @@ import { Ban, MessageSquare, UserPlus } from 'lucide-react';
 import type { PublicUser } from '@tetherchat/shared';
 import { api, errorMessage } from '@/lib/api';
 import { memberSince } from '@/lib/time';
+import { lastSeenLabel } from '@/lib/plusDisplay';
+import { BioText } from '@/components/plus/BioText';
+import { DisplayName } from '@/components/plus/DisplayName';
+import { usePresenceStore } from '@/stores/presenceStore';
 import { useT } from '@/i18n/useT';
 import { DM_ROUTE, useChatTarget } from '@/hooks/useChatTarget';
 import { useConversations, useCreateConversation } from '@/hooks/useDms';
@@ -49,6 +53,7 @@ export function UserProfileDialog({ userId, open, onClose }: UserProfileDialogPr
   const acceptRequest = useAcceptFriendRequest();
   const block = useBlockUser();
   const [requestSent, setRequestSent] = useState(false);
+  const liveStatus = usePresenceStore((state) => (userId ? state.statuses[userId] : undefined));
 
   const { data: user, isLoading } = useQuery({
     queryKey: ['user', userId],
@@ -117,9 +122,14 @@ export function UserProfileDialog({ userId, open, onClose }: UserProfileDialogPr
 
           <div className="mt-3 rounded-lg bg-surface-tertiary p-3">
             <p className="text-xl font-bold text-text-heading">
-              {member?.nickname ?? user.displayName ?? user.username}
+              <DisplayName
+                user={user}
+                name={member?.nickname ?? user.displayName ?? user.username}
+                className="text-xl font-bold"
+              />
             </p>
             <p className="text-base text-text-muted">@{user.username}</p>
+            <p className="mt-1 text-sm text-text-muted">{lastSeenLabel(user, liveStatus)}</p>
 
             {user.customStatus ? (
               <p className="mt-2 text-base text-text">{user.customStatus}</p>
@@ -131,7 +141,7 @@ export function UserProfileDialog({ userId, open, onClose }: UserProfileDialogPr
                 <p className="text-xs font-bold uppercase tracking-[0.02em] text-text-subheading">
                   {t('profile.aboutMe')}
                 </p>
-                <p className="mt-1 whitespace-pre-wrap text-base text-text">{user.bio}</p>
+                <BioText text={user.bio} plus={user.isPlus} />
               </>
             ) : null}
 

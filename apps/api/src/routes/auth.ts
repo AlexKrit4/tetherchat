@@ -273,9 +273,7 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   app.post('/refresh', async (request, reply) => {
-    const cookie = request.cookies[REFRESH_COOKIE];
-    const fromBody = (request.body as { refreshToken?: string } | undefined)?.refreshToken;
-    const presented = cookie ?? fromBody;
+    const presented = presentedRefreshToken(request);
     if (!presented) throw ApiError.unauthorized('Missing refresh token');
 
     const stored = await prisma.refreshToken.findUnique({

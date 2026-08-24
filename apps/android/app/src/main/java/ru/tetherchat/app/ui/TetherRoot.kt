@@ -34,7 +34,8 @@ fun TetherRoot(model: AppViewModel) {
       screen is Screen.Blacklist || screen is Screen.ServerSettings || screen is Screen.Members ||
       screen is Screen.ProfileSettings || screen is Screen.AccountSettings ||
       screen is Screen.Sessions || screen is Screen.QrScanner || screen is Screen.IncomingFriends || screen is Screen.AdminCredentials ||
-      screen is Screen.AppearanceSettings || screen is Screen.UserProfile
+      screen is Screen.AppearanceSettings || screen is Screen.UserProfile ||
+      screen is Screen.PlusSettings || screen is Screen.Accounts
     if (toastable) {
       snack.showSnackbar(text)
       model.error = null
@@ -42,11 +43,13 @@ fun TetherRoot(model: AppViewModel) {
   }
   val canGoBack = when (model.screen) {
     Screen.Boot, Screen.Home -> false
-    Screen.Login -> model.totpTicket != null
+    Screen.Login -> model.totpTicket != null || model.addingAccount
     else -> true
   }
   BackHandler(enabled = canGoBack) {
-    if (model.screen is Screen.Login) model.cancelTotp() else model.back()
+    if (model.screen is Screen.Login) {
+      if (model.totpTicket != null) model.cancelTotp() else model.cancelAddAccount()
+    } else model.back()
   }
   Box(Modifier.fillMaxSize().background(SurfaceDeep)) {
     when (val screen = model.screen) {
@@ -64,6 +67,8 @@ fun TetherRoot(model: AppViewModel) {
       Screen.Sessions -> SessionsScreen(model)
       Screen.QrScanner -> QrScannerScreen(model)
       Screen.AppearanceSettings -> AppearanceSettingsScreen(model)
+      Screen.PlusSettings -> PlusSettingsScreen(model)
+      Screen.Accounts -> AccountsScreen(model)
       Screen.Blacklist -> BlacklistScreen(model)
       Screen.IncomingFriends -> IncomingFriendsScreen(model)
       Screen.AdminCredentials -> AdminCredentialsScreen(model)
@@ -79,7 +84,37 @@ fun TetherRoot(model: AppViewModel) {
     QrLoginPromptDialog(model)
     UpdateDialog(model)
     CallOverlay(model)
+    PlusUpsellDialog(model)
   }
+}
+
+@Composable
+private fun PlusUpsellDialog(model: AppViewModel) {
+  val reason = model.plusUpsell ?: return
+  val text = when (reason) {
+    "files" -> "Файлы до 30 МБ — в TetherChat Plus. На бесплатном тарифе лимит 10 МБ."
+    "pins" -> "На бесплатном тарифе можно закрепить 5 чатов. Plus даёт 10."
+    "transcript" -> "Расшифровка голосовых доступна в Plus."
+    "colors" -> "Свои цвета профиля — в Plus."
+    "lastSeen" -> "Скрыть время захода можно в Plus."
+    "wallpaper" -> "Свой фон чата — в Plus."
+    "accounts" -> "Два аккаунта с быстрым переключением — в Plus."
+    else -> "Эта возможность доступна с TetherChat Plus."
+  }
+  AlertDialog(
+    onDismissRequest = model::dismissPlusUpsell,
+    title = { Text("Это в Plus") },
+    text = { Text(text) },
+    confirmButton = {
+      TextButton(onClick = {
+        model.dismissPlusUpsell()
+        model.openPlusSettings()
+      }) { Text("Подробнее") }
+    },
+    dismissButton = {
+      TextButton(onClick = model::dismissPlusUpsell) { Text("Закрыть") }
+    },
+  )
 }
 
 @Composable

@@ -31,3 +31,12 @@ export async function normalizeIcon(buffer: Buffer): Promise<{ body: Buffer; con
     .toBuffer();
   return { body, contentType: 'image/webp' };
 }
+
+/** Chat wallpaper: wide, compressed, still sharp enough on a phone. */
+export async function normalizeWallpaper(buffer: Buffer): Promise<{ body: Buffer; contentType: string }> {
+  const body = await sharp(buffer, { animated: false })
+    .resize(1920, 1920, { fit: 'inside', withoutEnlargement: true })
+    .webp({ quality: 82 })
+    .toBuffer();
+  return { body, contentType: 'image/webp' };
+}

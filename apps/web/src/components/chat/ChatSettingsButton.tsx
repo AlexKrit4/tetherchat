@@ -1,6 +1,8 @@
-import { useState } from 'react';
-import { Ban, LogOut, Settings, Users } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Ban, Image as ImageIcon, LogOut, Settings, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import type { ChannelNotificationSetting, DirectConversation } from '@tetherchat/shared';
 import { useT } from '@/i18n/useT';
 import { IconButton } from '@/components/ui/IconButton';
 import { BottomSheet, SheetAction } from '@/components/ui/BottomSheet';
@@ -9,14 +11,18 @@ import { useAuthStore } from '@/stores/authStore';
 import { useUiStore } from '@/stores/uiStore';
 import { useLeaveConversation } from '@/hooks/useDms';
 import { useBlockUser } from '@/components/settings/BlacklistSettings';
-import { errorMessage } from '@/lib/api';
+import { api, errorMessage } from '@/lib/api';
 import { toast } from '@/stores/toastStore';
+import { usePlusStore } from '@/stores/plusStore';
+import { queryKeys } from '@/lib/queryKeys';
 import { useIsDesktop, useIsMobile } from '@/hooks/useMediaQuery';
 
 export function ChatSettingsButton() {
   const t = useT();
-  const { isDm, conversation, title } = useChatTarget();
+  const { isDm, conversation, title, channelId } = useChatTarget();
   const currentUserId = useAuthStore((state) => state.user?.id);
+  const isPlus = useAuthStore((state) => state.user?.isPlus);
+  const showPlus = usePlusStore((state) => state.show);
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -27,9 +33,50 @@ export function ChatSettingsButton() {
   const toggleMembersOverlay = useUiStore((state) => state.toggleMembersOverlay);
   const leave = useLeaveConversation();
   const block = useBlockUser();
+  const client = useQueryClient();
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const peer = conversation?.members.find((member) => member.id !== currentUserId);
   const peerName = peer?.displayName ?? peer?.username ?? title;
+
+  const uploadWallpaper = async (file: File) => {
+    if (!isPlus) {
+      showPlus('wallpaper');
+      return;
+    }
+    const form = new FormData();
+    form.append('file', file);
+    try {
+      if (isDm && conversation) {
+        const updated = await api.post<DirectConversation>(`/api/dms/${conversation.id}/wallpaper`, form);
+        client.setQueryData<DirectConversation[]>(queryKeys.dms, (current) =>
+          current?.map((row) => (row.id === updated.id ? updated : row)),
+        );
+      } else if (channelId) {
+        await api.post<ChannelNotificationSetting>(`/api/channels/${channelId}/wallpaper`, form);
+        void client.invalidateQueries({ queryKey: queryKeys.channelNotifications(channelId) });
+      }
+      toast.success(t('plus.changeWallpaper'));
+    } catch (error) {
+      toast.error(errorMessage(error));
+    }
+  };
+
+  const removeWallpaper = async () => {
+    try {
+      if (isDm && conversation) {
+        const updated = await api.delete<DirectConversation>(`/api/dms/${conversation.id}/wallpaper`);
+        client.setQueryData<DirectConversation[]>(queryKeys.dms, (current) =>
+          current?.map((row) => (row.id === updated.id ? updated : row)),
+        );
+      } else if (channelId) {
+        await api.delete<ChannelNotificationSetting>(`/api/channels/${channelId}/wallpaper`);
+        void client.invalidateQueries({ queryKey: queryKeys.channelNotifications(channelId) });
+      }
+    } catch (error) {
+      toast.error(errorMessage(error));
+    }
+  };
 
   return (
     <>
@@ -48,6 +95,26 @@ export function ChatSettingsButton() {
             if (isMobile) pushMobileView('members');
             else if (isDesktop) toggleMembers();
             else toggleMembersOverlay();
+          }}
+        />
+        <SheetAction
+          icon={<ImageIcon size={18} aria-hidden />}
+          label={t('plus.changeWallpaper')}
+          onSelect={() => {
+            if (!isPlus) {
+              setOpen(false);
+              showPlus('wallpaper');
+              return;
+            }
+            fileRef.current?.click();
+          }}
+        />
+        <SheetAction
+          icon={<ImageIcon size={18} aria-hidden />}
+          label={t('plus.removeWallpaper')}
+          onSelect={() => {
+            setOpen(false);
+            void removeWallpaper();
           }}
         />
         {isDm && conversation?.isGroup ? (
@@ -85,6 +152,18 @@ export function ChatSettingsButton() {
           />
         ) : null}
       </BottomSheet>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/png,image/jpeg,image/gif,image/webp"
+        hidden
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = '';
+          if (file) void uploadWallpaper(file);
+          setOpen(false);
+        }}
+      />
     </>
   );
 }

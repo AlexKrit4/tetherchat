@@ -15,6 +15,7 @@ import type {
   SelfUser,
   ServerMember,
 } from '@tetherchat/shared';
+import { isPlusActive } from './plus.js';
 
 export const publicUserSelect = {
   id: true,
@@ -22,10 +23,15 @@ export const publicUserSelect = {
   displayName: true,
   avatarUrl: true,
   bannerColor: true,
+  accentColor: true,
   bio: true,
   customStatus: true,
   status: true,
   createdAt: true,
+  isPlus: true,
+  plusUntil: true,
+  hideLastSeen: true,
+  lastSeenAt: true,
 } satisfies Prisma.UserSelect;
 
 export type PublicUserRow = Prisma.UserGetPayload<{ select: typeof publicUserSelect }>;
@@ -36,16 +42,20 @@ function visibleStatus(status: PublicUserRow['status']): PresenceStatus {
 }
 
 export function toPublicUser(row: PublicUserRow): PublicUser {
+  const plus = isPlusActive(row);
   return {
     id: row.id,
     username: row.username,
     displayName: row.displayName,
     avatarUrl: row.avatarUrl,
     bannerColor: row.bannerColor,
+    accentColor: plus ? row.accentColor : null,
     bio: row.bio,
     customStatus: row.customStatus,
     status: visibleStatus(row.status),
     createdAt: row.createdAt.toISOString(),
+    isPlus: plus,
+    lastSeenAt: plus && row.hideLastSeen ? null : row.lastSeenAt.toISOString(),
   };
 }
 
@@ -58,14 +68,20 @@ export function toSelfUser(
     isPlatformAdmin?: boolean;
   },
 ): SelfUser {
+  const plus = isPlusActive(row);
   return {
     ...toPublicUser(row),
     status: row.status,
+    lastSeenAt: row.lastSeenAt.toISOString(),
     email: row.email,
     emailVerified: row.emailVerified,
     enterToSend: row.enterToSend,
     totpEnabled: Boolean(row.totpEnabled),
     isPlatformAdmin: Boolean(row.isPlatformAdmin),
+    isPlus: plus,
+    hideLastSeen: row.hideLastSeen,
+    plusUntil: row.plusUntil?.toISOString() ?? null,
+    accentColor: plus ? row.accentColor : null,
   };
 }
 
@@ -91,6 +107,7 @@ export function toAttachment(row: MessageRow['attachments'][number]): Attachment
     height: row.height,
     durationMs: row.durationMs ?? null,
     spoiler: row.spoiler ?? false,
+    transcript: row.transcript ?? null,
   };
 }
 
@@ -273,6 +290,8 @@ export function toConversation(row: ConversationRow, currentUserId?: string): Di
     peerLastReadMessageId: isOneToOne ? (peer?.lastReadMessageId ?? null) : null,
     peerLastReadAt: isOneToOne ? (peer?.lastReadAt?.toISOString() ?? null) : null,
     pinned: Boolean(selfMember?.pinnedAt),
+    wallpaperUrl: selfMember?.wallpaperUrl ?? null,
+    peerHasPlusProtect: Boolean(row.isSecret && peer && isPlusActive(peer.user)),
   };
 }
 

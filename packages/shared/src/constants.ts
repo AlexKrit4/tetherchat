@@ -14,13 +14,33 @@ export const LIMITS = {
   channelTopic: { max: 512 },
   serverDescription: { max: 512 },
   customStatus: { max: 128 },
-  bio: { max: 256 },
+  bio: { max: 50, plus: 500 },
   attachmentBytes: 10 * 1024 * 1024,
+  attachmentBytesPlus: 30 * 1024 * 1024,
   avatarBytes: 8 * 1024 * 1024,
   attachmentsPerMessage: 5,
   groupDmMembers: 10,
+  pinnedDms: 5,
+  pinnedDmsPlus: 10,
   messagePageSize: 50,
+  uploadRatePerMinute: 20,
 } as const;
+
+/** Palette for Plus banner and name accent. Free accounts keep the colour they got at registration. */
+export const PLUS_COLORS = [
+  '#5865f2',
+  '#3ba55d',
+  '#faa81a',
+  '#ed4245',
+  '#eb459e',
+  '#9b59b6',
+  '#1abc9c',
+  '#3498db',
+  '#e67e22',
+  '#95a5a6',
+] as const;
+
+export const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 
 /** Consecutive messages by the same author collapse into one group inside this window. */
 export const MESSAGE_GROUP_WINDOW_MS = 5 * 60 * 1000;

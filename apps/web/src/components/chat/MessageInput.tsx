@@ -17,6 +17,8 @@ import { MentionAutocomplete, detectMentionQuery } from './MentionAutocomplete';
 import type { MentionQuery } from './MentionAutocomplete';
 import { TypingIndicator } from './TypingIndicator';
 import { useAuthStore } from '@/stores/authStore';
+import { usePlusStore } from '@/stores/plusStore';
+import { attachmentMax } from '@/lib/plusDisplay';
 import { useUiStore } from '@/stores/uiStore';
 import { toast } from '@/stores/toastStore';
 import { useT } from '@/i18n/useT';
@@ -36,6 +38,8 @@ export function MessageInput() {
   const { channelId, isDm, server, title, serverId, conversation } = useChatTarget();
   const isSecret = Boolean(conversation?.isSecret);
   const user = useAuthStore((state) => state.user);
+  const showPlus = usePlusStore((state) => state.show);
+  const maxBytes = attachmentMax(user);
   const { data: members } = useMembers(serverId);
   const { data: friends } = useFriends();
 
@@ -333,8 +337,12 @@ export function MessageInput() {
   const attachFiles = async (files: FileList | File[]) => {
     const list = Array.from(files).slice(0, LIMITS.attachmentsPerMessage - pending.length);
     for (const file of list) {
-      if (file.size > LIMITS.attachmentBytes) {
-        toast.error(t('chat.fileTooBig', { name: file.name, size: formatBytes(LIMITS.attachmentBytes) }));
+      if (file.size > maxBytes) {
+        if (!user?.isPlus && file.size <= LIMITS.attachmentBytesPlus) {
+          showPlus('files');
+          continue;
+        }
+        toast.error(t('chat.fileTooBig', { name: file.name, size: formatBytes(maxBytes) }));
         continue;
       }
       try {
