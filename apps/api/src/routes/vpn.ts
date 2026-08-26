@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import formbody from '@fastify/formbody';
 import { ApiError } from '../errors.js';
-import { verifyYooMoneyNotification } from '../services/vpn/config.js';
+import { mockPaymentsAllowed, verifyYooMoneyNotification } from '../services/vpn/config.js';
 import {
   confirmMockPayment,
   formatSubscription,
@@ -55,6 +55,7 @@ export async function vpnRoutes(app: FastifyInstance) {
       paymentLabel: verified.label,
       externalId: verified.externalId,
       raw: form,
+      paidAmount: verified.amount,
     });
 
     if (sub) {
@@ -89,6 +90,9 @@ export async function vpnRoutes(app: FastifyInstance) {
   });
 
   app.get('/pay/mock', async (request, reply) => {
+    if (!mockPaymentsAllowed()) {
+      throw ApiError.forbidden('Mock payments are disabled');
+    }
     const label = (request.query as { label?: string }).label;
     if (!label) throw ApiError.badRequest('label required');
     const sub = await confirmMockPayment(label);
