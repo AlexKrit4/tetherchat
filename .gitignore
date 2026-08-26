@@ -1,0 +1,35 @@
+node_modules/
+dist/
+build/
+coverage/
+.turbo/
+
+# Environment
+.env
+.env.*
+!.env.example
+letsencrypt/
+certbot-www/
+
+# Build & runtime artifacts
+apps/web/dist/
+apps/web/dev-dist/
+apps/api/dist/
+apps/api/uploads/
+uploads/
+
+# Test output
+playwright-report/
+test-results/
+e2e/.auth/
+
+# Android signing (never commit real credentials or keystores)
+secrets/
+apps/android/keystore.properties
+apps/android/local.properties
+
+# Editor / OS
+.DS_Store
+*.log
+.vscode/
+.idea/
