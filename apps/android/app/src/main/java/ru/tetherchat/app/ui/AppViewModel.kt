@@ -66,6 +66,7 @@ import ru.tetherchat.app.data.ServerSummary
 import ru.tetherchat.app.data.SessionStore
 import ru.tetherchat.app.data.TetherApi
 import ru.tetherchat.app.data.TotpSetup
+import ru.tetherchat.app.data.VersionHistoryEntry
 import ru.tetherchat.app.data.can
 import ru.tetherchat.app.data.isBotChat
 import ru.tetherchat.app.data.isVpnBotConversation
@@ -89,6 +90,9 @@ sealed class Screen {
   data object PlusSettings : Screen()
   data object Accounts : Screen()
   data object Blacklist : Screen()
+  data object AboutApp : Screen()
+  data object VersionHistory : Screen()
+  data class VersionDetail(val entry: VersionHistoryEntry) : Screen()
   data object IncomingFriends : Screen()
   data object AdminCredentials : Screen()
   data object ServerSettings : Screen()
@@ -159,6 +163,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   var notificationsEnabled by mutableStateOf(session.notificationsEnabled)
     private set
   var availableUpdate by mutableStateOf<AndroidRelease?>(null)
+    private set
+  var appCreator by mutableStateOf("alexkrit")
+    private set
+  var versionHistory by mutableStateOf<List<VersionHistoryEntry>>(emptyList())
     private set
   var updateDownloading by mutableStateOf(false)
     private set
@@ -1126,6 +1134,30 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     }
   }
 
+  fun openAboutApp() {
+    screen = Screen.AboutApp
+    if (versionHistory.isEmpty()) loadVersionHistory()
+  }
+
+  fun openVersionHistory() {
+    screen = Screen.VersionHistory
+    if (versionHistory.isEmpty()) loadVersionHistory()
+  }
+
+  fun openVersionDetail(entry: VersionHistoryEntry) {
+    screen = Screen.VersionDetail(entry)
+  }
+
+  fun loadVersionHistory() {
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.versionHistory() } }
+        .onSuccess { response ->
+          appCreator = response.creator.ifBlank { "alexkrit" }
+          versionHistory = response.history
+        }
+    }
+  }
+
   fun back() {
     when (screen) {
       is Screen.Chat -> {
@@ -1147,6 +1179,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
         screen = Screen.Home
       }
       Screen.Blacklist -> screen = Screen.Settings
+      Screen.AboutApp -> screen = Screen.Settings
+      Screen.VersionHistory -> screen = Screen.AboutApp
+      is Screen.VersionDetail -> screen = Screen.VersionHistory
       Screen.IncomingFriends -> screen = Screen.Home
       Screen.AdminCredentials -> screen = Screen.AccountSettings
       Screen.Sessions -> screen = Screen.AccountSettings

@@ -1,9 +1,9 @@
 /** Keep in sync with apps/android versionCode/versionName and public/app/version.json. */
 export const ANDROID_RELEASE = {
-  versionCode: 35,
-  versionName: '1.4.2',
+  versionCode: 36,
+  versionName: '1.4.3',
   url: 'https://tetherchat.ru/app/tetherchat.apk',
   requiresReinstall: false,
   releaseNotes:
-    'Кликабельные ссылки в сообщениях. Секретные чаты привязаны к одному устройству — чат виден только на том телефоне/ПК, где вы его впервые открыли.',
+    'В настройках появился раздел «О приложении»: версия, создатель alexkrit и история всех обновлений.',
 } as const;

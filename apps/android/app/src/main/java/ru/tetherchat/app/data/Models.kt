@@ -560,6 +560,21 @@ data class AndroidRelease(
 )
 
 @Serializable
+data class VersionHistoryEntry(
+  val versionCode: Int,
+  val versionName: String = "",
+  val releaseNotes: String = "",
+  val releasedAt: String = "",
+  val requiresReinstall: Boolean = false,
+)
+
+@Serializable
+data class VersionHistoryResponse(
+  val creator: String = "",
+  val history: List<VersionHistoryEntry> = emptyList(),
+)
+
+@Serializable
 data class DeviceSession(
   val id: String,
   val userAgent: String? = null,
