@@ -16,7 +16,7 @@ import { PlusUpsellSheet } from '@/components/plus/PlusUpsellSheet';
 import { SecretProtectOverlay } from '@/components/plus/SecretProtectOverlay';
 import { useLiveKitRoom } from '@/hooks/useLiveKitRoom';
 import { useAuthStore } from '@/stores/authStore';
-import { ensureE2eeDevice } from '@/lib/e2ee';
+import { ensureE2eeDevice, processPendingSecretClaims } from '@/lib/e2ee';
 
 /**
  * Chooses the layout for the current viewport and owns the app-wide side
@@ -35,7 +35,9 @@ export function AppShell() {
 
   useEffect(() => {
     if (!userId || !window.crypto?.subtle || !window.indexedDB) return;
-    void ensureE2eeDevice(userId).catch(() => undefined);
+    void ensureE2eeDevice(userId)
+      .then(() => processPendingSecretClaims(userId))
+      .catch(() => undefined);
   }, [userId]);
 
   // Opening a server without a channel lands on its first channel.

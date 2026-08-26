@@ -421,6 +421,11 @@ private fun DmList(model: AppViewModel) {
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
       )
     }
+    items(model.pendingSecretInvites, key = { "invite-${it.id}" }) { conversation ->
+      DmRow(conversation, meId, model, subtitle = "Секретное приглашение") {
+        model.acceptSecretInvite(conversation)
+      }
+    }
     items(model.dms, key = { it.id }) { conversation ->
       DmRow(conversation, meId, model) { model.openDm(conversation) }
     }
@@ -474,6 +479,7 @@ private fun DmRow(
   conversation: DirectConversation,
   meId: String,
   model: AppViewModel,
+  subtitle: String? = null,
   onClick: () -> Unit,
 ) {
   val other = conversation.members.firstOrNull { it.id != meId } ?: conversation.members.firstOrNull()
@@ -525,22 +531,30 @@ private fun DmRow(
         Spacer(Modifier.width(6.dp))
       }
       if (other != null && !conversation.isGroup && !conversation.isSaved && !conversation.isAi && !conversation.isVpn) {
-        PlusName(
-          other,
-          name = conversation.title(meId),
-          fontWeight = if (unread) FontWeight.SemiBold else FontWeight.Normal,
-          modifier = Modifier.weight(1f),
-        )
+        Column(Modifier.weight(1f)) {
+          PlusName(
+            other,
+            name = conversation.title(meId),
+            fontWeight = if (unread) FontWeight.SemiBold else FontWeight.Normal,
+          )
+          if (subtitle != null) {
+            Text(subtitle, color = TextMuted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+          }
+        }
       } else {
-        Text(
-          conversation.title(meId),
-          color = TextPrimary,
-          fontSize = 16.sp,
-          fontWeight = if (unread) FontWeight.SemiBold else FontWeight.Normal,
-          maxLines = 1,
-          overflow = TextOverflow.Ellipsis,
-          modifier = Modifier.weight(1f),
-        )
+        Column(Modifier.weight(1f)) {
+          Text(
+            conversation.title(meId),
+            color = TextPrimary,
+            fontSize = 16.sp,
+            fontWeight = if (unread) FontWeight.SemiBold else FontWeight.Normal,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+          )
+          if (subtitle != null) {
+            Text(subtitle, color = TextMuted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+          }
+        }
       }
       if (conversation.pinned && !conversation.lockedInList) {
         Icon(Icons.Outlined.PushPin, contentDescription = null, tint = TextMuted, modifier = Modifier.size(14.dp))

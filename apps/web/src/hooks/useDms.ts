@@ -1,12 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { DirectConversation, PublicUser } from '@tetherchat/shared';
 import { api } from '@/lib/api';
+import { getE2eeDeviceId } from '@/lib/e2ee';
 import { queryKeys } from '@/lib/queryKeys';
+import { useAuthStore } from '@/stores/authStore';
 
 export function useConversations() {
+  const userId = useAuthStore((state) => state.user?.id);
+  const deviceId = userId ? getE2eeDeviceId(userId) : null;
   return useQuery({
-    queryKey: queryKeys.dms,
-    queryFn: () => api.get<DirectConversation[]>('/api/dms'),
+    queryKey: [...queryKeys.dms, deviceId ?? 'none'],
+    queryFn: () =>
+      api.get<DirectConversation[]>(
+        deviceId ? `/api/dms?deviceId=${encodeURIComponent(deviceId)}` : '/api/dms',
+      ),
     staleTime: 30_000,
   });
 }

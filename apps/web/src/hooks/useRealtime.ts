@@ -10,7 +10,7 @@ import { messageCache } from './useMessages';
 import { sortDirectConversations } from './useDms';
 import { useAuthStore } from '@/stores/authStore';
 import { useCallStore } from '@/stores/callStore';
-import { decryptSecretMessage } from '@/lib/e2ee';
+import { decryptSecretMessage, processPendingSecretClaims } from '@/lib/e2ee';
 import { usePresenceStore } from '@/stores/presenceStore';
 import { useTypingStore } from '@/stores/typingStore';
 
@@ -145,6 +145,10 @@ export function useRealtime(): ConnectionState {
     };
 
     const onDmCreate = (conversation: DirectConversation) => {
+      if (conversation.isSecret) {
+        void client.invalidateQueries({ queryKey: queryKeys.dms });
+        return;
+      }
       client.setQueryData<DirectConversation[]>(queryKeys.dms, (current) =>
         current ? [conversation, ...current.filter((row) => row.id !== conversation.id)] : current,
       );
@@ -201,6 +205,17 @@ export function useRealtime(): ConnectionState {
       useCallStore.getState().handleEnded();
     };
 
+    const onSecretClaim = () => {
+      if (!currentUserId) return;
+      void processPendingSecretClaims(currentUserId).then(() => {
+        void client.invalidateQueries({ queryKey: queryKeys.dms });
+      });
+    };
+
+    const onSecretKeyReady = () => {
+      void client.invalidateQueries({ queryKey: queryKeys.dms });
+    };
+
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
     socket.on('connect_error', onConnectError);
@@ -236,6 +251,8 @@ export function useRealtime(): ConnectionState {
     socket.on('call:ended', onCallEnded);
     socket.on('call:busy', onCallEnded);
     socket.on('call:missed', onCallEnded);
+    socket.on('secret:claim', onSecretClaim);
+    socket.on('secret:key-ready', onSecretKeyReady);
 
     return () => {
       socket.off('connect', onConnect);

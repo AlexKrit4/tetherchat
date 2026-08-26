@@ -19,6 +19,7 @@ import {
 } from '../services/messageService.js';
 import { listChatMedia } from '../services/mediaService.js';
 import { ackConversation } from '../services/readStateService.js';
+import { filterSecretConversationsForDevice } from '../lib/secretChat.js';
 import { emitToUser, joinUserToRoom } from '../ws/realtime.js';
 
 const conversationParam = z.object({ conversationId: z.string().min(1) });
@@ -43,6 +44,7 @@ export async function dmRoutes(app: FastifyInstance) {
   app.addHook('preHandler', app.requireAuth);
 
   app.get('/', async (request) => {
+    const deviceId = (request.query as { deviceId?: string }).deviceId?.trim();
     await ensureSavedConversation(request.userId);
     await ensureAiConversation(request.userId);
     await ensureVpnConversation(request.userId);
@@ -57,7 +59,7 @@ export async function dmRoutes(app: FastifyInstance) {
       ],
     });
     const blocked = await blockedPeerIds(request.userId);
-    return conversations
+    const mapped = conversations
       .map((row) => toConversation(row, request.userId))
       .filter(
         (conversation) =>
@@ -66,8 +68,9 @@ export async function dmRoutes(app: FastifyInstance) {
           conversation.isVpn ||
           conversation.isGroup ||
           !conversation.members.some((member) => member.id !== request.userId && blocked.has(member.id)),
-      )
-      .sort((a, b) => {
+      );
+    const filtered = await filterSecretConversationsForDevice(mapped, deviceId);
+    return filtered.sort((a, b) => {
         if (a.isSaved !== b.isSaved) return a.isSaved ? -1 : 1;
         if (Boolean(a.isAi) !== Boolean(b.isAi)) return a.isAi ? -1 : 1;
         if (Boolean(a.isVpn) !== Boolean(b.isVpn)) return a.isVpn ? -1 : 1;
@@ -99,8 +102,8 @@ export async function dmRoutes(app: FastifyInstance) {
               wrappedKey: z.string().min(128).max(2048),
             }),
           )
-          .min(2)
-          .max(32),
+          .min(1)
+          .max(1),
       })
       .parse(request.body);
     if (body.userId === request.userId) throw ApiError.badRequest('Pick a friend');
@@ -111,19 +114,27 @@ export async function dmRoutes(app: FastifyInstance) {
       throw ApiError.forbidden('Секретный чат можно создать только с другом');
     }
 
-    const devices = await prisma.cryptoDevice.findMany({
-      where: { userId: { in: [request.userId, body.userId] }, revokedAt: null },
+    const ownDevices = await prisma.cryptoDevice.findMany({
+      where: { userId: request.userId, revokedAt: null },
       select: { id: true, userId: true },
     });
-    if (!devices.some((device) => device.userId === request.userId)) {
+    const friendDevices = await prisma.cryptoDevice.findMany({
+      where: { userId: body.userId, revokedAt: null },
+      select: { id: true },
+    });
+    if (ownDevices.length === 0) {
       throw ApiError.badRequest('Сначала зарегистрируйте ключ этого устройства');
     }
-    if (!devices.some((device) => device.userId === body.userId)) {
+    if (friendDevices.length === 0) {
       throw ApiError.conflict('Друг ещё не настроил секретные чаты');
     }
-    const submitted = new Map(body.keys.map((entry) => [entry.deviceId, entry.wrappedKey]));
-    if (devices.some((device) => !submitted.has(device.id)) || submitted.size !== devices.length) {
-      throw ApiError.badRequest('Ключ должен быть зашифрован для каждого активного устройства');
+    if (body.keys.length !== 1) {
+      throw ApiError.badRequest('Secret chat can only be created from one device');
+    }
+    const onlyKey = body.keys[0]!;
+    const ownDeviceIds = new Set(ownDevices.map((device) => device.id));
+    if (!ownDeviceIds.has(onlyKey.deviceId)) {
+      throw ApiError.badRequest('Secret key must be wrapped for the current device only');
     }
 
     const conversation = await prisma.$transaction(async (tx) => {
@@ -134,12 +145,12 @@ export async function dmRoutes(app: FastifyInstance) {
         },
         include: conversationInclude,
       });
-      await tx.secretConversationKey.createMany({
-        data: devices.map((device) => ({
+      await tx.secretConversationKey.create({
+        data: {
           conversationId: created.id,
-          deviceId: device.id,
-          wrappedKey: submitted.get(device.id)!,
-        })),
+          deviceId: onlyKey.deviceId,
+          wrappedKey: onlyKey.wrappedKey,
+        },
       });
       return created;
     });

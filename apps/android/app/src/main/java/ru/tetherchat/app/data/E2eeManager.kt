@@ -52,13 +52,23 @@ class E2eeManager(
     return deviceId
   }
 
+  fun deviceId(userId: String): String? = preferences.getString("device.$userId", null)
+
+  fun hasSecretKey(userId: String, conversationId: String): Boolean {
+    if (conversationKeys.containsKey(conversationId)) return true
+    val deviceId = deviceId(userId) ?: return false
+    return runCatching { api.secretConversationKey(conversationId, deviceId) }.isSuccess
+  }
+
   fun createSecretConversation(userId: String, friendId: String): DirectConversation {
-    ensureDevice(userId)
-    val devices = api.cryptoDevices(userId) + api.cryptoDevices(friendId)
-    if (devices.none { it.userId == friendId }) {
+    val deviceId = ensureDevice(userId)
+    val ownDevice = api.cryptoDevices(userId).firstOrNull { it.id == deviceId }
+      ?: throw ApiException(400, "device_missing", "Device not registered")
+    val friendDevices = api.cryptoDevices(friendId)
+    if (friendDevices.isEmpty()) {
       throw ApiException(409, "crypto_not_ready", "Друг должен обновить и открыть TetherChat")
     }
-    devices.filter { it.userId == friendId }.forEach { device ->
+    friendDevices.forEach { device ->
       val pinId = "pinned.$friendId.${device.id}"
       val pinned = preferences.getString(pinId, null)
       if (pinned != null && pinned != device.publicKey) {
@@ -67,16 +77,41 @@ class E2eeManager(
       preferences.edit().putString(pinId, device.publicKey).apply()
     }
     val rawKey = ByteArray(32).also(random::nextBytes)
-    val wrapped = devices.map { device ->
-      val publicKey = KeyFactory.getInstance("RSA").generatePublic(
-        X509EncodedKeySpec(decode(device.publicKey)),
-      )
-      val cipher = rsaCipher(Cipher.ENCRYPT_MODE, publicKey)
-      WrappedSecretKey(device.id, encode(cipher.doFinal(rawKey)))
-    }
+    val publicKey = KeyFactory.getInstance("RSA").generatePublic(
+      X509EncodedKeySpec(decode(ownDevice.publicKey)),
+    )
+    val cipher = rsaCipher(Cipher.ENCRYPT_MODE, publicKey)
+    val wrapped = listOf(WrappedSecretKey(ownDevice.id, encode(cipher.doFinal(rawKey))))
     val conversation = api.createSecretConversation(friendId, wrapped)
     conversationKeys[conversation.id] = rawKey
     return conversation
+  }
+
+  fun claimSecretConversation(userId: String, conversationId: String) {
+    val deviceId = ensureDevice(userId)
+    api.claimSecretConversation(conversationId, deviceId)
+  }
+
+  fun deliverSecretKey(userId: String, conversationId: String, targetDeviceId: String, targetPublicKey: String) {
+    val rawKey = loadConversationKey(userId, conversationId)
+    val publicKey = KeyFactory.getInstance("RSA").generatePublic(
+      X509EncodedKeySpec(decode(targetPublicKey)),
+    )
+    val cipher = rsaCipher(Cipher.ENCRYPT_MODE, publicKey)
+    api.deliverSecretKey(
+      conversationId,
+      SecretDeliverBody(targetDeviceId, encode(cipher.doFinal(rawKey))),
+    )
+  }
+
+  fun processPendingClaims(userId: String) {
+    val claims = runCatching { api.pendingSecretClaims() }.getOrDefault(emptyList())
+    claims.forEach { claim ->
+      runCatching {
+        val friendDevice = api.cryptoDevices(claim.userId).firstOrNull { it.id == claim.deviceId } ?: return@runCatching
+        deliverSecretKey(userId, claim.conversationId, claim.deviceId, friendDevice.publicKey)
+      }
+    }
   }
 
   fun encrypt(userId: String, conversationId: String, content: String): EncryptedEnvelope {

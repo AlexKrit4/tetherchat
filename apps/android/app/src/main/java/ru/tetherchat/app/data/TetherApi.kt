@@ -161,7 +161,8 @@ class TetherApi(private val session: SessionStore) {
     return result.serverId
   }
 
-  fun dms(): List<DirectConversation> = get("/api/dms")
+  fun dms(deviceId: String? = null): List<DirectConversation> =
+    get(if (deviceId.isNullOrBlank()) "/api/dms" else "/api/dms?deviceId=${URLEncoder.encode(deviceId, "UTF-8")}")
   fun conversation(id: String): DirectConversation = get("/api/dms/$id")
   fun savedMessages(): DirectConversation = get("/api/dms/saved")
   fun openDm(userId: String): DirectConversation = post("/api/dms", CreateDmBody(listOf(userId)))
@@ -182,6 +183,12 @@ class TetherApi(private val session: SessionStore) {
   fun cryptoDevices(userId: String): List<CryptoDevice> = get("/api/e2ee/users/$userId/devices")
   fun secretConversationKey(conversationId: String, deviceId: String): SecretKeyResponse =
     get("/api/e2ee/conversations/$conversationId/key/$deviceId")
+  fun claimSecretConversation(conversationId: String, deviceId: String): SecretClaimStatus =
+    post("/api/e2ee/conversations/$conversationId/claim", SecretClaimBody(deviceId))
+  fun deliverSecretKey(conversationId: String, body: SecretDeliverBody) =
+    post<SecretDeliverBody, Unit>("/api/e2ee/conversations/$conversationId/deliver-key", body)
+  fun pendingSecretClaims(): List<SecretClaimPending> =
+    get("/api/e2ee/conversations/pending-claims")
   fun incomingFriends(): List<FriendRequest> = get("/api/friends/incoming")
   fun incomingFriendCount(): Int = get<CountBody>("/api/friends/incoming/count").count
   fun sendFriendRequest(userId: String): FriendRequestResult =

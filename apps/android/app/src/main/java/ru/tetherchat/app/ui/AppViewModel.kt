@@ -182,6 +182,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   var servers by mutableStateOf<List<ServerSummary>>(emptyList())
     private set
   var dms by mutableStateOf<List<DirectConversation>>(emptyList())
+  var pendingSecretInvites by mutableStateOf<List<DirectConversation>>(emptyList())
     private set
   var selectedServerId by mutableStateOf<String?>(null)
   var friendsTabOpen by mutableStateOf(false)
@@ -312,12 +313,20 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     }
   }
 
+  private fun fetchDms(): List<DirectConversation> {
+    val userId = me?.id ?: return api.dms()
+    return api.dms(e2ee.deviceId(userId))
+  }
+
   private fun loadWorkspace() {
     me = api.me()
     otherAccount = session.otherAccount()
-    runCatching { e2ee.ensureDevice(me!!.id) }
+    val userId = me!!.id
+    runCatching { e2ee.ensureDevice(userId) }
+    runCatching { e2ee.processPendingClaims(userId) }
     servers = api.servers()
-    dms = api.dms()
+    dms = fetchDms()
+    pendingSecretInvites = emptyList()
     friends = api.friends()
     incomingFriendCount = runCatching { api.incomingFriendCount() }.getOrDefault(0)
     api.readStates().forEach { readStates[it.channelId] = it }
@@ -942,7 +951,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
           if (result.accepted) {
             pendingOutgoingFriendIds = pendingOutgoingFriendIds - user.id
             runCatching {
-              withContext(Dispatchers.IO) { api.friends() to api.dms() }
+              withContext(Dispatchers.IO) { api.friends() to fetchDms() }
             }.onSuccess { (acceptedFriends, conversations) ->
               friends = acceptedFriends
               dms = conversations
@@ -962,7 +971,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
       runCatching {
         withContext(Dispatchers.IO) {
           api.acceptFriend(request.id)
-          Triple(api.incomingFriends(), api.dms(), api.friends())
+          Triple(api.incomingFriends(), fetchDms(), api.friends())
         }
       }.onSuccess { (list, conversations, acceptedFriends) ->
         incomingFriends = list
@@ -1186,6 +1195,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   }
 
   fun openDm(conversation: DirectConversation) {
+    val userId = me?.id
+    if (conversation.isSecret && userId != null && !e2ee.hasSecretKey(userId, conversation.id)) {
+      acceptSecretInvite(conversation)
+      return
+    }
     val title = conversation.title(me?.id.orEmpty())
     currentConversation = conversation
     if (conversation.isSecret) {
@@ -1194,6 +1208,32 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
       editing = null
     }
     openChat(conversation.id, null, title, dm = true)
+  }
+
+  fun acceptSecretInvite(conversation: DirectConversation) {
+    val userId = me?.id ?: return
+    viewModelScope.launch {
+      busy = true
+      runCatching {
+        withContext(Dispatchers.IO) {
+          e2ee.claimSecretConversation(userId, conversation.id)
+          for (attempt in 0 until 30) {
+            if (e2ee.hasSecretKey(userId, conversation.id)) break
+            delay(1000)
+          }
+          if (!e2ee.hasSecretKey(userId, conversation.id)) {
+            throw ApiException(408, "pending_key", "Ожидание ключа от собеседника. Попробуйте позже.")
+          }
+          dms = fetchDms()
+        }
+      }.onSuccess {
+        pendingSecretInvites = pendingSecretInvites.filterNot { it.id == conversation.id }
+        val title = conversation.title(me?.id.orEmpty())
+        currentConversation = conversation
+        openChat(conversation.id, null, title, dm = true)
+      }.onFailure { error = it.userMessage() }
+      busy = false
+    }
   }
 
   fun openChat(channelId: String, serverId: String?, title: String, dm: Boolean) {
@@ -1548,7 +1588,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
 
   fun blockUser(userId: String) {
     viewModelScope.launch {
-      runCatching { withContext(Dispatchers.IO) { api.blockUser(userId); api.dms() } }
+      runCatching { withContext(Dispatchers.IO) { api.blockUser(userId); fetchDms() } }
         .onSuccess { refreshed ->
           dms = refreshed
           messages = emptyList()
@@ -1561,7 +1601,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
 
   fun unblockUser(userId: String) {
     viewModelScope.launch {
-      runCatching { withContext(Dispatchers.IO) { api.unblockUser(userId); api.blocks() to api.dms() } }
+      runCatching { withContext(Dispatchers.IO) { api.unblockUser(userId); api.blocks() to fetchDms() } }
         .onSuccess { (blocks, conversations) ->
           blockedUsers = blocks
           dms = conversations
@@ -1574,7 +1614,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     val conversation = currentConversation ?: return
     if (!conversation.isGroup) return
     viewModelScope.launch {
-      runCatching { withContext(Dispatchers.IO) { api.leaveGroup(conversation.id); api.dms() } }
+      runCatching { withContext(Dispatchers.IO) { api.leaveGroup(conversation.id); fetchDms() } }
         .onSuccess {
           dms = it
           messages = emptyList()
@@ -2171,6 +2211,20 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
           }
         },
         onDmCreate = { conversation -> viewModelScope.launch { upsertDm(conversation) } },
+        onSecretClaim = {
+          viewModelScope.launch {
+            runCatching { withContext(Dispatchers.IO) { e2ee.processPendingClaims(me?.id.orEmpty()) } }
+          }
+        },
+        onSecretKeyReady = {
+          viewModelScope.launch {
+            runCatching {
+              withContext(Dispatchers.IO) {
+                dms = fetchDms()
+              }
+            }
+          }
+        },
         onDmUpdate = { conversation -> viewModelScope.launch { upsertDm(conversation) } },
         onDmRemove = { event -> viewModelScope.launch { removeDm(event.conversationId) } },
         onFriendIncoming = { event -> viewModelScope.launch { incomingFriendCount = event.count } },
@@ -2214,6 +2268,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   private fun prependDm(conversation: DirectConversation) = upsertDm(conversation)
 
   private fun upsertDm(conversation: DirectConversation) {
+    val userId = me?.id
+    if (conversation.isSecret && userId != null && !e2ee.hasSecretKey(userId, conversation.id)) {
+      pendingSecretInvites = (pendingSecretInvites.filterNot { it.id == conversation.id } + conversation)
+      return
+    }
     val rest = dms.filterNot { it.id == conversation.id }
     val merged = rest + conversation
     dms = merged.sortedWith(
@@ -2658,7 +2717,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     runCatching { withContext(Dispatchers.IO) { api.conversation(conversationId) } }
       .onSuccess { prependDm(it) }
       .onFailure {
-        runCatching { withContext(Dispatchers.IO) { api.dms() } }.onSuccess { dms = it }
+        runCatching { withContext(Dispatchers.IO) { fetchDms() } }.onSuccess { dms = it }
       }
   }
 }

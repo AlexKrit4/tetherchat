@@ -33,6 +33,10 @@ class RealtimeClient(
     next.on("message:deleted") { args -> decode<MessageDeletedEvent>(args)?.let(handlers.onMessageDeleted) }
     next.on("reaction:updated") { args -> decode<ReactionUpdatedEvent>(args)?.let(handlers.onReaction) }
     next.on("dm:create") { args -> decode<DirectConversation>(args)?.let(handlers.onDmCreate) }
+    next.on("secret:claim") { handlers.onSecretClaim() }
+    next.on("secret:key-ready") { args ->
+      decode<SecretKeyReadyEvent>(args)?.let(handlers.onSecretKeyReady) ?: handlers.onSecretKeyReady(null)
+    }
     next.on("dm:update") { args -> decode<DirectConversation>(args)?.let(handlers.onDmUpdate) }
     next.on("dm:remove") { args -> decode<DmRemoveEvent>(args)?.let(handlers.onDmRemove) }
     next.on("friend:incoming") { args -> decode<FriendIncomingEvent>(args)?.let(handlers.onFriendIncoming) }
@@ -105,6 +109,9 @@ class RealtimeClient(
 @Serializable
 data class DmRemoveEvent(val conversationId: String)
 
+@Serializable
+data class SecretKeyReadyEvent(val conversationId: String, val deviceId: String)
+
 class RealtimeHandlers(
   val onMessage: (Message) -> Unit,
   val onMessageUpdated: (Message) -> Unit,
@@ -113,6 +120,8 @@ class RealtimeHandlers(
   val onDmCreate: (DirectConversation) -> Unit,
   val onDmUpdate: (DirectConversation) -> Unit,
   val onDmRemove: (DmRemoveEvent) -> Unit,
+  val onSecretClaim: () -> Unit,
+  val onSecretKeyReady: (SecretKeyReadyEvent?) -> Unit,
   val onFriendIncoming: (FriendIncomingEvent) -> Unit,
   val onFriendAccepted: (FriendAcceptedEvent) -> Unit,
   val onReceipt: (ReceiptUpdate) -> Unit,

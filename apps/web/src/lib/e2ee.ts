@@ -56,6 +56,10 @@ function deviceStorageKey(userId: string): string {
   return `tetherchat.e2ee.device.${userId}`;
 }
 
+export function getE2eeDeviceId(userId: string): string | null {
+  return localStorage.getItem(deviceStorageKey(userId));
+}
+
 export async function ensureE2eeDevice(userId: string): Promise<{ deviceId: string; pair: CryptoKeyPair }> {
   let deviceId = localStorage.getItem(deviceStorageKey(userId));
   const hadDeviceId = Boolean(deviceId);
@@ -118,7 +122,7 @@ export async function createSecretConversation(
   userId: string,
   friendId: string,
 ): Promise<DirectConversation> {
-  await ensureE2eeDevice(userId);
+  const { deviceId } = await ensureE2eeDevice(userId);
   const [ownDevices, friendDevices] = await Promise.all([
     api.get<CryptoDevice[]>(`/api/e2ee/users/${userId}/devices`),
     api.get<CryptoDevice[]>(`/api/e2ee/users/${friendId}/devices`),
@@ -134,31 +138,29 @@ export async function createSecretConversation(
     }
     localStorage.setItem(pinId, device.publicKey);
   }
+  const ownDevice = ownDevices.find((row) => row.id === deviceId);
+  if (!ownDevice) throw new Error('Device not registered');
+
   const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, [
     'encrypt',
     'decrypt',
   ]);
   const raw = await crypto.subtle.exportKey('raw', key);
-  const keys = await Promise.all(
-    [...ownDevices, ...friendDevices].map(async (device) => {
-      const publicKey = await crypto.subtle.importKey(
-        'spki',
-        base64ToBytes(device.publicKey),
-        { name: 'RSA-OAEP', hash: 'SHA-1' },
-        false,
-        ['encrypt'],
-      );
-      return {
-        deviceId: device.id,
-        wrappedKey: bytesToBase64(
-          await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, publicKey, raw),
-        ),
-      };
-    }),
+  const publicKey = await crypto.subtle.importKey(
+    'spki',
+    base64ToBytes(ownDevice.publicKey),
+    { name: 'RSA-OAEP', hash: 'SHA-1' },
+    false,
+    ['encrypt'],
   );
   const conversation = await api.post<DirectConversation>('/api/dms/secret', {
     userId: friendId,
-    keys,
+    keys: [
+      {
+        deviceId: ownDevice.id,
+        wrappedKey: bytesToBase64(await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, publicKey, raw)),
+      },
+    ],
   });
   const localKey = await crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, [
     'encrypt',
@@ -166,6 +168,56 @@ export async function createSecretConversation(
   ]);
   await writeKey(`conversation:${userId}:${conversation.id}`, localKey);
   return conversation;
+}
+
+export async function claimSecretConversation(userId: string, conversationId: string): Promise<void> {
+  const { deviceId } = await ensureE2eeDevice(userId);
+  await api.post(`/api/e2ee/conversations/${conversationId}/claim`, { deviceId });
+}
+
+export async function deliverSecretKey(
+  conversationId: string,
+  deviceId: string,
+  wrappedKey: string,
+): Promise<void> {
+  await api.post(`/api/e2ee/conversations/${conversationId}/deliver-key`, { deviceId, wrappedKey });
+}
+
+export async function processPendingSecretClaims(userId: string): Promise<void> {
+  const claims = await api.get<Array<{ conversationId: string; userId: string; deviceId: string }>>(
+    '/api/e2ee/conversations/pending-claims',
+  );
+  for (const claim of claims) {
+    const storedId = `conversation:${userId}:${claim.conversationId}`;
+    const stored = await readKey<CryptoKey>(storedId);
+    if (!stored) continue;
+    const raw = await crypto.subtle.exportKey('raw', stored);
+    const friendDevice = await api
+      .get<CryptoDevice[]>(`/api/e2ee/users/${claim.userId}/devices`)
+      .then((rows) => rows.find((row) => row.id === claim.deviceId));
+    if (!friendDevice) continue;
+    const publicKey = await crypto.subtle.importKey(
+      'spki',
+      base64ToBytes(friendDevice.publicKey),
+      { name: 'RSA-OAEP', hash: 'SHA-1' },
+      false,
+      ['encrypt'],
+    );
+    const wrappedKey = bytesToBase64(await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, publicKey, raw));
+    await deliverSecretKey(claim.conversationId, claim.deviceId, wrappedKey);
+  }
+}
+
+export async function waitForSecretKey(userId: string, conversationId: string): Promise<void> {
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    try {
+      await conversationKey(userId, conversationId);
+      return;
+    } catch {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+  }
+  throw new Error('Timed out waiting for secret key');
 }
 
 export async function encryptSecretMessage(

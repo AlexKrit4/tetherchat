@@ -100,6 +100,13 @@ export interface ServerToClientEvents {
   'call:ended': (payload: CallEndedPayload) => void;
   'call:busy': (payload: CallEndedPayload) => void;
   'call:missed': (payload: CallEndedPayload) => void;
+  'secret:claim': (payload: {
+    conversationId: string;
+    userId: string;
+    deviceId: string;
+    publicKey: string;
+  }) => void;
+  'secret:key-ready': (payload: { conversationId: string; deviceId: string }) => void;
   error: (payload: { code: string; message: string }) => void;
 }
 

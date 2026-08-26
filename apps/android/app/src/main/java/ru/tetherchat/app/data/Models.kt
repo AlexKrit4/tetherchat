@@ -338,6 +338,22 @@ data class SecretKeyResponse(
 )
 
 @Serializable
+data class SecretClaimBody(val deviceId: String)
+
+@Serializable
+data class SecretDeliverBody(val deviceId: String, val wrappedKey: String)
+
+@Serializable
+data class SecretClaimPending(
+  val conversationId: String,
+  val userId: String,
+  val deviceId: String,
+)
+
+@Serializable
+data class SecretClaimStatus(val status: String, val conversationId: String, val deviceId: String)
+
+@Serializable
 data class CreateDmBody(val userIds: List<String>)
 
 @Serializable
