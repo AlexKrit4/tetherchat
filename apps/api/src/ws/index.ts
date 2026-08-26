@@ -21,6 +21,7 @@ import { broadcastPresence, registerSession, setStatus, unregisterSession } from
 import { setRealtimeServer } from './realtime.js';
 import type { SocketData, TypedServer } from './realtime.js';
 import { handshakeIsSilent } from './silent.js';
+import { loadChannelContext } from '../lib/permissions.js';
 
 interface TypingEntry {
   userId: string;
@@ -202,7 +203,10 @@ export async function attachSocketServer(app: FastifyInstance): Promise<TypedSer
     });
 
     socket.on('channel:subscribe', ({ channelId }) => {
-      void socket.join(socketRooms.channel(channelId));
+      if (typeof channelId !== 'string' || !channelId) return;
+      void loadChannelContext(channelId, userId)
+        .then(() => socket.join(socketRooms.channel(channelId)))
+        .catch(() => undefined);
     });
 
     socket.on('channel:unsubscribe', ({ channelId }) => {

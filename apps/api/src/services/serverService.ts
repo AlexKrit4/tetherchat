@@ -224,19 +224,13 @@ export async function leaveServer(serverId: string, userId: string): Promise<voi
   }
 
   await prisma.serverMember.deleteMany({ where: { serverId, userId } });
-
-  const channels = await prisma.channel.findMany({ where: { serverId }, select: { id: true } });
-  await removeUserFromRoom(userId, socketRooms.server(serverId));
-  await Promise.all(
-    channels.map((channel) => removeUserFromRoom(userId, socketRooms.channel(channel.id))),
-  );
-
+  await removeUserFromServerRooms(serverId, userId);
   emitToServer(serverId, 'member:leave', { serverId, userId });
 }
 
 export async function kickMember(serverId: string, userId: string): Promise<void> {
   await prisma.serverMember.deleteMany({ where: { serverId, userId } });
-  await removeUserFromRoom(userId, socketRooms.server(serverId));
+  await removeUserFromServerRooms(serverId, userId);
   emitToServer(serverId, 'member:leave', { serverId, userId });
 }
 
@@ -260,8 +254,17 @@ export async function banMember(input: {
     prisma.serverMember.deleteMany({ where: { serverId: input.serverId, userId: input.userId } }),
   ]);
 
-  await removeUserFromRoom(input.userId, socketRooms.server(input.serverId));
+  await removeUserFromServerRooms(input.serverId, input.userId);
   emitToServer(input.serverId, 'member:leave', { serverId: input.serverId, userId: input.userId });
+}
+
+/** Drop the user from the server room and every channel room so kicked/banned sockets stop receiving traffic. */
+async function removeUserFromServerRooms(serverId: string, userId: string): Promise<void> {
+  const channels = await prisma.channel.findMany({ where: { serverId }, select: { id: true } });
+  await removeUserFromRoom(userId, socketRooms.server(serverId));
+  await Promise.all(
+    channels.map((channel) => removeUserFromRoom(userId, socketRooms.channel(channel.id))),
+  );
 }
 
 export async function nextChannelPosition(serverId: string, categoryId: string | null): Promise<number> {
