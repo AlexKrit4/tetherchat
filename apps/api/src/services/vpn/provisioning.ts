@@ -1,6 +1,13 @@
 import type { VpnPlan, VpnSubscription } from '@prisma/client';
 import { prisma } from '../../db.js';
-import { buildPaymentLabel, buildSubUrl, createYooMoneyPaymentUrl, getVpnConfig } from './config.js';
+import { ApiError } from '../../errors.js';
+import {
+  buildPaymentLabel,
+  buildSubUrl,
+  createYooMoneyPaymentUrl,
+  getVpnConfig,
+  paymentCoversOrder,
+} from './config.js';
 import {
   calculateCustomPrice,
   clearOrderMeta,
@@ -258,6 +265,7 @@ export async function markOrderPaid(input: {
   paymentLabel: string;
   externalId: string;
   raw: Record<string, string>;
+  paidAmount: string;
 }) {
   const order = await prisma.vpnOrder.findUnique({
     where: { paymentLabel: input.paymentLabel },
@@ -270,6 +278,10 @@ export async function markOrderPaid(input: {
   });
   if (existingPayment || order.status === 'paid') {
     return getActiveSubscription(order.userId);
+  }
+
+  if (!paymentCoversOrder(input.paidAmount, order.amount.toString())) {
+    throw ApiError.forbidden('Payment amount does not cover the order');
   }
 
   await prisma.$transaction(async (tx) => {
@@ -292,10 +304,13 @@ export async function markOrderPaid(input: {
 }
 
 export async function confirmMockPayment(paymentLabel: string) {
+  const order = await prisma.vpnOrder.findUnique({ where: { paymentLabel } });
+  if (!order) return null;
   return markOrderPaid({
     paymentLabel,
     externalId: `mock-${paymentLabel}`,
     raw: { mock: 'true' },
+    paidAmount: order.amount.toString(),
   });
 }
 

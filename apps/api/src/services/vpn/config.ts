@@ -120,5 +120,40 @@ export function verifyYooMoneyNotification(form: Record<string, string>): {
   if ((form.codepro ?? 'false').toLowerCase() === 'true') {
     return { ok: false, label, externalId, amount, error: 'code-protected transfer ignored' };
   }
-  return { ok: true, label, externalId, amount };
+  return { ok: true, label, externalId, amount: notificationPaidAmount(form) };
+}
+
+/** Prefer what the payer was charged; fall back to the credited shop amount. */
+export function notificationPaidAmount(form: Record<string, string>): string {
+  const withdraw = form.withdraw_amount?.trim();
+  if (withdraw) return withdraw;
+  return (form.amount ?? '0').trim();
+}
+
+/** Parse a RUB amount like "100", "100.5", or "100.50" into integer kopecks. */
+export function parseRubToKopecks(raw: string): number | null {
+  const normalized = raw.trim().replace(',', '.');
+  const match = /^(\d+)(?:\.(\d{1,2}))?$/.exec(normalized);
+  if (!match) return null;
+  const rubles = Number(match[1]);
+  const fraction = (match[2] ?? '').padEnd(2, '0');
+  if (!Number.isFinite(rubles)) return null;
+  return rubles * 100 + Number(fraction);
+}
+
+/**
+ * True when the payer sent at least the order total.
+ * QuickPay lets the customer edit `sum`, so a signed 1₽ notification must not
+ * activate a 600₽ plan.
+ */
+export function paymentCoversOrder(paidRaw: string, orderAmountRaw: string): boolean {
+  const paid = parseRubToKopecks(paidRaw);
+  const expected = parseRubToKopecks(orderAmountRaw);
+  if (paid === null || expected === null) return false;
+  return paid >= expected;
+}
+
+/** Mock checkout is only for local/dev when no YooMoney wallet is configured. */
+export function mockPaymentsAllowed(): boolean {
+  return !getVpnConfig().yoomoneyWallet;
 }
