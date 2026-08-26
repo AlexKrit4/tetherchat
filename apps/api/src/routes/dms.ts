@@ -20,7 +20,7 @@ import {
 import { listChatMedia } from '../services/mediaService.js';
 import { ackConversation } from '../services/readStateService.js';
 import { filterSecretConversationsForDevice } from '../lib/secretChat.js';
-import { emitToUser, joinUserToRoom } from '../ws/realtime.js';
+import { emitToUser, joinUserToRoom, removeUserFromRoom } from '../ws/realtime.js';
 
 const conversationParam = z.object({ conversationId: z.string().min(1) });
 const messageBody = z.object({
@@ -394,6 +394,7 @@ export async function dmRoutes(app: FastifyInstance) {
       data: { leftAt: new Date(), pinnedAt: null },
     });
 
+    await removeUserFromRoom(request.userId, socketRooms.conversation(conversationId));
     emitToUser(request.userId, 'dm:remove', { conversationId });
     reply.status(204).send();
   });
@@ -426,6 +427,7 @@ export async function dmRoutes(app: FastifyInstance) {
           where: { conversationId_userId: { conversationId, userId: request.userId } },
           data: { leftAt: new Date(), pinnedAt: null },
         });
+        await removeUserFromRoom(request.userId, socketRooms.conversation(conversationId));
       } else {
         await prisma.directConversationMember.update({
           where: { conversationId_userId: { conversationId, userId: request.userId } },
@@ -443,6 +445,7 @@ export async function dmRoutes(app: FastifyInstance) {
       }
       await prisma.directConversation.delete({ where: { id: conversationId } });
       for (const userId of activeMemberIds) {
+        await removeUserFromRoom(userId, socketRooms.conversation(conversationId));
         emitToUser(userId, 'dm:remove', { conversationId });
       }
       reply.status(204).send();
