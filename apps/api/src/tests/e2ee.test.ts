@@ -136,4 +136,113 @@ describe('secret chats', () => {
     });
     expect(secondClaim.statusCode).toBe(409);
   });
+
+  it('refuses to deliver a key to a device that did not claim the chat', async () => {
+    const app = await testApp();
+    const aliceDevice = `alice-device-${randomUUID()}`;
+    const bobPhone = `bob-phone-${randomUUID()}`;
+    const bobTablet = `bob-tablet-${randomUUID()}`;
+    const publicKey = generateKeyPairSync('rsa', { modulusLength: 2048 })
+      .publicKey.export({ format: 'der', type: 'spki' })
+      .toString('base64');
+    for (const [user, deviceId] of [
+      [alice, aliceDevice],
+      [bob, bobPhone],
+      [bob, bobTablet],
+    ] as const) {
+      const registered = await app.inject({
+        method: 'POST',
+        url: '/api/e2ee/devices',
+        headers: user.auth,
+        payload: { deviceId, name: 'test', publicKey },
+      });
+      expect(registered.statusCode).toBe(200);
+    }
+
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/dms/secret',
+      headers: alice.auth,
+      payload: {
+        userId: bob.id,
+        keys: [{ deviceId: aliceDevice, wrappedKey: 'a'.repeat(344) }],
+      },
+    });
+    expect(created.statusCode).toBe(201);
+    const conversation = created.json<DirectConversation>();
+
+    const sneakDeliver = await app.inject({
+      method: 'POST',
+      url: `/api/e2ee/conversations/${conversation.id}/deliver-key`,
+      headers: alice.auth,
+      payload: { deviceId: bobTablet, wrappedKey: 'c'.repeat(344) },
+    });
+    expect(sneakDeliver.statusCode).toBe(403);
+
+    const claimPhone = await app.inject({
+      method: 'POST',
+      url: `/api/e2ee/conversations/${conversation.id}/claim`,
+      headers: bob.auth,
+      payload: { deviceId: bobPhone },
+    });
+    expect(claimPhone.statusCode).toBe(200);
+
+    const wrongDevice = await app.inject({
+      method: 'POST',
+      url: `/api/e2ee/conversations/${conversation.id}/deliver-key`,
+      headers: alice.auth,
+      payload: { deviceId: bobTablet, wrappedKey: 'c'.repeat(344) },
+    });
+    expect(wrongDevice.statusCode).toBe(403);
+
+    const claimTablet = await app.inject({
+      method: 'POST',
+      url: `/api/e2ee/conversations/${conversation.id}/claim`,
+      headers: bob.auth,
+      payload: { deviceId: bobTablet },
+    });
+    expect(claimTablet.statusCode).toBe(409);
+
+    const unfiltered = await app.inject({
+      method: 'GET',
+      url: '/api/dms',
+      headers: bob.auth,
+    });
+    expect(unfiltered.json<DirectConversation[]>().some((row) => row.id === conversation.id)).toBe(
+      false,
+    );
+
+    const foreignDevice = await app.inject({
+      method: 'GET',
+      url: `/api/dms?deviceId=${aliceDevice}`,
+      headers: bob.auth,
+    });
+    expect(foreignDevice.json<DirectConversation[]>().some((row) => row.id === conversation.id)).toBe(
+      false,
+    );
+
+    const deliverPhone = await app.inject({
+      method: 'POST',
+      url: `/api/e2ee/conversations/${conversation.id}/deliver-key`,
+      headers: alice.auth,
+      payload: { deviceId: bobPhone, wrappedKey: 'b'.repeat(344) },
+    });
+    expect(deliverPhone.statusCode).toBe(200);
+
+    const phoneList = await app.inject({
+      method: 'GET',
+      url: `/api/dms?deviceId=${bobPhone}`,
+      headers: bob.auth,
+    });
+    expect(phoneList.json<DirectConversation[]>().some((row) => row.id === conversation.id)).toBe(true);
+
+    const tabletList = await app.inject({
+      method: 'GET',
+      url: `/api/dms?deviceId=${bobTablet}`,
+      headers: bob.auth,
+    });
+    expect(tabletList.json<DirectConversation[]>().some((row) => row.id === conversation.id)).toBe(
+      false,
+    );
+  });
 });

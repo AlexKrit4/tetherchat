@@ -19,6 +19,22 @@ function claimsForUserKey(userId: string): string {
   return `secret:claims:for:${userId}`;
 }
 
+async function readClaim(
+  client: ReturnType<typeof redis>,
+  conversationId: string,
+  userId: string,
+): Promise<{ deviceId: string } | null> {
+  const raw = await client.get(claimKey(conversationId, userId));
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { deviceId?: string };
+    if (typeof parsed.deviceId !== 'string' || parsed.deviceId.length === 0) return null;
+    return { deviceId: parsed.deviceId };
+  } catch {
+    return null;
+  }
+}
+
 const deviceSchema = z.object({
   deviceId: z.string().min(16).max(128),
   name: z.string().max(120).nullable().optional(),
@@ -198,6 +214,10 @@ export async function e2eeRoutes(app: FastifyInstance) {
     }
 
     const client = redis();
+    const existingClaim = await readClaim(client, conversationId, request.userId);
+    if (existingClaim && existingClaim.deviceId !== body.deviceId) {
+      throw ApiError.conflict('Secret chat is already claimed on another device');
+    }
     await client.set(
       claimKey(conversationId, request.userId),
       JSON.stringify({ deviceId: body.deviceId, publicKey: device.publicKey }),
@@ -244,6 +264,15 @@ export async function e2eeRoutes(app: FastifyInstance) {
       throw ApiError.conflict('Peer already claimed this secret chat on another device');
     }
 
+    const client = redis();
+    const claim = await readClaim(client, conversationId, targetDevice.userId);
+    if (!claim) {
+      throw ApiError.forbidden('Peer has not claimed this secret chat yet');
+    }
+    if (claim.deviceId !== body.deviceId) {
+      throw ApiError.forbidden('Key can only be delivered to the device that claimed this chat');
+    }
+
     await prisma.secretConversationKey.create({
       data: {
         conversationId,
@@ -252,7 +281,6 @@ export async function e2eeRoutes(app: FastifyInstance) {
       },
     });
 
-    const client = redis();
     await client.del(claimKey(conversationId, targetDevice.userId));
     await client.srem(claimsForUserKey(request.userId), `${conversationId}:${targetDevice.userId}`);
 

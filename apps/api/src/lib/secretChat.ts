@@ -29,10 +29,20 @@ export async function secretConversationIdsForDevice(deviceId: string): Promise<
 export async function filterSecretConversationsForDevice(
   conversations: DirectConversation[],
   deviceId: string | undefined,
+  userId?: string,
 ): Promise<DirectConversation[]> {
-  if (!deviceId) return conversations;
-  const secretIds = conversations.filter((row) => row.isSecret).map((row) => row.id);
-  if (secretIds.length === 0) return conversations;
+  const hasSecrets = conversations.some((row) => row.isSecret);
+  if (!hasSecrets) return conversations;
+  if (!deviceId) return conversations.filter((row) => !row.isSecret);
+  if (userId) {
+    const device = await prisma.cryptoDevice.findUnique({
+      where: { id: deviceId },
+      select: { userId: true, revokedAt: true },
+    });
+    if (!device || device.userId !== userId || device.revokedAt) {
+      return conversations.filter((row) => !row.isSecret);
+    }
+  }
   const allowed = await secretConversationIdsForDevice(deviceId);
   return conversations.filter((row) => !row.isSecret || allowed.has(row.id));
 }

@@ -69,7 +69,7 @@ export async function dmRoutes(app: FastifyInstance) {
           conversation.isGroup ||
           !conversation.members.some((member) => member.id !== request.userId && blocked.has(member.id)),
       );
-    const filtered = await filterSecretConversationsForDevice(mapped, deviceId);
+    const filtered = await filterSecretConversationsForDevice(mapped, deviceId, request.userId);
     return filtered.sort((a, b) => {
         if (a.isSaved !== b.isSaved) return a.isSaved ? -1 : 1;
         if (Boolean(a.isAi) !== Boolean(b.isAi)) return a.isAi ? -1 : 1;
