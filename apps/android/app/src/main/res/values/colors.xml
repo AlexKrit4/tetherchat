@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="background">#1E1F22</color>
+    <color name="brand">#5865F2</color>
+    <color name="ic_launcher_background">#1E1F22</color>
+    <color name="ic_launcher_light">#F2F3F5</color>
+    <color name="ic_launcher_brand">#5865F2</color>
+    <color name="ic_launcher_green">#3BA55D</color>
+    <color name="ic_launcher_gold">#FAA81A</color>
+    <color name="ic_launcher_red">#ED4245</color>
+    <color name="ic_launcher_mono">#4E5058</color>
+</resources>
