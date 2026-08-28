@@ -136,4 +136,66 @@ describe('secret chats', () => {
     });
     expect(secondClaim.statusCode).toBe(409);
   });
+
+  it('does not restore secret keys after a device is revoked', async () => {
+    const app = await testApp();
+    const aliceDevice = `alice-revoked-${randomUUID()}`;
+    const publicKey = generateKeyPairSync('rsa', { modulusLength: 2048 })
+      .publicKey.export({ format: 'der', type: 'spki' })
+      .toString('base64');
+
+    const registered = await app.inject({
+      method: 'POST',
+      url: '/api/e2ee/devices',
+      headers: alice.auth,
+      payload: { deviceId: aliceDevice, name: 'phone', publicKey },
+    });
+    expect(registered.statusCode).toBe(200);
+
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/dms/secret',
+      headers: alice.auth,
+      payload: {
+        userId: bob.id,
+        keys: [{ deviceId: aliceDevice, wrappedKey: 'c'.repeat(344) }],
+      },
+    });
+    expect(created.statusCode).toBe(201);
+    const conversation = created.json<DirectConversation>();
+
+    const revoked = await app.inject({
+      method: 'DELETE',
+      url: `/api/e2ee/devices/${aliceDevice}`,
+      headers: alice.auth,
+    });
+    expect(revoked.statusCode).toBe(204);
+
+    const afterRevoke = await app.inject({
+      method: 'GET',
+      url: `/api/e2ee/conversations/${conversation.id}/key/${aliceDevice}`,
+      headers: alice.auth,
+    });
+    expect(afterRevoke.statusCode).toBe(403);
+
+    const reregister = await app.inject({
+      method: 'POST',
+      url: '/api/e2ee/devices',
+      headers: alice.auth,
+      payload: { deviceId: aliceDevice, name: 'stolen-phone', publicKey },
+    });
+    expect(reregister.statusCode).toBe(409);
+
+    const afterReregister = await app.inject({
+      method: 'GET',
+      url: `/api/e2ee/conversations/${conversation.id}/key/${aliceDevice}`,
+      headers: alice.auth,
+    });
+    expect(afterReregister.statusCode).toBe(403);
+
+    const remainingKeys = await prisma.secretConversationKey.count({
+      where: { conversationId: conversation.id, deviceId: aliceDevice },
+    });
+    expect(remainingKeys).toBe(0);
+  });
 });

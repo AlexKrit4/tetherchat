@@ -62,6 +62,9 @@ export async function e2eeRoutes(app: FastifyInstance) {
     if (existing && existing.userId !== request.userId) {
       throw ApiError.conflict('Device id is already registered');
     }
+    if (existing?.revokedAt) {
+      throw ApiError.conflict('This device was revoked; register a new device id');
+    }
     if (existing && existing.publicKey !== body.publicKey) {
       throw ApiError.conflict('Device identity cannot be replaced; register a new device id');
     }
@@ -82,7 +85,6 @@ export async function e2eeRoutes(app: FastifyInstance) {
       update: {
         name: body.name?.trim() || null,
         lastSeenAt: new Date(),
-        revokedAt: null,
       },
     });
     reply.send(serializeDevice(device));
@@ -92,10 +94,13 @@ export async function e2eeRoutes(app: FastifyInstance) {
     const { deviceId } = z.object({ deviceId: z.string().min(1) }).parse(request.params);
     const device = await prisma.cryptoDevice.findUnique({ where: { id: deviceId } });
     if (!device || device.userId !== request.userId) throw ApiError.notFound('Device not found');
-    await prisma.cryptoDevice.update({
-      where: { id: deviceId },
-      data: { revokedAt: new Date() },
-    });
+    await prisma.$transaction([
+      prisma.secretConversationKey.deleteMany({ where: { deviceId } }),
+      prisma.cryptoDevice.update({
+        where: { id: deviceId },
+        data: { revokedAt: new Date() },
+      }),
+    ]);
     reply.status(204).send();
   });
 
