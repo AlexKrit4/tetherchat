@@ -110,12 +110,18 @@ async function conversationKey(userId: string, conversationId: string): Promise<
     pair.privateKey,
     base64ToBytes(bundle.wrappedKey),
   );
-  const key = await crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, [
-    'encrypt',
-    'decrypt',
-  ]);
+  const key = await importConversationAesKey(raw);
   await writeKey(storedId, key);
   return key;
+}
+
+/**
+ * AES keys must remain extractable: after a peer claims the secret chat we
+ * wrap this raw key to their device public key. A non-extractable CryptoKey
+ * makes `exportKey('raw')` throw, so the claim is never fulfilled.
+ */
+export async function importConversationAesKey(raw: BufferSource): Promise<CryptoKey> {
+  return crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, true, ['encrypt', 'decrypt']);
 }
 
 export async function createSecretConversation(
@@ -162,10 +168,7 @@ export async function createSecretConversation(
       },
     ],
   });
-  const localKey = await crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, [
-    'encrypt',
-    'decrypt',
-  ]);
+  const localKey = await importConversationAesKey(raw);
   await writeKey(`conversation:${userId}:${conversation.id}`, localKey);
   return conversation;
 }
@@ -188,23 +191,27 @@ export async function processPendingSecretClaims(userId: string): Promise<void> 
     '/api/e2ee/conversations/pending-claims',
   );
   for (const claim of claims) {
-    const storedId = `conversation:${userId}:${claim.conversationId}`;
-    const stored = await readKey<CryptoKey>(storedId);
-    if (!stored) continue;
-    const raw = await crypto.subtle.exportKey('raw', stored);
-    const friendDevice = await api
-      .get<CryptoDevice[]>(`/api/e2ee/users/${claim.userId}/devices`)
-      .then((rows) => rows.find((row) => row.id === claim.deviceId));
-    if (!friendDevice) continue;
-    const publicKey = await crypto.subtle.importKey(
-      'spki',
-      base64ToBytes(friendDevice.publicKey),
-      { name: 'RSA-OAEP', hash: 'SHA-1' },
-      false,
-      ['encrypt'],
-    );
-    const wrappedKey = bytesToBase64(await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, publicKey, raw));
-    await deliverSecretKey(claim.conversationId, claim.deviceId, wrappedKey);
+    try {
+      const storedId = `conversation:${userId}:${claim.conversationId}`;
+      const stored = await readKey<CryptoKey>(storedId);
+      if (!stored) continue;
+      const raw = await crypto.subtle.exportKey('raw', stored);
+      const friendDevice = await api
+        .get<CryptoDevice[]>(`/api/e2ee/users/${claim.userId}/devices`)
+        .then((rows) => rows.find((row) => row.id === claim.deviceId));
+      if (!friendDevice) continue;
+      const publicKey = await crypto.subtle.importKey(
+        'spki',
+        base64ToBytes(friendDevice.publicKey),
+        { name: 'RSA-OAEP', hash: 'SHA-1' },
+        false,
+        ['encrypt'],
+      );
+      const wrappedKey = bytesToBase64(await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, publicKey, raw));
+      await deliverSecretKey(claim.conversationId, claim.deviceId, wrappedKey);
+    } catch {
+      // One failed claim must not block wrapping keys for the remaining chats.
+    }
   }
 }
 
