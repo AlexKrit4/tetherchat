@@ -1,6 +1,7 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import type { AuthResponse } from '@tetherchat/shared';
 import { prisma } from '../db.js';
+import { createOpaqueToken } from '../lib/tokens.js';
 import { closeTestApp, createUser, testApp } from './harness.js';
 import type { TestUser } from './harness.js';
 
@@ -198,6 +199,95 @@ describe('auth', () => {
       payload: { email: 'nobody-here@example.test' },
     });
     expect(response.statusCode).toBe(202);
+  });
+
+  it('invalidates leftover password-reset links after a successful reset', async () => {
+    const user = await createUser();
+    created.push(user);
+    const app = await testApp();
+
+    const first = createOpaqueToken();
+    const second = createOpaqueToken();
+    await prisma.verificationToken.createMany({
+      data: [
+        {
+          userId: user.id,
+          tokenHash: first.tokenHash,
+          purpose: 'password_reset',
+          expiresAt: new Date(Date.now() + 3_600_000),
+        },
+        {
+          userId: user.id,
+          tokenHash: second.tokenHash,
+          purpose: 'password_reset',
+          expiresAt: new Date(Date.now() + 3_600_000),
+        },
+      ],
+    });
+
+    const reset = await app.inject({
+      method: 'POST',
+      url: '/api/auth/reset-password',
+      payload: { token: second.token, password: 'brand-new-secret' },
+    });
+    expect(reset.statusCode).toBe(204);
+
+    const leftover = await app.inject({
+      method: 'POST',
+      url: '/api/auth/reset-password',
+      payload: { token: first.token, password: 'attacker-secret!!' },
+    });
+    expect(leftover.statusCode).toBe(400);
+
+    const oldPassword = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { login: user.email, password: user.password },
+    });
+    expect(oldPassword.statusCode).toBe(401);
+
+    const newPassword = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { login: user.email, password: 'brand-new-secret' },
+    });
+    expect(newPassword.statusCode).toBe(200);
+  });
+
+  it('keeps only the latest forgot-password link valid', async () => {
+    const user = await createUser();
+    created.push(user);
+    const app = await testApp();
+
+    const stale = createOpaqueToken();
+    await prisma.verificationToken.create({
+      data: {
+        userId: user.id,
+        tokenHash: stale.tokenHash,
+        purpose: 'password_reset',
+        expiresAt: new Date(Date.now() + 3_600_000),
+      },
+    });
+
+    const forgot = await app.inject({
+      method: 'POST',
+      url: '/api/auth/forgot-password',
+      payload: { email: user.email },
+    });
+    expect(forgot.statusCode).toBe(202);
+
+    const reused = await app.inject({
+      method: 'POST',
+      url: '/api/auth/reset-password',
+      payload: { token: stale.token, password: 'should-not-work' },
+    });
+    expect(reused.statusCode).toBe(400);
+
+    const latest = await prisma.verificationToken.findFirst({
+      where: { userId: user.id, purpose: 'password_reset', usedAt: null },
+      orderBy: { createdAt: 'desc' },
+    });
+    expect(latest).toBeTruthy();
   });
 
   it('completes qr login after the mobile client approves the ticket', async () => {

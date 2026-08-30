@@ -468,14 +468,22 @@ export async function authRoutes(app: FastifyInstance) {
     // Always answer 202 so the endpoint cannot be used to enumerate accounts.
     if (user) {
       const { token, tokenHash } = createOpaqueToken();
-      await prisma.verificationToken.create({
-        data: {
-          userId: user.id,
-          tokenHash,
-          purpose: 'password_reset',
-          expiresAt: new Date(Date.now() + 3_600_000),
-        },
-      });
+      // Only the latest reset link should work; leftover emails must not
+      // remain a second account-takeover path after the user retries.
+      await prisma.$transaction([
+        prisma.verificationToken.updateMany({
+          where: { userId: user.id, purpose: 'password_reset', usedAt: null },
+          data: { usedAt: new Date() },
+        }),
+        prisma.verificationToken.create({
+          data: {
+            userId: user.id,
+            tokenHash,
+            purpose: 'password_reset',
+            expiresAt: new Date(Date.now() + 3_600_000),
+          },
+        }),
+      ]);
       await enqueue({
         type: 'email',
         to: user.email,
@@ -500,12 +508,18 @@ export async function authRoutes(app: FastifyInstance) {
       throw ApiError.badRequest('This reset link is invalid or has expired');
     }
 
+    const passwordHash = await hashPassword(password);
     await prisma.$transaction([
       prisma.user.update({
         where: { id: row.userId },
-        data: { passwordHash: await hashPassword(password) },
+        data: { passwordHash },
       }),
-      prisma.verificationToken.update({ where: { id: row.id }, data: { usedAt: new Date() } }),
+      // Burn every outstanding reset token, not just the one that was used.
+      // Otherwise an earlier unused email can still change the password again.
+      prisma.verificationToken.updateMany({
+        where: { userId: row.userId, purpose: 'password_reset', usedAt: null },
+        data: { usedAt: new Date() },
+      }),
       // Every existing session is dropped after a password reset.
       prisma.refreshToken.updateMany({
         where: { userId: row.userId, revokedAt: null },
