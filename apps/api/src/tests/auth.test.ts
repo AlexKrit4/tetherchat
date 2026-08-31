@@ -1,6 +1,7 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import type { AuthResponse } from '@tetherchat/shared';
 import { prisma } from '../db.js';
+import { createOpaqueToken } from '../lib/tokens.js';
 import { closeTestApp, createUser, testApp } from './harness.js';
 import type { TestUser } from './harness.js';
 
@@ -198,6 +199,127 @@ describe('auth', () => {
       payload: { email: 'nobody-here@example.test' },
     });
     expect(response.statusCode).toBe(202);
+  });
+
+  it('verifies email with a valid token and enables password reset', async () => {
+    const user = await createUser();
+    created.push(user);
+    const app = await testApp();
+
+    const { token, tokenHash } = createOpaqueToken();
+    await prisma.verificationToken.create({
+      data: {
+        userId: user.id,
+        tokenHash,
+        purpose: 'email_verify',
+        expiresAt: new Date(Date.now() + 3_600_000),
+      },
+    });
+
+    const verify = await app.inject({
+      method: 'POST',
+      url: '/api/auth/verify-email',
+      payload: { token },
+    });
+    expect(verify.statusCode).toBe(204);
+
+    const row = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    expect(row.emailVerified).toBe(true);
+
+    const forgot = await app.inject({
+      method: 'POST',
+      url: '/api/auth/forgot-password',
+      payload: { email: user.email },
+    });
+    expect(forgot.statusCode).toBe(202);
+
+    const resetToken = await prisma.verificationToken.findFirst({
+      where: { userId: user.id, purpose: 'password_reset' },
+    });
+    expect(resetToken).toBeTruthy();
+  });
+
+  it('does not create a reset token until email is verified', async () => {
+    const user = await createUser();
+    created.push(user);
+    const app = await testApp();
+
+    const forgot = await app.inject({
+      method: 'POST',
+      url: '/api/auth/forgot-password',
+      payload: { email: user.email },
+    });
+    expect(forgot.statusCode).toBe(202);
+
+    const resetToken = await prisma.verificationToken.findFirst({
+      where: { userId: user.id, purpose: 'password_reset' },
+    });
+    expect(resetToken).toBeNull();
+  });
+
+  it('resends verification email for unverified accounts', async () => {
+    const user = await createUser();
+    created.push(user);
+    const app = await testApp();
+
+    const resend = await app.inject({
+      method: 'POST',
+      url: '/api/auth/resend-verification',
+      headers: user.auth,
+    });
+    expect(resend.statusCode).toBe(204);
+
+    const tokens = await prisma.verificationToken.findMany({
+      where: { userId: user.id, purpose: 'email_verify', usedAt: null },
+    });
+    expect(tokens.length).toBe(1);
+  });
+
+  it('resets password with a valid token and revokes sessions', async () => {
+    const user = await createUser();
+    created.push(user);
+    const app = await testApp();
+
+    await prisma.user.update({ where: { id: user.id }, data: { emailVerified: true } });
+
+    const { token, tokenHash } = createOpaqueToken();
+    await prisma.verificationToken.create({
+      data: {
+        userId: user.id,
+        tokenHash,
+        purpose: 'password_reset',
+        expiresAt: new Date(Date.now() + 3_600_000),
+      },
+    });
+
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { login: user.email, password: user.password },
+    });
+    expect(login.statusCode).toBe(200);
+    const cookie = login.cookies.find((entry) => entry.name === 'tc_refresh')!.value;
+
+    const reset = await app.inject({
+      method: 'POST',
+      url: '/api/auth/reset-password',
+      payload: { token, password: 'brand-new-secret-pass' },
+    });
+    expect(reset.statusCode).toBe(204);
+
+    const afterReset = await app.inject({
+      method: 'POST',
+      url: '/api/auth/refresh',
+      cookies: { tc_refresh: cookie },
+    });
+    expect(afterReset.statusCode).toBe(401);
+
+    const newLogin = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { login: user.email, password: 'brand-new-secret-pass' },
+    });
+    expect(newLogin.statusCode).toBe(200);
   });
 
   it('completes qr login after the mobile client approves the ticket', async () => {

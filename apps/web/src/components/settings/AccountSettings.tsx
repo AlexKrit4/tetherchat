@@ -39,6 +39,12 @@ export function AccountSettings() {
     onSuccess: () => toast.success(t('settings.resetSent')),
   });
 
+  const resendVerification = useMutation({
+    mutationFn: () => api.post('/api/auth/resend-verification'),
+    onSuccess: () => toast.success(t('auth.verificationSent')),
+    onError: (mutationError) => toast.error(errorMessage(mutationError)),
+  });
+
   if (!user) return null;
 
   return (
@@ -57,6 +63,19 @@ export function AccountSettings() {
             {user.emailVerified ? t('settings.verified') : t('settings.unverified')}
           </span>
         </p>
+        {!user.emailVerified ? (
+          <div className="mt-3 flex flex-col gap-2">
+            <p className="text-sm text-text-muted">{t('auth.verifyEmailHint')}</p>
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={resendVerification.isPending}
+              onClick={() => resendVerification.mutate()}
+            >
+              {t('auth.resendVerification')}
+            </Button>
+          </div>
+        ) : null}
       </div>
 
       <Input
@@ -97,8 +116,17 @@ export function AccountSettings() {
 
       <div className="flex flex-col gap-2">
         <p className="text-base font-semibold text-text-heading">{t('settings.password')}</p>
-        <p className="text-sm text-text-muted">{t('settings.passwordHint', { email: user.email })}</p>
-        <Button variant="secondary" loading={requestReset.isPending} onClick={() => requestReset.mutate()}>
+        <p className="text-sm text-text-muted">
+          {user.emailVerified
+            ? t('settings.passwordHint', { email: user.email })
+            : t('settings.passwordUnverifiedHint')}
+        </p>
+        <Button
+          variant="secondary"
+          loading={requestReset.isPending}
+          disabled={!user.emailVerified}
+          onClick={() => requestReset.mutate()}
+        >
           {t('settings.sendReset')}
         </Button>
       </div>

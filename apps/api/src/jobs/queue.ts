@@ -12,7 +12,7 @@ export const QUEUE_NAME = 'tetherchat';
 export type JobPayload =
   | { type: 'link-preview'; messageId: string; urls: string[] }
   | { type: 'push'; userIds: string[]; payload: PushPayload }
-  | { type: 'email'; to: string; subject: string; text: string }
+  | { type: 'email'; to: string; subject: string; text: string; html?: string }
   | { type: 'call-timeout'; callId: string };
 
 export interface EnqueueOptions {
@@ -31,7 +31,7 @@ export async function runJob(job: JobPayload): Promise<void> {
       await sendPushToUsers(job.userIds, job.payload);
       return;
     case 'email':
-      await sendMail(job.to, job.subject, job.text);
+      await sendMail(job.to, job.subject, job.text, job.html);
       return;
     case 'call-timeout':
       await expireRingingCall(job.callId);

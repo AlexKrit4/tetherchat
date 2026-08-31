@@ -39,6 +39,7 @@ import {
   signAccessToken,
   verifyPassword,
 } from '../lib/tokens.js';
+import { authLink, passwordResetEmail, verificationEmail } from '../services/mailTemplates.js';
 
 const selfSelect = {
   ...publicUserSelect,
@@ -447,7 +448,7 @@ export async function authRoutes(app: FastifyInstance) {
       where: { tokenHash: hashToken(token) },
     });
     if (!row || row.usedAt || row.purpose !== 'email_verify' || row.expiresAt < new Date()) {
-      throw ApiError.badRequest('This verification link is invalid or has expired');
+      throw ApiError.badRequest('Ссылка подтверждения недействительна или устарела');
     }
 
     await prisma.$transaction([
@@ -458,15 +459,33 @@ export async function authRoutes(app: FastifyInstance) {
     reply.status(204).send();
   });
 
+  app.post('/resend-verification', { preHandler: app.requireAuth }, async (request, reply) => {
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { id: request.userId },
+      select: { id: true, email: true, emailVerified: true },
+    });
+    if (user.emailVerified) throw ApiError.badRequest('Почта уже подтверждена');
+
+    await prisma.verificationToken.deleteMany({
+      where: { userId: user.id, purpose: 'email_verify', usedAt: null },
+    });
+    await sendVerificationEmail(user.id, user.email);
+    reply.status(204).send();
+  });
+
   app.post('/forgot-password', async (request, reply) => {
     const { email } = z.object({ email: z.string().email() }).parse(request.body);
     const user = await prisma.user.findUnique({
       where: { email: email.toLowerCase() },
-      select: { id: true, email: true },
+      select: { id: true, email: true, emailVerified: true },
     });
 
     // Always answer 202 so the endpoint cannot be used to enumerate accounts.
-    if (user) {
+    if (user?.emailVerified) {
+      await prisma.verificationToken.deleteMany({
+        where: { userId: user.id, purpose: 'password_reset', usedAt: null },
+      });
+
       const { token, tokenHash } = createOpaqueToken();
       await prisma.verificationToken.create({
         data: {
@@ -476,11 +495,13 @@ export async function authRoutes(app: FastifyInstance) {
           expiresAt: new Date(Date.now() + 3_600_000),
         },
       });
+      const mail = passwordResetEmail(authLink('/reset-password', token));
       await enqueue({
         type: 'email',
         to: user.email,
-        subject: 'Reset your TetherChat password',
-        text: `Open ${getConfig().PUBLIC_WEB_ORIGIN}/reset-password?token=${token} to choose a new password. The link expires in one hour.`,
+        subject: mail.subject,
+        text: mail.text,
+        html: mail.html,
       });
     }
 
@@ -497,7 +518,7 @@ export async function authRoutes(app: FastifyInstance) {
 
     const row = await prisma.verificationToken.findUnique({ where: { tokenHash: hashToken(token) } });
     if (!row || row.usedAt || row.purpose !== 'password_reset' || row.expiresAt < new Date()) {
-      throw ApiError.badRequest('This reset link is invalid or has expired');
+      throw ApiError.badRequest('Ссылка сброса недействительна или устарела');
     }
 
     await prisma.$transaction([
@@ -549,11 +570,13 @@ async function sendVerificationEmail(userId: string, email: string) {
       expiresAt: new Date(Date.now() + 24 * 3_600_000),
     },
   });
+  const mail = verificationEmail(authLink('/verify-email', token));
   await enqueue({
     type: 'email',
     to: email,
-    subject: 'Confirm your TetherChat email',
-    text: `Welcome to TetherChat. Confirm your address: ${getConfig().PUBLIC_WEB_ORIGIN}/verify-email?token=${token}`,
+    subject: mail.subject,
+    text: mail.text,
+    html: mail.html,
   });
 }
 

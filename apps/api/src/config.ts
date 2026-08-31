@@ -58,6 +58,8 @@ const schema = z.object({
   FCM_SENDER_ID: z.string().optional(),
 
   SMTP_URL: z.string().optional(),
+  /** Resend API key (https://resend.com). Preferred over SMTP when set. */
+  RESEND_API_KEY: z.string().optional(),
   MAIL_FROM: z.string().default('TetherChat <no-reply@tetherchat.ru>'),
 
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(600),

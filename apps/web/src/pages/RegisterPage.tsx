@@ -59,6 +59,7 @@ export function RegisterPage() {
   return (
     <AuthLayout
       title={t('auth.registerTitle')}
+      subtitle={t('auth.registerVerifyHint')}
       footer={
         <>
           {t('auth.alreadyRegistered')}{' '}

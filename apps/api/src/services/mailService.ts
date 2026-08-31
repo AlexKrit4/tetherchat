@@ -1,20 +1,72 @@
 import { createTransport } from 'nodemailer';
 import { getConfig } from '../config.js';
 
-/**
- * Without SMTP_URL configured the message is logged instead of sent, which keeps
- * local development and CI usable without a mail server.
- */
-export async function sendMail(to: string, subject: string, text: string): Promise<void> {
-  const config = getConfig();
+export type MailPayload = {
+  to: string;
+  subject: string;
+  text: string;
+  html?: string;
+};
 
-  if (!config.SMTP_URL) {
-    if (config.NODE_ENV !== 'test') {
-      console.info(`[mail:dev] to=${to} subject="${subject}"\n${text}`);
-    }
+async function sendViaResend(payload: MailPayload): Promise<void> {
+  const config = getConfig();
+  const apiKey = config.RESEND_API_KEY;
+  if (!apiKey) return;
+
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: config.MAIL_FROM,
+      to: payload.to,
+      subject: payload.subject,
+      text: payload.text,
+      html: payload.html,
+    }),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => response.statusText);
+    throw new Error(`Resend API error (${response.status}): ${detail}`);
+  }
+}
+
+async function sendViaSmtp(payload: MailPayload): Promise<void> {
+  const config = getConfig();
+  if (!config.SMTP_URL) return;
+
+  const transport = createTransport(config.SMTP_URL);
+  await transport.sendMail({
+    from: config.MAIL_FROM,
+    to: payload.to,
+    subject: payload.subject,
+    text: payload.text,
+    html: payload.html,
+  });
+}
+
+/**
+ * Sends transactional mail through Resend (preferred) or SMTP.
+ * Without either configured, messages are logged in non-test environments.
+ */
+export async function sendMail(to: string, subject: string, text: string, html?: string): Promise<void> {
+  const config = getConfig();
+  const payload: MailPayload = { to, subject, text, html };
+
+  if (config.RESEND_API_KEY) {
+    await sendViaResend(payload);
     return;
   }
 
-  const transport = createTransport(config.SMTP_URL);
-  await transport.sendMail({ from: config.MAIL_FROM, to, subject, text });
+  if (config.SMTP_URL) {
+    await sendViaSmtp(payload);
+    return;
+  }
+
+  if (config.NODE_ENV !== 'test') {
+    console.info(`[mail:dev] to=${to} subject="${subject}"\n${text}`);
+  }
 }
