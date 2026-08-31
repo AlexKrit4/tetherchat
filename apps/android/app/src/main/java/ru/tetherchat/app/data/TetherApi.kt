@@ -222,6 +222,12 @@ class TetherApi(private val session: SessionStore) {
       .getOrElse { get("/api/app/android", authed = false) }
   }
 
+  fun installDownloads(): InstallDownloads {
+    val bust = System.currentTimeMillis()
+    return runCatching { get<InstallDownloads>("/app/install.json?t=$bust", authed = false) }
+      .getOrElse { get("/api/app/install", authed = false) }
+  }
+
   fun downloadTo(url: String, dest: File, onProgress: (read: Long, total: Long) -> Unit) {
     dest.parentFile?.mkdirs()
     val tmp = File(dest.parentFile, "${dest.name}.part")

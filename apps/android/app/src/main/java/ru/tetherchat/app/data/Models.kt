@@ -560,6 +560,22 @@ data class AndroidRelease(
 )
 
 @Serializable
+data class InstallPlatform(
+  val versionName: String = "",
+  val versionCode: Int = 0,
+  val url: String = "",
+  val filename: String = "",
+)
+
+@Serializable
+data class InstallDownloads(
+  val android: InstallPlatform = InstallPlatform(),
+  val windows: InstallPlatform = InstallPlatform(),
+  val linuxAppImage: InstallPlatform = InstallPlatform(),
+  val linuxDeb: InstallPlatform = InstallPlatform(),
+)
+
+@Serializable
 data class DeviceSession(
   val id: String,
   val userAgent: String? = null,

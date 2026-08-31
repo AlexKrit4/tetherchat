@@ -35,7 +35,7 @@ fun TetherRoot(model: AppViewModel) {
       screen is Screen.ProfileSettings || screen is Screen.AccountSettings ||
       screen is Screen.Sessions || screen is Screen.QrScanner || screen is Screen.IncomingFriends || screen is Screen.AdminCredentials ||
       screen is Screen.AppearanceSettings || screen is Screen.UserProfile ||
-      screen is Screen.PlusSettings || screen is Screen.Accounts
+      screen is Screen.PlusSettings || screen is Screen.Accounts || screen is Screen.Install
     if (toastable) {
       snack.showSnackbar(text)
       model.error = null
@@ -70,6 +70,7 @@ fun TetherRoot(model: AppViewModel) {
       Screen.PlusSettings -> PlusSettingsScreen(model)
       Screen.Accounts -> AccountsScreen(model)
       Screen.Blacklist -> BlacklistScreen(model)
+      Screen.Install -> InstallScreen(model)
       Screen.IncomingFriends -> IncomingFriendsScreen(model)
       Screen.AdminCredentials -> AdminCredentialsScreen(model)
       Screen.ServerSettings -> ServerSettingsScreen(model)

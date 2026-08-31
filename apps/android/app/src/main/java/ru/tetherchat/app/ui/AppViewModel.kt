@@ -34,6 +34,7 @@ import ru.tetherchat.app.PushRegistrar
 import ru.tetherchat.app.data.AccountSlot
 import ru.tetherchat.app.data.AdminCredentials
 import ru.tetherchat.app.data.AndroidRelease
+import ru.tetherchat.app.data.InstallDownloads
 import ru.tetherchat.app.data.ApiException
 import ru.tetherchat.app.data.Ban
 import ru.tetherchat.app.data.CallManager
@@ -89,6 +90,7 @@ sealed class Screen {
   data object PlusSettings : Screen()
   data object Accounts : Screen()
   data object Blacklist : Screen()
+  data object Install : Screen()
   data object IncomingFriends : Screen()
   data object AdminCredentials : Screen()
   data object ServerSettings : Screen()
@@ -159,6 +161,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   var notificationsEnabled by mutableStateOf(session.notificationsEnabled)
     private set
   var availableUpdate by mutableStateOf<AndroidRelease?>(null)
+    private set
+  var installDownloads by mutableStateOf<InstallDownloads?>(null)
     private set
   var updateDownloading by mutableStateOf(false)
     private set
@@ -1117,6 +1121,18 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     }
   }
 
+  fun openInstall() {
+    screen = Screen.Install
+    loadInstallDownloads()
+  }
+
+  fun loadInstallDownloads() {
+    viewModelScope.launch {
+      runCatching { withContext(Dispatchers.IO) { api.installDownloads() } }
+        .onSuccess { installDownloads = it }
+    }
+  }
+
   fun openBlacklist() {
     screen = Screen.Blacklist
     viewModelScope.launch {
@@ -1147,6 +1163,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
         screen = Screen.Home
       }
       Screen.Blacklist -> screen = Screen.Settings
+      Screen.Install -> screen = Screen.Settings
       Screen.IncomingFriends -> screen = Screen.Home
       Screen.AdminCredentials -> screen = Screen.AccountSettings
       Screen.Sessions -> screen = Screen.AccountSettings

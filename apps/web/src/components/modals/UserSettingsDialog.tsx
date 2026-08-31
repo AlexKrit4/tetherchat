@@ -10,9 +10,10 @@ import { NotificationSettings } from '@/components/settings/NotificationSettings
 import { AppearanceSettings } from '@/components/settings/AppearanceSettings';
 import { BlacklistSettings } from '@/components/settings/BlacklistSettings';
 import { PlusSettings } from '@/components/plus/PlusSettings';
+import { InstallSettings } from '@/components/settings/InstallSettings';
 import { useAuthStore } from '@/stores/authStore';
 
-type Tab = 'profile' | 'account' | 'notifications' | 'appearance' | 'blocked' | 'plus';
+type Tab = 'profile' | 'account' | 'notifications' | 'appearance' | 'blocked' | 'plus' | 'install';
 
 /** Desktop settings modal. Mobile uses the full-screen MobileSettingsView instead. */
 export function UserSettingsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -27,6 +28,7 @@ export function UserSettingsDialog({ open, onClose }: { open: boolean; onClose: 
     { id: 'appearance', label: t('settings.appearance') },
     { id: 'blocked', label: t('settings.blockedUsers') },
     { id: 'plus', label: t('settings.plus') },
+    { id: 'install', label: t('settings.install') },
   ];
 
   return (
@@ -64,6 +66,7 @@ export function UserSettingsDialog({ open, onClose }: { open: boolean; onClose: 
           {tab === 'appearance' ? <AppearanceSettings /> : null}
           {tab === 'blocked' ? <BlacklistSettings /> : null}
           {tab === 'plus' ? <PlusSettings /> : null}
+          {tab === 'install' ? <InstallSettings /> : null}
         </div>
       </div>
     </Modal>
