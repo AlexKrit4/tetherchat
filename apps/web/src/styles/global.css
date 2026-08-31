@@ -68,13 +68,13 @@
   }
 
   :focus-visible {
-    outline: 2px solid var(--brand);
+    outline: 2px solid var(--focus-ring);
     outline-offset: 1px;
   }
 
   ::selection {
-    background: rgba(88, 101, 242, 0.6);
-    color: #fff;
+    background: var(--selection-bg);
+    color: var(--selection-text);
   }
 }
 

@@ -16,6 +16,12 @@ services:
     ports:
       - '80:80'
       - '443:443'
+      # Preview builds are reached over TLS on their own ports. They must not be
+      # published from their own containers: HSTS on tetherchat.ru makes the
+      # browser force HTTPS, and a plain-HTTP listener then fails the handshake
+      # with SSL_ERROR_RX_RECORD_TOO_LONG.
+      - '1488:1488'
+      - '1489:1489'
     volumes:
       # Default is HTTP so the stack boots before certificates exist.
       # After certbot, set NGINX_EDGE_CONF=./nginx/tetherchat.ru.conf

@@ -5,10 +5,10 @@ import { ApiError, isApiError } from '../errors.js';
 import type { ApiErrorBody } from '@tetherchat/shared';
 
 export const errorHandlerPlugin = fp(async (app) => {
-  app.setNotFoundHandler((request, reply) => {
+  app.setNotFoundHandler((_request, reply) => {
     const body: ApiErrorBody = {
       code: 'not_found',
-      message: `Route ${request.method} ${request.url} not found`,
+      message: 'Not found',
     };
     reply.status(404).send(body);
   });

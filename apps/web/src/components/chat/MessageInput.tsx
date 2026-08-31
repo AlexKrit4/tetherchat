@@ -3,6 +3,7 @@ import { CircleX, Mic, Paperclip, Pause, Play, Plus, SendHorizonal, SmilePlus, T
 import { LIMITS, Permission, can } from '@tetherchat/shared';
 import type { Attachment, Message } from '@tetherchat/shared';
 import { cn } from '@/lib/cn';
+import { isGraphite } from '@/lib/theme';
 import { errorMessage } from '@/lib/api';
 import { getSocket } from '@/lib/socket';
 import { useAutoResize } from '@/hooks/useAutoResize';
@@ -395,7 +396,12 @@ export function MessageInput() {
       {isMonitorBot ? <MonitorBotKeyboard disabled={!canSend || send.isPending} onCommand={sendMonitorCommand} /> : null}
 
       {pending.length > 0 ? (
-        <div className="mb-1 flex flex-wrap gap-2 rounded-t-lg bg-surface-input p-2">
+        <div
+          className={cn(
+            'mb-1 flex flex-wrap gap-2 bg-surface-input p-2',
+            isGraphite() ? 'rounded-t-xl shadow-hairline-strong' : 'rounded-t-lg',
+          )}
+        >
           {pending.map((attachment) => (
             <div
               key={attachment.id}
@@ -466,8 +472,11 @@ export function MessageInput() {
 
       <div
         className={cn(
-          'flex items-end gap-1 rounded-lg bg-surface-input',
-          isMobile ? 'px-1 py-1' : 'px-4 py-0.5',
+          'flex items-end gap-1 bg-surface-input',
+          // One outlined field with the controls inside it, rather than a filled
+          // well: the same device the rest of the Graphite chrome uses.
+          isGraphite() ? 'rounded-xl shadow-hairline-strong' : 'rounded-lg',
+          isMobile ? 'px-1 py-1' : isGraphite() ? 'px-2 py-1' : 'px-4 py-0.5',
         )}
         onDragOver={(event) => event.preventDefault()}
         onDrop={(event) => {
@@ -629,7 +638,9 @@ export function MessageInput() {
         </div>
       </div>
 
-      <TypingIndicator channelId={channelId} />
+      <div className={isGraphite() ? 'min-h-7' : 'min-h-6'}>
+        <TypingIndicator channelId={channelId} />
+      </div>
     </div>
   );
 }
@@ -711,7 +722,14 @@ function VoicePreviewBar({
 function ReplyBar({ message, onCancel }: { message: Message; onCancel: () => void }) {
   const t = useT();
   return (
-    <div className="flex items-center gap-2 rounded-t-lg bg-surface-secondary px-3 py-1.5 text-sm text-text-muted">
+    <div
+      className={cn(
+        'flex items-center gap-2 px-3 py-1.5 text-sm text-text-muted',
+        isGraphite()
+          ? 'rounded-t-xl bg-surface-input shadow-hairline-strong'
+          : 'rounded-t-lg bg-surface-secondary',
+      )}
+    >
       <Avatar user={message.author} size={18} />
       <span className="shrink-0">{t('chat.replyTo')}</span>
       <span className="truncate font-medium text-text-subheading">

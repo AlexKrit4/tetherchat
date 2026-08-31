@@ -1,5 +1,6 @@
 import { ArrowLeft, AtSign, Bell, Bookmark, Hash, Image as ImageIcon, LockKeyhole, Phone, Pin, Search, Shield, Sparkles, Users } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { isGraphite } from '@/lib/theme';
 import { useT } from '@/i18n/useT';
 import { useChatTarget } from '@/hooks/useChatTarget';
 import { useIsDesktop, useIsMobile } from '@/hooks/useMediaQuery';
@@ -40,6 +41,8 @@ export function ChatHeader() {
   const { data: friends } = useFriends();
   const liveStatuses = usePresenceStore((state) => state.statuses);
 
+  const titleClass = isGraphite() ? 'text-base tracking-heading' : 'text-lg';
+
   const dmPeer = conversation?.members.find((member) => member.id !== currentUserId);
   const canCall =
     isDm &&
@@ -67,7 +70,10 @@ export function ChatHeader() {
   return (
     <header
       className={cn(
-        'flex h-header shrink-0 items-center gap-1 bg-surface px-2 shadow-elevated md:px-4',
+        'flex h-header shrink-0 items-center gap-1 bg-surface px-2 md:px-4',
+        // Elevation carries a full ring in Graphite, which would outline the
+        // header on all four sides; only the bottom edge is wanted.
+        isGraphite() ? 'shadow-hairline-b' : 'shadow-elevated',
       )}
     >
       {isMobile ? (
@@ -105,16 +111,18 @@ export function ChatHeader() {
 
         {isDm && dmPeer && !conversation?.isGroup && !conversation?.isSaved && !conversation?.isAi && !conversation?.isVpn ? (
           <div className="min-w-0 flex-1">
-            <h1 className="min-w-0 truncate text-lg font-semibold text-text-heading">
+            <h1 className={cn('min-w-0 truncate font-semibold text-text-heading', titleClass)}>
               <DisplayName user={dmPeer} name={title || '…'} />
             </h1>
-            <p className="truncate text-xs text-text-muted">{lastSeenLabel(dmPeer, liveStatuses[dmPeer.id])}</p>
-            {conversation?.peerHasPlusProtect ? (
-              <p className="truncate text-xs text-text-muted">{t('plus.peerProtect')}</p>
-            ) : null}
+            <p className="truncate text-xs text-text-muted">
+              {lastSeenLabel(dmPeer, liveStatuses[dmPeer.id])}
+              {conversation?.peerHasPlusProtect ? ` · ${t('plus.peerProtect')}` : ''}
+            </p>
           </div>
         ) : (
-          <h1 className="truncate text-lg font-semibold text-text-heading">{title || '…'}</h1>
+          <h1 className={cn('truncate font-semibold text-text-heading', titleClass)}>
+            {title || '…'}
+          </h1>
         )}
         {conversation?.isSecret ? (
           <span className="hidden text-xs font-medium text-success sm:inline">E2EE · ключи только на устройствах</span>

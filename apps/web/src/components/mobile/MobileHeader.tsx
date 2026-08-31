@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { isGraphite } from '@/lib/theme';
 import { useT } from '@/i18n/useT';
 import { IconButton } from '@/components/ui/IconButton';
 
@@ -19,7 +20,8 @@ export function MobileHeader({ title, subtitle, onBack, actions, className }: Mo
   return (
     <header
       className={cn(
-        'flex h-14 shrink-0 items-center gap-1 px-1 shadow-elevated',
+        'flex h-14 shrink-0 items-center gap-1 px-1',
+        isGraphite() ? 'shadow-hairline-b' : 'shadow-elevated',
         className,
       )}
     >

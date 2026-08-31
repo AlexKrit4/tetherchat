@@ -1,5 +1,6 @@
 # syntax=docker/dockerfile:1
-# Aurora preview image — serves redesign on port 1488 with API proxy.
+# Redesign mockup image. VITE_THEME picks the look, PREVIEW_PORT the port the
+# bundled nginx listens on, so one Dockerfile serves every preview build.
 
 FROM node:20-alpine AS deps
 WORKDIR /app
@@ -30,6 +31,9 @@ RUN npm run build --workspace @tetherchat/shared \
   && npm run build --workspace @tetherchat/web
 
 FROM nginx:1.27-alpine AS runtime
+ARG PREVIEW_PORT=1488
 COPY --from=build /app/apps/web/dist /usr/share/nginx/html
 COPY nginx/preview.conf /etc/nginx/conf.d/default.conf
-EXPOSE 1488
+RUN sed -i "s/listen 1488;/listen ${PREVIEW_PORT};/" /etc/nginx/conf.d/default.conf \
+  && grep -q "listen ${PREVIEW_PORT};" /etc/nginx/conf.d/default.conf
+EXPOSE ${PREVIEW_PORT}

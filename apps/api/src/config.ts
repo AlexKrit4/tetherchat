@@ -92,7 +92,7 @@ const schema = z.object({
   MARZBAN_PASSWORD: z.string().default(''),
   MARZBAN_MOCK: z
     .enum(['true', 'false'])
-    .default('true')
+    .default(process.env.NODE_ENV === 'production' ? 'false' : 'true')
     .transform((value) => value === 'true'),
   YOOMONEY_WALLET: z.string().default(''),
   YOOMONEY_NOTIFICATION_SECRET: z.string().default(''),

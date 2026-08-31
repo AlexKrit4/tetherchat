@@ -1,4 +1,5 @@
 import { cn } from '@/lib/cn';
+import { isGraphite } from '@/lib/theme';
 
 export function Skeleton({ className, style }: { className?: string; style?: React.CSSProperties }) {
   return (
@@ -12,6 +13,24 @@ export function Skeleton({ className, style }: { className?: string; style?: Rea
 
 /** Placeholder rows that mimic the shape of grouped messages while history loads. */
 export function MessageSkeletonList({ count = 8 }: { count?: number }) {
+  if (isGraphite()) {
+    return (
+      <div className="flex flex-col gap-2 px-3 py-4 md:px-4">
+        {Array.from({ length: count }).map((_, index) => {
+          const mine = index % 3 === 0;
+          return (
+            <div key={index} className={cn('flex', mine ? 'justify-end' : 'justify-start')}>
+              <Skeleton
+                className="h-10 rounded-bubble"
+                style={{ width: `${42 + ((index * 29) % 38)}%` }}
+              />
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6 px-4 py-6 md:px-4">
       {Array.from({ length: count }).map((_, index) => (

@@ -7,6 +7,7 @@ import { getConfig } from '../config.js';
 import { webCorsOrigins } from '../lib/corsOrigins.js';
 import { prisma } from '../db.js';
 import { isApiError } from '../errors.js';
+import { loadChannelContext, visibleChannelIdsForServers } from '../lib/permissions.js';
 import { verifyAccessToken } from '../lib/tokens.js';
 import { activeSiteBan } from '../lib/platformAdmin.js';
 import { createRedis } from '../redis.js';
@@ -47,14 +48,12 @@ async function roomsForUser(userId: string): Promise<string[]> {
   ]);
 
   const serverIds = memberships.map((row) => row.serverId);
-  const channels = serverIds.length
-    ? await prisma.channel.findMany({ where: { serverId: { in: serverIds } }, select: { id: true } })
-    : [];
+  const visibleChannels = await visibleChannelIdsForServers(userId, serverIds);
 
   return [
     socketRooms.user(userId),
     ...serverIds.map(socketRooms.server),
-    ...channels.map((channel) => socketRooms.channel(channel.id)),
+    ...visibleChannels.map(socketRooms.channel),
     ...conversations.map((row) => socketRooms.conversation(row.conversationId)),
   ];
 }
@@ -78,9 +77,12 @@ export async function attachSocketServer(app: FastifyInstance): Promise<TypedSer
   }
 
   io.use((socket, next) => {
-    const token =
-      (socket.handshake.auth as { token?: string } | undefined)?.token ??
-      (typeof socket.handshake.query.token === 'string' ? socket.handshake.query.token : undefined);
+    const authToken = (socket.handshake.auth as { token?: string } | undefined)?.token;
+    const queryToken =
+      typeof socket.handshake.query.token === 'string' ? socket.handshake.query.token : undefined;
+    // Query-string tokens leak into access logs and Referer; keep them only for
+    // local/dev clients that cannot set handshake.auth.
+    const token = authToken ?? (config.NODE_ENV === 'production' ? undefined : queryToken);
     if (!token) {
       next(new Error('unauthorized'));
       return;
@@ -203,7 +205,14 @@ export async function attachSocketServer(app: FastifyInstance): Promise<TypedSer
     });
 
     socket.on('channel:subscribe', ({ channelId }) => {
-      void socket.join(socketRooms.channel(channelId));
+      void (async () => {
+        try {
+          await loadChannelContext(channelId, userId);
+          await socket.join(socketRooms.channel(channelId));
+        } catch {
+          // Not a member, or VIEW_CHANNEL is denied — do not join the room.
+        }
+      })();
     });
 
     socket.on('channel:unsubscribe', ({ channelId }) => {

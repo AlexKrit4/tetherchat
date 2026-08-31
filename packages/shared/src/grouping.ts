@@ -5,6 +5,11 @@ export interface MessageGroupEntry {
   message: Message;
   /** First message of a group renders the avatar and username header. */
   isGroupStart: boolean;
+  /**
+   * Last message of a group. Bubble layouts hang the tail off it and put the
+   * timestamp there instead of on every message in the run.
+   */
+  isGroupEnd: boolean;
   /** Rendered above the message as a date divider ("August 17, 2026"). */
   dayDivider: string | null;
   /** Rendered above the message as the red "NEW MESSAGES" line. */
@@ -58,9 +63,18 @@ export function buildMessageEntries(
     entries.push({
       message,
       isGroupStart,
+      // Filled in below: it depends on the message after this one.
+      isGroupEnd: true,
       dayDivider: previous && sameDay ? null : dayKey(message.createdAt),
       unreadDivider,
     });
+  }
+
+  for (let i = 0; i < entries.length; i += 1) {
+    const next = entries[i + 1];
+    // An unread divider splits the run visually even when the author and the
+    // timestamps would otherwise have kept it together.
+    entries[i].isGroupEnd = !next || next.isGroupStart || next.unreadDivider;
   }
 
   return entries;

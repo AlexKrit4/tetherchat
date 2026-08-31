@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Ban, Bookmark, LockKeyhole, Pin, Plus, Shield, Sparkles, Trash2, Users } from 'lucide-react';
 import type { DirectConversation } from '@tetherchat/shared';
 import { cn } from '@/lib/cn';
+import { isGraphite } from '@/lib/theme';
 import { DM_ROUTE } from '@/hooks/useChatTarget';
 import { conversationTitle, useConversations, useDeleteConversation } from '@/hooks/useDms';
 import { Avatar } from '@/components/ui/Avatar';
@@ -121,7 +122,12 @@ export function DirectMessageList({
   return (
     <div className="flex flex-col px-2 pb-4 pt-2">
       <header className="flex items-center justify-between pl-2 pr-1">
-        <span className="text-xs font-semibold uppercase tracking-[0.02em] text-text-muted">
+        <span
+          className={cn(
+            'font-semibold uppercase text-text-muted',
+            isGraphite() ? 'text-2xs tracking-[0.06em]' : 'text-xs tracking-[0.02em]',
+          )}
+        >
           {t('dm.title')}
         </span>
         <IconButton icon={Plus} label="Новый чат" size="sm" onClick={() => setNewOpen(true)} />
@@ -176,6 +182,11 @@ function DmRow({
   const t = useT();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const graphite = isGraphite();
+  // Avatars stay round: it is people, and a messenger reads wrong without it.
+  const avatarSize = graphite ? 28 : 32;
+  const badge = graphite ? 'h-7 w-7' : 'h-8 w-8';
+  const badgeIcon = graphite ? 14 : 16;
   const others = conversation.members.filter((member) => member.id !== currentUserId);
   const title = conversationTitle(conversation, currentUserId, t('dm.savedMessages'), t('dm.aiChat'), t('dm.vpnChat'));
   const locked = Boolean(conversation.isSaved || conversation.isAi || conversation.isVpn || conversation.isMonitor);
@@ -199,37 +210,50 @@ function DmRow({
         }
         aria-current={active ? 'page' : undefined}
         className={cn(
-          'flex w-full items-center gap-3 rounded px-2 text-left',
-          compact ? 'min-h-11 md:min-h-[42px]' : 'min-h-14',
+          'flex w-full items-center rounded px-2 text-left',
+          graphite ? 'gap-2.5 transition-colors duration-fast ease-out' : 'gap-3',
+          compact ? (graphite ? 'min-h-11 md:min-h-9' : 'min-h-11 md:min-h-[42px]') : 'min-h-14',
           active
             ? 'bg-surface-selected text-text-heading'
             : 'text-text-muted hover:bg-surface-hover hover:text-text-subheading',
+          graphite && active && 'shadow-hairline',
         )}
       >
         {conversation.isSaved ? (
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-white">
-            <Bookmark size={16} aria-hidden />
+          <span className={cn(badge, 'flex shrink-0 items-center justify-center rounded-full bg-brand text-white')}>
+            <Bookmark size={badgeIcon} aria-hidden />
           </span>
         ) : conversation.isAi ? (
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#9b6bff] text-white">
-            <Sparkles size={16} aria-hidden />
+          <span className={cn(badge, 'flex shrink-0 items-center justify-center rounded-full bg-[#9b6bff] text-white')}>
+            <Sparkles size={badgeIcon} aria-hidden />
           </span>
         ) : conversation.isVpn ? (
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#22c55e] text-white">
-            <Shield size={16} aria-hidden />
+          <span className={cn(badge, 'flex shrink-0 items-center justify-center rounded-full bg-[#22c55e] text-white')}>
+            <Shield size={badgeIcon} aria-hidden />
           </span>
         ) : conversation.isGroup ? (
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-tertiary text-text-subheading">
-            <Users size={16} aria-hidden />
+          <span
+            className={cn(
+              badge,
+              'flex shrink-0 items-center justify-center rounded-full bg-surface-tertiary text-text-subheading',
+            )}
+          >
+            <Users size={badgeIcon} aria-hidden />
           </span>
         ) : others[0] ? (
-          <Avatar user={others[0]} size={32} showStatus ringColor="var(--bg-secondary)" />
+          <Avatar user={others[0]} size={avatarSize} showStatus ringColor="var(--bg-secondary)" />
         ) : (
-          <span className="h-8 w-8 shrink-0 rounded-full bg-surface-tertiary" />
+          <span className={cn(badge, 'shrink-0 rounded-full bg-surface-tertiary')} />
         )}
 
         <span className="flex min-w-0 flex-1 flex-col">
-          <span className={cn('truncate text-base', active && 'font-medium text-text-heading')}>
+          <span
+            className={cn(
+              'truncate',
+              graphite ? 'text-sm' : 'text-base',
+              active && 'font-medium text-text-heading',
+            )}
+          >
             {conversation.isSecret ? <LockKeyhole size={13} className="mr-1 inline text-success" /> : null}
             {title}
           </span>

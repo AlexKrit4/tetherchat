@@ -10,6 +10,8 @@ import { TabletLayout } from './TabletLayout';
 import { MobileLayout } from './MobileLayout';
 import { ConnectionBanner } from './ConnectionBanner';
 import { NotificationBanner } from './NotificationBanner';
+import { CommandPalette } from '@/components/system/CommandPalette';
+import { isGraphite } from '@/lib/theme';
 import { CallOverlay } from '@/components/call/CallOverlay';
 import { CallBanner } from '@/components/call/CallBanner';
 import { PlusUpsellSheet } from '@/components/plus/PlusUpsellSheet';
@@ -55,6 +57,7 @@ export function AppShell() {
       <CallBanner />
       <PlusUpsellSheet />
       <SecretProtectOverlay />
+      {isGraphite() ? <CommandPalette /> : null}
       {layout === 'mobile' ? <MobileLayout /> : null}
       {layout === 'tablet' ? <TabletLayout /> : null}
       {layout === 'desktop' ? <DesktopLayout /> : null}

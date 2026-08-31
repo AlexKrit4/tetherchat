@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Mic, MicOff, Settings, UserPlus } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { isGraphite } from '@/lib/theme';
 import { useT } from '@/i18n/useT';
 import { Avatar } from '@/components/ui/Avatar';
 import { DisplayName } from '@/components/plus/DisplayName';
@@ -34,16 +35,21 @@ export function UserPanel({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        'flex shrink-0 items-center gap-1 bg-[#232428] px-2 py-1.5',
+        'flex shrink-0 items-center gap-1 bg-surface-panel px-2 py-1.5',
+        isGraphite() && 'shadow-hairline-t',
         className,
       )}
     >
       <button
         type="button"
         onClick={() => setStatusOpen(true)}
-        className="flex min-h-touch min-w-0 flex-1 items-center gap-2 rounded px-1 text-left transition-colors hover:bg-surface-hover md:min-h-0 md:py-1"
+        className={cn(
+          'flex min-h-touch min-w-0 flex-1 items-center gap-2 rounded px-1 text-left md:min-h-0 md:py-1',
+          'transition-colors hover:bg-surface-hover',
+          isGraphite() && 'duration-fast ease-out',
+        )}
       >
-        <Avatar user={user} size={32} showStatus ringColor="#232428" />
+        <Avatar user={user} size={isGraphite() ? 26 : 32} showStatus ringColor="var(--user-panel-bg)" />
         <span className="flex min-w-0 flex-col">
           <span className="truncate text-sm font-semibold text-text-heading">
             <DisplayName user={user} name={user.displayName ?? user.username} />

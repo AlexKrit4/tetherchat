@@ -115,4 +115,37 @@ describe('buildMessageEntries', () => {
 
     expect(entries.every((entry) => !entry.unreadDivider)).toBe(true);
   });
+
+  it('marks the last message of a run as the group end', () => {
+    const entries = buildMessageEntries([
+      message({ id: 'm1', createdAt: '2026-08-17T14:13:00.000Z' }),
+      message({ id: 'm2', createdAt: '2026-08-17T14:13:30.000Z' }),
+      message({ id: 'm3', createdAt: '2026-08-17T14:14:00.000Z', authorId: other.id, author: other }),
+    ]);
+
+    expect(entries.map((entry) => entry.isGroupEnd)).toEqual([false, true, true]);
+  });
+
+  it('ends the group where an unread divider splits a run', () => {
+    const entries = buildMessageEntries(
+      [
+        message({ id: 'm1', createdAt: '2026-08-17T14:13:00.000Z', authorId: other.id, author: other }),
+        message({ id: 'm2', createdAt: '2026-08-17T14:13:30.000Z', authorId: other.id, author: other }),
+      ],
+      { lastReadMessageId: 'm1', currentUserId: 'me' },
+    );
+
+    // Same author inside the grouping window, so without the divider these
+    // would have been one run.
+    expect(entries[1].isGroupStart).toBe(false);
+    expect(entries[1].unreadDivider).toBe(true);
+    expect(entries[0].isGroupEnd).toBe(true);
+  });
+
+  it('treats a single message as both the start and the end of its group', () => {
+    const entries = buildMessageEntries([message({ id: 'm1', createdAt: '2026-08-17T14:13:00.000Z' })]);
+
+    expect(entries[0].isGroupStart).toBe(true);
+    expect(entries[0].isGroupEnd).toBe(true);
+  });
 });

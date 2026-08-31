@@ -1,6 +1,7 @@
 import { forwardRef } from 'react';
 import type { ButtonHTMLAttributes } from 'react';
 import { cn } from '@/lib/cn';
+import { isGraphite } from '@/lib/theme';
 import { Spinner } from './Spinner';
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'link' | 'success';
@@ -15,11 +16,19 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variants: Record<Variant, string> = {
   primary: 'bg-brand text-white hover:bg-brand-hover active:bg-brand-active',
-  secondary: 'bg-surface-active text-text-heading hover:bg-[#4e5058] active:bg-[#5c5e66]',
+  secondary: 'bg-control text-text-heading hover:bg-control-hover active:bg-control-active',
   danger: 'bg-danger text-white hover:bg-danger-hover',
   success: 'bg-success text-white hover:brightness-110',
   ghost: 'bg-transparent text-text-subheading hover:bg-surface-hover hover:text-text-heading',
   link: 'bg-transparent text-text-link hover:underline px-0',
+};
+
+/**
+ * Graphite outlines the neutral variant instead of relying on its fill, which
+ * is barely a tint against the near-black surfaces it sits on.
+ */
+const outlined: Partial<Record<Variant, string>> = {
+  secondary: 'shadow-hairline-strong',
 };
 
 // 44px is the minimum comfortable touch target, so md and lg both clear it.
@@ -43,6 +52,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
         'transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50',
         variants[variant],
         sizes[size],
+        isGraphite() && outlined[variant],
         fullWidth && 'w-full',
         className,
       )}

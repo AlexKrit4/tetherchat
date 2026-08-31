@@ -14,6 +14,12 @@ certbot-www/
 # Build & runtime artifacts
 apps/web/dist/
 apps/web/dev-dist/
+# tsc emitting beside the sources shadows the .ts files: an import of
+# "./grouping.js" then resolves to stale output, so the tests stop seeing the
+# code they are meant to cover.
+packages/shared/src/*.js
+packages/shared/src/*.js.map
+apps/web/tsconfig.*.tsbuildinfo
 apps/desktop/src-tauri/target/
 apps/api/dist/
 apps/api/uploads/

@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import formbody from '@fastify/formbody';
+import { getConfig } from '../config.js';
 import { ApiError } from '../errors.js';
 import { verifyYooMoneyNotification } from '../services/vpn/config.js';
 import {
@@ -89,6 +90,8 @@ export async function vpnRoutes(app: FastifyInstance) {
   });
 
   app.get('/pay/mock', async (request, reply) => {
+    const config = getConfig();
+    if (!config.MARZBAN_MOCK) throw ApiError.notFound('Not found');
     const label = (request.query as { label?: string }).label;
     if (!label) throw ApiError.badRequest('label required');
     const sub = await confirmMockPayment(label);

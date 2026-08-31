@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Avatar } from '@/components/ui/Avatar';
 import { DisplayName } from '@/components/plus/DisplayName';
 import { Spinner } from '@/components/ui/Spinner';
+import { cn } from '@/lib/cn';
+import { isGraphite } from '@/lib/theme';
 import { useFriends } from '@/hooks/useFriends';
 import { useCreateConversation } from '@/hooks/useDms';
 import { DM_ROUTE } from '@/hooks/useChatTarget';
@@ -17,8 +19,20 @@ export function FriendsHub() {
 
   return (
     <main className="flex min-w-0 flex-1 flex-col bg-surface">
-      <header className="flex h-header shrink-0 items-center border-b border-divider px-5">
-        <h1 className="text-lg font-semibold text-text-heading">Друзья</h1>
+      <header
+        className={cn(
+          'flex h-header shrink-0 items-center px-5',
+          isGraphite() ? 'shadow-hairline-b' : 'border-b border-divider',
+        )}
+      >
+        <h1
+          className={cn(
+            'font-semibold text-text-heading',
+            isGraphite() ? 'text-base tracking-heading' : 'text-lg',
+          )}
+        >
+          Друзья
+        </h1>
       </header>
       <div className="scroller flex-1 px-3 py-4 md:px-6">
         <section className="mx-auto max-w-3xl">

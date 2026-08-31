@@ -138,3 +138,63 @@ export async function assertConversationMember(
     throw ApiError.forbidden('You are not part of this conversation');
   }
 }
+
+/**
+ * Channel ids the user may actually see, after @everyone and per-channel
+ * overwrites. Used when joining Socket.IO rooms so a private channel does not
+ * leak live traffic to members who were denied VIEW_CHANNEL.
+ */
+export async function visibleChannelIdsForServers(
+  userId: string,
+  serverIds: string[],
+): Promise<string[]> {
+  if (serverIds.length === 0) return [];
+
+  const [members, channels] = await Promise.all([
+    prisma.serverMember.findMany({
+      where: { userId, serverId: { in: serverIds } },
+      include: {
+        server: { select: { ownerId: true } },
+        roles: { include: { role: { select: { id: true, permissions: true } } } },
+      },
+    }),
+    prisma.channel.findMany({
+      where: { serverId: { in: serverIds } },
+      select: { id: true, serverId: true, overwrites: true },
+    }),
+  ]);
+
+  const memberByServer = new Map(members.map((member) => [member.serverId, member]));
+  const visible: string[] = [];
+
+  for (const channel of channels) {
+    const member = memberByServer.get(channel.serverId);
+    if (!member) continue;
+
+    const isOwner = member.server.ownerId === userId;
+    if (isOwner) {
+      visible.push(channel.id);
+      continue;
+    }
+
+    const roleIds = member.roles.map((entry) => entry.role.id);
+    const roleMasks = member.roles.map((entry) => entry.role.permissions);
+    let allow = 0;
+    let deny = 0;
+    for (const overwrite of channel.overwrites) {
+      if (!roleIds.includes(overwrite.roleId)) continue;
+      allow |= overwrite.allow;
+      deny |= overwrite.deny;
+    }
+
+    const permissions = resolvePermissions({
+      isOwner,
+      roleMasks,
+      channelAllow: allow,
+      channelDeny: deny,
+    });
+    if (can(permissions, Permission.VIEW_CHANNEL)) visible.push(channel.id);
+  }
+
+  return visible;
+}

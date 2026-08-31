@@ -61,7 +61,7 @@ function VpnBotButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        'rounded-full border border-border-subtle bg-surface-secondary px-3 py-1.5 text-xs font-medium text-text-subheading',
+        'rounded-full bg-surface-secondary px-3 py-1.5 text-xs font-medium text-text-subheading shadow-hairline',
         'hover:bg-surface-floating hover:text-text-heading disabled:cursor-not-allowed disabled:opacity-50',
       )}
     >
