@@ -2,8 +2,20 @@ import { useMemo, useState } from 'react';
 import { Crown } from 'lucide-react';
 import type { PublicUser, Role, ServerMember } from '@tetherchat/shared';
 import { cn } from '@/lib/cn';
+import { isGraphite } from '@/lib/theme';
 import { t } from '@/i18n';
 import { useT } from '@/i18n/useT';
+
+/**
+ * Section labels above the member groups. Graphite runs them smaller with wider
+ * letter spacing, which is what keeps an all-caps label legible once it is this
+ * small.
+ */
+const sectionHeadingClass = () =>
+  cn(
+    'font-semibold uppercase text-text-muted',
+    isGraphite() ? 'text-2xs tracking-[0.06em]' : 'text-xs tracking-[0.02em]',
+  );
 import { useChatTarget } from '@/hooks/useChatTarget';
 import { useMembers } from '@/hooks/useServers';
 import { Avatar } from '@/components/ui/Avatar';
@@ -99,9 +111,15 @@ export function MemberList({ className, compact = true }: MemberListProps) {
 
   if (isDm) {
     return (
-      <aside className={cn('flex flex-col bg-surface-secondary', className)}>
+      <aside
+        className={cn(
+          'flex flex-col bg-surface-secondary',
+          isGraphite() && 'shadow-hairline-l',
+          className,
+        )}
+      >
         <div className="scroller flex-1 px-2 py-4">
-          <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-[0.02em] text-text-muted">
+          <p className={cn('px-2 pb-2', sectionHeadingClass())}>
             {conversation?.isGroup
               ? `${t('common.members')} — ${conversation.members.length}`
               : t('dm.conversation')}
@@ -132,7 +150,11 @@ export function MemberList({ className, compact = true }: MemberListProps) {
   return (
     <aside
       aria-label={t('common.members')}
-      className={cn('flex flex-col bg-surface-secondary', className)}
+      className={cn(
+        'flex flex-col bg-surface-secondary',
+        isGraphite() && 'shadow-hairline-l',
+        className,
+      )}
     >
       <div className="scroller scroller-hover flex-1 px-2 py-4">
         {isLoading ? (
@@ -140,7 +162,7 @@ export function MemberList({ className, compact = true }: MemberListProps) {
         ) : (
           sections.map((section) => (
             <section key={section.key} className="mb-4 last:mb-0">
-              <h3 className="px-2 pb-1.5 text-xs font-semibold uppercase tracking-[0.02em] text-text-muted">
+              <h3 className={cn('px-2 pb-1.5', sectionHeadingClass())}>
                 {section.label} — {section.members.length}
               </h3>
               <ul className="flex flex-col gap-0.5">
@@ -196,22 +218,29 @@ function MemberRow({
   onOpen,
 }: MemberRowProps) {
   const t = useT();
+  const graphite = isGraphite();
   return (
     <button
       type="button"
       onClick={onOpen}
       className={cn(
-        'flex w-full items-center gap-3 rounded px-2 text-left transition-colors',
-        compact ? 'min-h-11 md:min-h-[42px]' : 'min-h-12',
+        'flex w-full items-center rounded px-2 text-left transition-colors',
+        graphite ? 'gap-2.5 duration-fast ease-out' : 'gap-3',
+        compact ? (graphite ? 'min-h-11 md:min-h-9' : 'min-h-11 md:min-h-[42px]') : 'min-h-12',
         'hover:bg-surface-hover',
         dimmed && 'opacity-40 hover:opacity-100',
       )}
     >
-      <Avatar user={user} size={32} showStatus ringColor="var(--bg-secondary)" />
+      <Avatar user={user} size={graphite ? 26 : 32} showStatus ringColor="var(--bg-secondary)" />
 
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="flex items-center gap-1">
-          <DisplayName user={user} name={label} color={colour ?? 'var(--text-normal)'} className="text-base" />
+          <DisplayName
+            user={user}
+            name={label}
+            color={colour ?? 'var(--text-normal)'}
+            className={graphite ? 'text-sm' : 'text-base'}
+          />
           {isSelf ? <span className="shrink-0 text-2xs text-text-faint">{t('common.you')}</span> : null}
           {isOwner ? (
             <Crown size={13} className="shrink-0 text-warning" aria-label={t('common.owner')} />

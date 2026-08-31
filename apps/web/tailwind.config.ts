@@ -40,6 +40,7 @@ const config: Config = {
         active: 'var(--bg-modifier-active)',
         selected: 'var(--bg-modifier-selected)',
         accent: 'var(--bg-modifier-accent)',
+        panel: 'var(--user-panel-bg)',
       },
       text: {
         DEFAULT: 'var(--text-normal)',
@@ -86,6 +87,11 @@ const config: Config = {
         solid: 'var(--border-default)',
       },
       focus: 'var(--focus-ring)',
+      control: {
+        DEFAULT: 'var(--control-bg)',
+        hover: 'var(--control-hover)',
+        active: 'var(--control-active)',
+      },
     },
     fontFamily: {
       sans: 'var(--font-sans)',

@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Compass, Plus, Users } from 'lucide-react';
 import type { ServerSummary } from '@tetherchat/shared';
 import { cn } from '@/lib/cn';
+import { isGraphite } from '@/lib/theme';
 import { DM_ROUTE } from '@/hooks/useChatTarget';
 import { useServers } from '@/hooks/useServers';
 import { useReadStateIndex } from '@/hooks/useReadStates';
@@ -17,8 +18,10 @@ import { useUiStore } from '@/stores/uiStore';
 import { useT } from '@/i18n/useT';
 
 /**
- * The 72px column of round server icons. The active server is marked by a white
- * pill on the left edge, and hovering morphs the icon from a squircle to a circle.
+ * The 72px column of server icons. Classic renders them round with a white pill
+ * marking the active one, morphing squircle to circle on hover. Graphite keeps
+ * them square with a hairline and a short marker, because the morph reads as
+ * decoration next to a chrome built out of straight edges.
  */
 export function ServerRail() {
   const t = useT();
@@ -33,7 +36,10 @@ export function ServerRail() {
   return (
     <nav
       aria-label={t('nav.servers')}
-      className="flex h-full w-rail shrink-0 flex-col items-center gap-2 bg-surface-tertiary pt-3"
+      className={cn(
+        'flex h-full w-rail shrink-0 flex-col items-center bg-surface-tertiary pt-3',
+        isGraphite() ? 'gap-1 shadow-hairline-r' : 'gap-2',
+      )}
     >
       <RailButton
         label={t('nav.directMessages')}
@@ -49,9 +55,17 @@ export function ServerRail() {
         <Users size={23} aria-hidden />
       </RailButton>
 
-      <div className="h-px w-8 shrink-0 bg-[#35363c]" aria-hidden />
+      <div
+        className={cn('h-px shrink-0', isGraphite() ? 'my-1 w-7 bg-hairline-strong' : 'w-8 bg-[#35363c]')}
+        aria-hidden
+      />
 
-      <div className="scroller scroller-hover flex w-full flex-1 flex-col items-center gap-2 pb-2">
+      <div
+        className={cn(
+          'scroller scroller-hover flex w-full flex-1 flex-col items-center pb-2',
+          isGraphite() ? 'gap-1' : 'gap-2',
+        )}
+      >
         {servers?.map((server) => (
           <ServerIcon key={server.id} server={server} active={!friendsOpen && server.id === serverId} />
         ))}
@@ -128,14 +142,28 @@ function RailButton({
   mentions = 0,
   tone = 'default',
 }: RailButtonProps) {
-  const pillHeight = active ? 40 : unread ? 8 : 0;
+  const graphite = isGraphite();
+  const markerHeight = graphite
+    ? active
+      ? 18
+      : unread
+        ? 6
+        : 0
+    : active
+      ? 40
+      : unread
+        ? 8
+        : 0;
 
   return (
     <div className="relative flex w-full items-center justify-center">
       <span
         aria-hidden
-        className="absolute left-0 rounded-r bg-text-heading transition-all duration-150"
-        style={{ width: 4, height: pillHeight, opacity: pillHeight ? 1 : 0 }}
+        className={cn(
+          'absolute left-0 bg-text-heading',
+          graphite ? 'rounded-r-sm transition-all duration-base ease-out' : 'rounded-r transition-all duration-150',
+        )}
+        style={{ width: graphite ? 2 : 4, height: markerHeight, opacity: markerHeight ? 1 : 0 }}
       />
 
       <Tooltip content={label} placement="right">
@@ -145,14 +173,25 @@ function RailButton({
           aria-current={active ? 'page' : undefined}
           onClick={onClick}
           className={cn(
-            'group relative flex h-12 w-12 items-center justify-center overflow-hidden',
-            'transition-[border-radius,background-color] duration-150 ease-out',
-            active ? 'rounded-2xl' : 'rounded-3xl hover:rounded-2xl',
-            tone === 'accent'
-              ? 'bg-surface-secondary text-success hover:bg-success hover:text-white'
-              : active
-                ? 'bg-brand text-white'
-                : 'bg-surface-secondary text-text hover:bg-brand hover:text-white',
+            'group relative flex items-center justify-center overflow-hidden',
+            graphite
+              ? [
+                  'h-10 w-10 rounded-lg transition-colors duration-fast ease-out',
+                  tone === 'accent'
+                    ? 'text-text-muted shadow-hairline hover:bg-surface-hover hover:text-text-heading'
+                    : active
+                      ? 'bg-surface-selected text-text-heading shadow-hairline-strong'
+                      : 'text-text-muted shadow-hairline hover:bg-surface-hover hover:text-text-heading',
+                ]
+              : [
+                  'h-12 w-12 transition-[border-radius,background-color] duration-150 ease-out',
+                  active ? 'rounded-2xl' : 'rounded-3xl hover:rounded-2xl',
+                  tone === 'accent'
+                    ? 'bg-surface-secondary text-success hover:bg-success hover:text-white'
+                    : active
+                      ? 'bg-brand text-white'
+                      : 'bg-surface-secondary text-text hover:bg-brand hover:text-white',
+                ],
           )}
         >
           {children}
@@ -162,7 +201,10 @@ function RailButton({
       {mentions > 0 ? (
         <MentionBadge
           count={mentions}
-          className="pointer-events-none absolute bottom-0 right-2 ring-2 ring-surface-tertiary"
+          className={cn(
+            'pointer-events-none absolute bottom-0 ring-2 ring-surface-tertiary',
+            graphite ? 'right-3' : 'right-2',
+          )}
         />
       ) : null}
     </div>

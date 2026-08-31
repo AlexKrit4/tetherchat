@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
 import { Permission, can } from '@tetherchat/shared';
 import { cn } from '@/lib/cn';
+import { isGraphite } from '@/lib/theme';
 import { DM_ROUTE } from '@/hooks/useChatTarget';
 import { useChatTarget } from '@/hooks/useChatTarget';
 import { useLeaveServer } from '@/hooks/useServers';
@@ -38,10 +39,27 @@ export function ChannelSidebar({ className }: { className?: string }) {
   const isOwner = server?.ownerId === currentUserId;
 
   return (
-    <div className={cn('flex h-full w-sidebar shrink-0 flex-col bg-surface-secondary', className)}>
+    <div
+      className={cn(
+        'flex h-full w-sidebar shrink-0 flex-col bg-surface-secondary',
+        isGraphite() && 'shadow-hairline-r',
+        className,
+      )}
+    >
       {isDm ? (
-        <header className="flex h-header shrink-0 items-center px-2 shadow-elevated">
-          <div className="flex h-7 w-full items-center rounded bg-surface-tertiary px-2 text-sm text-text-muted">
+        <header
+          className={cn(
+            'flex h-header shrink-0 items-center px-2',
+            // A full elevation ring would outline the header on all four sides.
+            isGraphite() ? 'shadow-hairline-b' : 'shadow-elevated',
+          )}
+        >
+          <div
+            className={cn(
+              'flex h-7 w-full items-center rounded px-2 text-sm text-text-muted',
+              isGraphite() ? 'bg-surface-input shadow-hairline' : 'bg-surface-tertiary',
+            )}
+          >
             {t('nav.findConversation')}
           </div>
         </header>
@@ -84,14 +102,25 @@ export function ChannelSidebar({ className }: { className?: string }) {
             ]);
           }}
           className={cn(
-            'flex h-header shrink-0 items-center justify-between gap-2 px-4 text-left',
-            'shadow-elevated transition-colors hover:bg-surface-hover',
+            'flex h-header shrink-0 items-center justify-between gap-2 text-left',
+            'transition-colors hover:bg-surface-hover',
+            isGraphite() ? 'px-3 shadow-hairline-b duration-fast ease-out' : 'px-4 shadow-elevated',
           )}
         >
-          <span className="truncate text-base font-semibold text-text-heading">
+          <span
+            className={cn(
+              'truncate font-semibold text-text-heading',
+              isGraphite() ? 'text-sm tracking-heading' : 'text-base',
+            )}
+          >
             {server?.name ?? t('common.loading')}
           </span>
-          <ChevronDown size={18} strokeWidth={2.2} aria-hidden className="shrink-0 text-text-heading" />
+          <ChevronDown
+            size={isGraphite() ? 15 : 18}
+            strokeWidth={isGraphite() ? 2 : 2.2}
+            aria-hidden
+            className={cn('shrink-0', isGraphite() ? 'text-text-muted' : 'text-text-heading')}
+          />
         </button>
       )}
 

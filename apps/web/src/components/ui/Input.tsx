@@ -1,6 +1,15 @@
 import { forwardRef, useId } from 'react';
 import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react';
 import { cn } from '@/lib/cn';
+import { isGraphite } from '@/lib/theme';
+
+/**
+ * Classic sinks a field into the deepest surface. Graphite lifts it instead and
+ * outlines it, because its surfaces are too close together for a well to read
+ * as an input on its own.
+ */
+const fieldSurface = () =>
+  isGraphite() ? 'bg-surface-input shadow-hairline-strong' : 'bg-surface-tertiary';
 
 interface FieldProps {
   label?: ReactNode;
@@ -70,12 +79,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         aria-invalid={error ? true : undefined}
         // 48px tall on phones so the field is easy to hit and iOS does not zoom.
         className={cn(
-          'w-full rounded bg-surface-tertiary px-3 text-base text-text placeholder:text-text-faint',
+          'w-full rounded px-3 text-base text-text placeholder:text-text-faint',
           'h-12 md:h-10',
           'outline-none transition-shadow duration-150',
+          fieldSurface(),
           error
             ? 'shadow-[0_0_0_1px_var(--red)] focus:shadow-[0_0_0_2px_var(--red)]'
-            : 'focus:shadow-[0_0_0_2px_var(--brand)]',
+            : 'focus:shadow-[0_0_0_2px_var(--focus-ring)]',
           className,
         )}
         {...props}
@@ -100,9 +110,10 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
         id={inputId}
         aria-invalid={error ? true : undefined}
         className={cn(
-          'w-full resize-none rounded bg-surface-tertiary px-3 py-2.5 text-base text-text',
+          'w-full resize-none rounded px-3 py-2.5 text-base text-text',
           'placeholder:text-text-faint outline-none transition-shadow duration-150',
-          'focus:shadow-[0_0_0_2px_var(--brand)]',
+          fieldSurface(),
+          'focus:shadow-[0_0_0_2px_var(--focus-ring)]',
           className,
         )}
         {...props}

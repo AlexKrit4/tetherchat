@@ -52,6 +52,14 @@
   --scrollbar-thumb: #1a1b1e;
   --scrollbar-track: transparent;
 
+  /* Bottom strip of the sidebar; a shade off --bg-secondary in classic. */
+  --user-panel-bg: #232428;
+
+  /* Neutral (secondary) button fill. */
+  --control-bg: var(--bg-modifier-active);
+  --control-hover: #4e5058;
+  --control-active: #5c5e66;
+
   /**
    * Hairlines. Classic keeps them transparent: it separates surfaces by
    * background step, and a visible border would double the separation.

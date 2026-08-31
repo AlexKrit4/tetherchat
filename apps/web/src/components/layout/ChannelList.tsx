@@ -4,6 +4,7 @@ import { Bell, BellOff, ChevronDown, Hash, Plus, Settings } from 'lucide-react';
 import { Permission, can } from '@tetherchat/shared';
 import type { Channel, ServerDetail } from '@tetherchat/shared';
 import { cn } from '@/lib/cn';
+import { isGraphite } from '@/lib/theme';
 import { groupChannels } from '@/hooks/useChatTarget';
 import { useReadStateIndex, useUpdateChannelNotifications } from '@/hooks/useReadStates';
 import { useDeleteChannel } from '@/hooks/useServers';
@@ -64,9 +65,11 @@ export function ChannelList({ server, activeChannelId, compact = true, onSelect 
                     onClick={() => toggleCategory(group.id)}
                     aria-expanded={!isCollapsed}
                     className={cn(
-                      'flex min-h-touch flex-1 items-center gap-0.5 pl-2 text-left md:min-h-6',
-                      'text-xs font-semibold uppercase tracking-[0.02em] text-text-muted',
-                      'transition-colors hover:text-text-heading',
+                      'flex min-h-touch flex-1 items-center gap-0.5 pl-2 text-left',
+                      'font-semibold uppercase text-text-muted transition-colors hover:text-text-heading',
+                      isGraphite()
+                        ? 'text-2xs tracking-[0.06em] md:min-h-5'
+                        : 'text-xs tracking-[0.02em] md:min-h-6',
                     )}
                   >
                     <ChevronDown
@@ -198,20 +201,31 @@ function ChannelRow({
   const t = useT();
   const notifications = useUpdateChannelNotifications(channel.id);
   const [muted, setMuted] = useState(false);
+  const graphite = isGraphite();
+  const showMarker = unread && !active;
 
   return (
     <li className="relative">
       {/* Unread marker: a white pill, never a coloured dot. */}
       <span
         aria-hidden
-        className="absolute left-0 top-1/2 -translate-y-1/2 rounded-r bg-text-heading transition-all duration-150"
-        style={{ width: 4, height: unread && !active ? 8 : 0, opacity: unread && !active ? 1 : 0 }}
+        className={cn(
+          'absolute left-0 top-1/2 -translate-y-1/2 bg-text-heading',
+          graphite ? 'rounded-r-sm transition-all duration-base ease-out' : 'rounded-r transition-all duration-150',
+        )}
+        style={{
+          width: graphite ? 2 : 4,
+          height: showMarker ? (graphite ? 12 : 8) : 0,
+          opacity: showMarker ? 1 : 0,
+        }}
       />
 
       <div
         className={cn(
           'group/channel flex items-center rounded pr-1',
           active ? 'bg-surface-selected' : 'hover:bg-surface-hover',
+          graphite && 'transition-colors duration-fast ease-out',
+          graphite && active && 'shadow-hairline',
         )}
       >
         <button
@@ -220,8 +234,9 @@ function ChannelRow({
           onContextMenu={onContextMenu}
           aria-current={active ? 'page' : undefined}
           className={cn(
-            'flex min-w-0 flex-1 items-center gap-1.5 rounded pl-2 pr-1 text-left',
-            compact ? 'min-h-11 md:min-h-8' : 'min-h-12',
+            'flex min-w-0 flex-1 items-center rounded text-left',
+            graphite ? 'gap-2 pl-2 pr-1' : 'gap-1.5 pl-2 pr-1',
+            compact ? (graphite ? 'min-h-11 md:min-h-7' : 'min-h-11 md:min-h-8') : 'min-h-12',
             active
               ? 'text-text-heading'
               : unread
@@ -229,8 +244,19 @@ function ChannelRow({
                 : 'text-text-muted group-hover/channel:text-text-subheading',
           )}
         >
-          <Hash size={18} strokeWidth={2} aria-hidden className="shrink-0 text-text-faint" />
-          <span className={cn('truncate text-base', (active || unread) && 'font-medium')}>
+          <Hash
+            size={graphite ? 14 : 18}
+            strokeWidth={2}
+            aria-hidden
+            className="shrink-0 text-text-faint"
+          />
+          <span
+            className={cn(
+              'truncate',
+              graphite ? 'text-sm' : 'text-base',
+              (active || unread) && (graphite ? 'font-medium' : 'font-medium'),
+            )}
+          >
             {channel.name}
           </span>
         </button>
