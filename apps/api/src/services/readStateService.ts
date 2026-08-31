@@ -1,6 +1,7 @@
 import type { ReadState } from '@tetherchat/shared';
 import { ApiError } from '../errors.js';
 import { prisma } from '../db.js';
+import { loadChannelContext } from '../lib/permissions.js';
 import { emitToConversation } from '../ws/realtime.js';
 
 /** Marks a channel as read up to a message and clears its mention counter. */
@@ -9,6 +10,12 @@ export async function ackChannel(
   channelId: string,
   messageId: string,
 ): Promise<ReadState> {
+  await loadChannelContext(channelId, userId);
+  const message = await prisma.message.findFirst({
+    where: { id: messageId, channelId, deletedAt: null },
+    select: { id: true },
+  });
+  if (!message) throw ApiError.notFound('Message not found');
   const row = await prisma.readState.upsert({
     where: { userId_channelId: { userId, channelId } },
     create: {
@@ -43,6 +50,12 @@ export async function ackConversation(
   if (!conversation || !conversation.members.some((member) => member.userId === userId)) {
     throw ApiError.forbidden('You are not part of this conversation');
   }
+
+  const message = await prisma.message.findFirst({
+    where: { id: messageId, conversationId, deletedAt: null },
+    select: { id: true },
+  });
+  if (!message) throw ApiError.notFound('Message not found');
 
   const lastReadAt = new Date();
   await prisma.directConversationMember.update({

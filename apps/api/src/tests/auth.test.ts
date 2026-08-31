@@ -46,6 +46,31 @@ describe('auth', () => {
     expect(sameUsername.statusCode).toBe(409);
   });
 
+  it('does not grant platform admin at registration and reserves the operator identity', async () => {
+    const app = await testApp();
+    const squatter = await app.inject({
+      method: 'POST',
+      url: '/api/auth/register',
+      payload: {
+        email: 'alesa89851307411@gmail.com',
+        username: `sq${Date.now().toString(36)}`,
+        password: 'long-enough-pass',
+      },
+    });
+    expect(squatter.statusCode).toBe(409);
+
+    const reservedName = await app.inject({
+      method: 'POST',
+      url: '/api/auth/register',
+      payload: {
+        email: `sq${Date.now()}@example.test`,
+        username: 'alexkrit',
+        password: 'long-enough-pass',
+      },
+    });
+    expect(reservedName.statusCode).toBe(409);
+  });
+
   it('rejects weak passwords and malformed usernames', async () => {
     const app = await testApp();
 

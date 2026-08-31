@@ -11,6 +11,7 @@ import { prisma } from '../db.js';
 import { ApiError } from '../errors.js';
 import { toCategory, toChannel, toRole, memberInclude, toMember } from '../lib/serialize.js';
 import { emitToServer, joinUserToRoom, removeUserFromRoom } from '../ws/realtime.js';
+import { visibleChannelIdsForServers } from '../lib/permissions.js';
 import { socketRooms } from '@tetherchat/shared';
 
 const inviteCode = customAlphabet('abcdefghijkmnpqrstuvwxyz23456789', 8);
@@ -197,13 +198,8 @@ export async function joinByInvite(code: string, userId: string): Promise<{ serv
   });
 
   await joinUserToRoom(userId, socketRooms.server(invite.serverId));
-  const channels = await prisma.channel.findMany({
-    where: { serverId: invite.serverId },
-    select: { id: true },
-  });
-  await Promise.all(
-    channels.map((channel) => joinUserToRoom(userId, socketRooms.channel(channel.id))),
-  );
+  const channelIds = await visibleChannelIdsForServers(userId, [invite.serverId]);
+  await Promise.all(channelIds.map((id) => joinUserToRoom(userId, socketRooms.channel(id))));
 
   emitToServer(invite.serverId, 'member:join', {
     serverId: invite.serverId,
@@ -224,19 +220,14 @@ export async function leaveServer(serverId: string, userId: string): Promise<voi
   }
 
   await prisma.serverMember.deleteMany({ where: { serverId, userId } });
-
-  const channels = await prisma.channel.findMany({ where: { serverId }, select: { id: true } });
-  await removeUserFromRoom(userId, socketRooms.server(serverId));
-  await Promise.all(
-    channels.map((channel) => removeUserFromRoom(userId, socketRooms.channel(channel.id))),
-  );
+  await evictFromServerRooms(userId, serverId);
 
   emitToServer(serverId, 'member:leave', { serverId, userId });
 }
 
 export async function kickMember(serverId: string, userId: string): Promise<void> {
   await prisma.serverMember.deleteMany({ where: { serverId, userId } });
-  await removeUserFromRoom(userId, socketRooms.server(serverId));
+  await evictFromServerRooms(userId, serverId);
   emitToServer(serverId, 'member:leave', { serverId, userId });
 }
 
@@ -260,8 +251,14 @@ export async function banMember(input: {
     prisma.serverMember.deleteMany({ where: { serverId: input.serverId, userId: input.userId } }),
   ]);
 
-  await removeUserFromRoom(input.userId, socketRooms.server(input.serverId));
+  await evictFromServerRooms(input.userId, input.serverId);
   emitToServer(input.serverId, 'member:leave', { serverId: input.serverId, userId: input.userId });
+}
+
+async function evictFromServerRooms(userId: string, serverId: string): Promise<void> {
+  const channels = await prisma.channel.findMany({ where: { serverId }, select: { id: true } });
+  await removeUserFromRoom(userId, socketRooms.server(serverId));
+  await Promise.all(channels.map((channel) => removeUserFromRoom(userId, socketRooms.channel(channel.id))));
 }
 
 export async function nextChannelPosition(serverId: string, categoryId: string | null): Promise<number> {

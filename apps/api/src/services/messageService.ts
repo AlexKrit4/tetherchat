@@ -486,14 +486,20 @@ export async function editMessage(
 ): Promise<Message> {
   const existing = await prisma.message.findUnique({
     where: { id: messageId },
-    select: { authorId: true, channelId: true, conversationId: true, deletedAt: true },
+    select: {
+      authorId: true,
+      channelId: true,
+      conversationId: true,
+      deletedAt: true,
+      _count: { select: { attachments: true } },
+    },
   });
   if (!existing || existing.deletedAt) throw ApiError.notFound('Message not found');
   if (existing.authorId !== userId) throw ApiError.forbidden('You can only edit your own messages');
 
   const target = await resolveTargetForExisting(existing, userId);
   if (target.isSecret) throw ApiError.badRequest('Редактирование секретных сообщений пока недоступно');
-  const trimmed = assertContent(content, 1);
+  const trimmed = assertContent(content, existing._count.attachments);
   const mentionedUserIds = filterMentions(target, extractUserMentions(trimmed));
 
   const updated = await prisma.message.update({

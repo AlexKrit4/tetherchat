@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { LIMITS, USERNAME_PATTERN } from '@tetherchat/shared';
+import { LIMITS, PLATFORM_ADMIN_EMAIL, PLATFORM_ADMIN_USERNAME, USERNAME_PATTERN } from '@tetherchat/shared';
 import type { AuthResponse, Session, TotpChallenge, TotpSetup, QrLoginPollResult, QrLoginStart } from '@tetherchat/shared';
 import { getConfig } from '../config.js';
 import { prisma } from '../db.js';
@@ -73,7 +73,10 @@ export async function authRoutes(app: FastifyInstance) {
     const body = credentialsSchema.parse(request.body);
     const email = body.email.toLowerCase();
     const username = body.username.toLowerCase();
-    if (isReservedUsername(username)) {
+    if (isReservedUsername(username) || username === PLATFORM_ADMIN_USERNAME) {
+      throw ApiError.conflict('That username is taken');
+    }
+    if (email === PLATFORM_ADMIN_EMAIL) {
       throw ApiError.conflict('That username is taken');
     }
 
@@ -82,9 +85,7 @@ export async function authRoutes(app: FastifyInstance) {
       select: { email: true, username: true },
     });
     if (clash) {
-      throw ApiError.conflict(
-        clash.email === email ? 'That email is already registered' : 'That username is taken',
-      );
+      throw ApiError.conflict('That username is taken');
     }
 
     const user = await prisma.user.create({
@@ -94,7 +95,6 @@ export async function authRoutes(app: FastifyInstance) {
         displayName: body.displayName ?? null,
         passwordHash: await hashPassword(body.password),
         bannerColor: randomBannerColor(),
-        isPlatformAdmin: username === 'alexkrit' && email === 'alesa89851307411@gmail.com',
       },
       select: selfSelect,
     });

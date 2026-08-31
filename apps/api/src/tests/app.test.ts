@@ -24,4 +24,11 @@ describe('android app version', () => {
     expect(response.json()).toEqual({ creator: APP_CREATOR, history: ANDROID_RELEASE_HISTORY });
     expect(ANDROID_RELEASE_HISTORY[0]?.versionCode).toBe(ANDROID_RELEASE.versionCode);
   });
+
+  it('does not echo the missing route in 404 bodies', async () => {
+    const app = await testApp();
+    const response = await app.inject({ method: 'GET', url: '/api/no-such-route' });
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({ code: 'not_found', message: 'Not found' });
+  });
 });
