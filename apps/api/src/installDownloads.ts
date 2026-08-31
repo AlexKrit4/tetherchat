@@ -1,0 +1,24 @@
+/** Keep in sync with apps/web/public/app/install.json */
+export const INSTALL_DOWNLOADS = {
+  android: {
+    versionName: '1.4.2',
+    versionCode: 35,
+    url: 'https://tetherchat.ru/app/tetherchat.apk',
+    filename: 'TetherChat.apk',
+  },
+  windows: {
+    versionName: '1.0.0',
+    url: 'https://tetherchat.ru/app/tetherchat-setup.exe',
+    filename: 'TetherChat-setup.exe',
+  },
+  linuxAppImage: {
+    versionName: '1.0.0',
+    url: 'https://tetherchat.ru/app/tetherchat.AppImage',
+    filename: 'TetherChat.AppImage',
+  },
+  linuxDeb: {
+    versionName: '1.0.0',
+    url: 'https://tetherchat.ru/app/tetherchat.deb',
+    filename: 'TetherChat.deb',
+  },
+} as const;
