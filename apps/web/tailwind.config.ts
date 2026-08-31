@@ -72,19 +72,24 @@ const config: Config = {
         text: 'var(--mention-text)',
       },
       divider: 'var(--divider)',
+      bubble: {
+        in: 'var(--bubble-in)',
+        out: 'var(--bubble-out)',
+      },
+      /**
+       * Hairline colours. Themes that separate surfaces with borders instead of
+       * background steps set these; classic leaves `subtle` transparent.
+       */
+      hairline: {
+        DEFAULT: 'var(--border-subtle)',
+        strong: 'var(--border-strong)',
+        solid: 'var(--border-default)',
+      },
+      focus: 'var(--focus-ring)',
     },
     fontFamily: {
-      sans: [
-        'gg sans',
-        'Noto Sans',
-        'Helvetica Neue',
-        'Helvetica',
-        'Segoe UI',
-        'sans-serif',
-        'Apple Color Emoji',
-        'Segoe UI Emoji',
-      ],
-      mono: ['ui-monospace', 'SFMono-Regular', 'Consolas', 'Liberation Mono', 'monospace'],
+      sans: 'var(--font-sans)',
+      mono: 'var(--font-mono)',
     },
     extend: {
       fontSize: {
@@ -93,19 +98,21 @@ const config: Config = {
         xs: ['12px', '16px'],
         sm: ['13px', '16px'],
         base: ['15px', '20px'],
-        message: ['16px', '22px'],
-        'message-mobile': ['15px', '21px'],
+        message: ['var(--font-size-message)', 'var(--line-height-message)'],
+        'message-mobile': ['var(--font-size-message-mobile)', 'var(--line-height-message-mobile)'],
         lg: ['16px', '20px'],
         xl: ['20px', '24px'],
         '2xl': ['24px', '30px'],
       },
       borderRadius: {
-        sm: '3px',
-        DEFAULT: '4px',
-        md: '6px',
-        lg: '8px',
-        xl: '12px',
-        '2xl': '16px',
+        sm: 'var(--radius-sm)',
+        DEFAULT: 'var(--radius-base)',
+        md: 'var(--radius-md)',
+        lg: 'var(--radius-lg)',
+        xl: 'var(--radius-xl)',
+        '2xl': 'var(--radius-2xl)',
+        bubble: 'var(--bubble-radius)',
+        'bubble-tail': 'var(--bubble-radius-tail)',
       },
       spacing: {
         rail: '72px',
@@ -116,13 +123,35 @@ const config: Config = {
       },
       boxShadow: {
         // Elevation is reserved for things that float above the app.
-        floating: '0 8px 16px rgba(0, 0, 0, 0.24)',
-        elevated: '0 2px 10px 0 rgba(0, 0, 0, 0.2)',
-        sheet: '0 -4px 24px rgba(0, 0, 0, 0.32)',
+        floating: 'var(--elevation-2)',
+        elevated: 'var(--elevation-1)',
+        sheet: 'var(--elevation-3)',
+
+        /**
+         * Hairlines as inset shadows rather than borders: a border would add a
+         * pixel to the box in themes that draw one and take it away again in
+         * themes that don't, moving the layout around on a theme switch.
+         */
+        hairline: 'inset 0 0 0 1px var(--border-subtle)',
+        'hairline-t': 'inset 0 1px 0 var(--border-subtle)',
+        'hairline-b': 'inset 0 -1px 0 var(--border-subtle)',
+        'hairline-l': 'inset 1px 0 0 var(--border-subtle)',
+        'hairline-r': 'inset -1px 0 0 var(--border-subtle)',
+        'hairline-strong': 'inset 0 0 0 1px var(--border-strong)',
       },
       transitionDuration: {
         150: '150ms',
         250: '250ms',
+        fast: 'var(--duration-fast)',
+        base: 'var(--duration-base)',
+        slow: 'var(--duration-slow)',
+      },
+      transitionTimingFunction: {
+        out: 'var(--ease-out)',
+        'in-out': 'var(--ease-in-out)',
+      },
+      letterSpacing: {
+        heading: 'var(--letter-spacing-heading)',
       },
       keyframes: {
         'pulse-soft': {
