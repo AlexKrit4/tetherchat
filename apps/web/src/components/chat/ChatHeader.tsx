@@ -114,10 +114,10 @@ export function ChatHeader() {
             <h1 className={cn('min-w-0 truncate font-semibold text-text-heading', titleClass)}>
               <DisplayName user={dmPeer} name={title || '…'} />
             </h1>
-            <p className="truncate text-xs text-text-muted">{lastSeenLabel(dmPeer, liveStatuses[dmPeer.id])}</p>
-            {conversation?.peerHasPlusProtect ? (
-              <p className="truncate text-xs text-text-muted">{t('plus.peerProtect')}</p>
-            ) : null}
+            <p className="truncate text-xs text-text-muted">
+              {lastSeenLabel(dmPeer, liveStatuses[dmPeer.id])}
+              {conversation?.peerHasPlusProtect ? ` · ${t('plus.peerProtect')}` : ''}
+            </p>
           </div>
         ) : (
           <h1 className={cn('truncate font-semibold text-text-heading', titleClass)}>

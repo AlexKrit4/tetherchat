@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { QrLoginStart } from '@tetherchat/shared';
 import { Spinner } from '@/components/ui/Spinner';
+import { cn } from '@/lib/cn';
+import { isGraphite } from '@/lib/theme';
 import { useT } from '@/i18n/useT';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -107,7 +109,10 @@ export function QrLoginPanel({ onSuccess, onExpired }: QrLoginPanelProps) {
         <img
           src={session.qrDataUrl}
           alt={t('auth.qrAlt')}
-          className="h-[220px] w-[220px] rounded-xl bg-white p-3 shadow-elevated"
+          className={cn(
+            'h-[220px] w-[220px] rounded-xl bg-white p-3',
+            isGraphite() ? 'shadow-hairline-strong' : 'shadow-elevated',
+          )}
         />
       ) : null}
       <p className="max-w-sm text-sm text-text-muted">{t('auth.qrHint')}</p>

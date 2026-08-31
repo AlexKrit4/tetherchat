@@ -127,10 +127,10 @@ const config: Config = {
         'bubble-tail': 'var(--bubble-radius-tail)',
       },
       spacing: {
-        rail: '72px',
-        sidebar: '240px',
-        members: '240px',
-        header: '48px',
+        rail: 'var(--rail-width)',
+        sidebar: 'var(--sidebar-width)',
+        members: 'var(--members-width)',
+        header: 'var(--header-height)',
         touch: '44px',
       },
       boxShadow: {

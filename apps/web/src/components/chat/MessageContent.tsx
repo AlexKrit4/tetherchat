@@ -114,7 +114,7 @@ function SpoilerText({ text }: { text: string }) {
       onClick={() => setOpen(true)}
       className={cn(
         'rounded px-0.5 transition',
-        open ? 'bg-surface-tertiary text-text' : 'bg-text-heading text-text-heading hover:bg-[#4a4d55]',
+        open ? 'bg-surface-tertiary text-text' : 'bg-text-heading text-text-heading hover:bg-surface-hover',
       )}
       aria-label={open ? text : t('chat.spoilerReveal')}
     >
@@ -141,8 +141,8 @@ function MentionChip({
         className={cn(
           'rounded px-0.5 font-medium transition-colors',
           highlighted
-            ? 'bg-[rgba(88,101,242,0.3)] text-[#dee0fc] hover:bg-brand hover:text-white'
-            : 'bg-[rgba(88,101,242,0.15)] text-[#c9cdfb] hover:bg-brand hover:text-white',
+            ? 'bg-mention-bg text-mention-text hover:bg-brand hover:text-white'
+            : 'bg-mention-bg text-mention-text hover:bg-brand hover:text-white',
           !onClick && 'cursor-default',
         )}
       >

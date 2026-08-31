@@ -1,6 +1,7 @@
 import { Flag, Forward, Pencil, Pin, Reply, SmilePlus, Trash2 } from 'lucide-react';
 import type { Message } from '@tetherchat/shared';
 import { cn } from '@/lib/cn';
+import { isGraphite } from '@/lib/theme';
 import { useT } from '@/i18n/useT';
 import { IconButton } from '@/components/ui/IconButton';
 import type { MessageActionSet } from './messagePresentation';
@@ -40,7 +41,8 @@ export function MessageToolbar({
   return (
     <div
       className={cn(
-        'z-10 flex items-center gap-0.5 rounded bg-surface-secondary p-0.5 shadow-elevated',
+        'z-10 flex items-center gap-0.5 rounded bg-surface-secondary p-0.5',
+        isGraphite() ? 'shadow-hairline-strong' : 'shadow-elevated',
         className,
       )}
     >

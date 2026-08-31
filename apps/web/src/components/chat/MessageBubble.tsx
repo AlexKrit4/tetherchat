@@ -99,10 +99,10 @@ export function MessageBubble({
         <div
           {...(isMobile ? swipeReply : {})}
           className={cn(
-            'relative px-3 py-1.5 text-message touch-pan-y',
+            'relative overflow-hidden px-3 py-1.5 text-message touch-pan-y',
             'transition-colors duration-fast ease-out',
             mine ? 'bg-bubble-out text-text-heading' : 'bg-bubble-in text-text',
-            mentionsMe && !mine && 'shadow-[inset_2px_0_0_var(--mention-text)]',
+            mentionsMe && !mine && 'bg-mention-bg shadow-[inset_2px_0_0_var(--mention-text)]',
             // Square off the corner the tail hangs from, round everything else.
             'rounded-bubble',
             isGroupEnd && (mine ? 'rounded-br-bubble-tail' : 'rounded-bl-bubble-tail'),
@@ -202,7 +202,7 @@ export function MessageBubble({
           onOpenEmojiPicker={onOpenEmojiPicker}
           onForward={onForward}
           onReport={onReport}
-          className={cn('absolute -top-3', mine ? 'right-12' : 'left-12')}
+          className={cn('absolute -top-3 z-20', mine ? 'right-2' : 'left-2')}
         />
       ) : null}
     </div>

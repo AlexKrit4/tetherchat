@@ -638,7 +638,9 @@ export function MessageInput() {
         </div>
       </div>
 
-      <TypingIndicator channelId={channelId} />
+      <div className={isGraphite() ? 'min-h-7' : 'min-h-6'}>
+        <TypingIndicator channelId={channelId} />
+      </div>
     </div>
   );
 }
@@ -720,7 +722,14 @@ function VoicePreviewBar({
 function ReplyBar({ message, onCancel }: { message: Message; onCancel: () => void }) {
   const t = useT();
   return (
-    <div className="flex items-center gap-2 rounded-t-lg bg-surface-secondary px-3 py-1.5 text-sm text-text-muted">
+    <div
+      className={cn(
+        'flex items-center gap-2 px-3 py-1.5 text-sm text-text-muted',
+        isGraphite()
+          ? 'rounded-t-xl bg-surface-input shadow-hairline-strong'
+          : 'rounded-t-lg bg-surface-secondary',
+      )}
+    >
       <Avatar user={message.author} size={18} />
       <span className="shrink-0">{t('chat.replyTo')}</span>
       <span className="truncate font-medium text-text-subheading">

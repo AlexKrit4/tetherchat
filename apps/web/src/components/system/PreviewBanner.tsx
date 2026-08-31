@@ -7,7 +7,10 @@ const PREVIEW_LABEL: Record<typeof appTheme, string> = {
   graphite: 'Graphite',
 };
 
-/** Shown on preview builds (Aurora :1488, Graphite :1489). */
+/**
+ * Corner chip on preview builds. It used to be a full-width bar at z-100 that
+ * sat on top of the server rail, chat header and command palette.
+ */
 export function PreviewBanner() {
   if (!isPreviewBuild()) return null;
 
@@ -15,13 +18,13 @@ export function PreviewBanner() {
   const graphite = isGraphite();
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-0 z-[100] flex justify-center pt-safe">
+    <div className="pointer-events-none fixed bottom-3 right-3 z-40 pb-safe pr-safe">
       <div
         className={cn(
-          'pointer-events-auto mt-2 flex max-w-[min(92vw,720px)] items-center gap-2.5 px-3 py-1.5',
+          'pointer-events-auto flex max-w-[min(92vw,280px)] items-center gap-2 px-2.5 py-1.5 text-xs text-text-muted',
           graphite
-            ? 'rounded-md bg-surface-floating text-text-muted shadow-hairline'
-            : 'rounded-full border border-white/10 bg-[rgba(8,9,16,0.88)] px-4 py-2 shadow-floating backdrop-blur-md',
+            ? 'rounded-md bg-surface-floating shadow-hairline'
+            : 'rounded-full border border-white/10 bg-[rgba(8,9,16,0.88)] shadow-floating backdrop-blur-md',
         )}
       >
         <span
@@ -34,27 +37,12 @@ export function PreviewBanner() {
         >
           Макет
         </span>
-        <p className={cn('text-xs', !graphite && 'sm:text-sm')}>
-          {graphite ? (
-            <>
-              <span className="font-medium text-text-heading">{label}</span>
-              {' — '}
-              экспериментальный редизайн. Прод на{' '}
-              <a href="https://tetherchat.ru/" className="text-text-link hover:underline">
-                tetherchat.ru
-              </a>
-              .
-            </>
-          ) : (
-            <>
-              <span className="font-semibold text-text-heading">{label}</span> — экспериментальный
-              редизайн. Прод на{' '}
-              <a href="https://tetherchat.ru/" className="text-text-link hover:underline">
-                tetherchat.ru
-              </a>
-              .
-            </>
-          )}
+        <p className="min-w-0 truncate">
+          <span className="font-medium text-text-heading">{label}</span>
+          {' · '}
+          <a href="https://tetherchat.ru/" className="text-text-link hover:underline">
+            прод
+          </a>
         </p>
       </div>
     </div>

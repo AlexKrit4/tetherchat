@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useT } from '@/i18n/useT';
+import { cn } from '@/lib/cn';
+import { isGraphite } from '@/lib/theme';
 import { useAutoResize } from '@/hooks/useAutoResize';
 
 export interface MessageEditorProps {
@@ -43,7 +45,12 @@ export function MessageEditor({ initialValue, onSubmit, onCancel }: MessageEdito
             if (trimmed) onSubmit(trimmed);
           }
         }}
-        className="w-full resize-none rounded-lg bg-surface-input px-3 py-2.5 text-message text-text outline-none"
+        className={cn(
+          'w-full resize-none px-3 py-2.5 text-message text-text outline-none',
+          isGraphite()
+            ? 'rounded-md bg-surface-input shadow-hairline-strong'
+            : 'rounded-lg bg-surface-input',
+        )}
       />
       <p className="text-xs text-text-muted">
         escape to{' '}

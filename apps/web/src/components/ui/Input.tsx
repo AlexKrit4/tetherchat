@@ -84,8 +84,10 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
           'outline-none transition-shadow duration-150',
           fieldSurface(),
           error
-            ? 'shadow-[0_0_0_1px_var(--red)] focus:shadow-[0_0_0_2px_var(--red)]'
-            : 'focus:shadow-[0_0_0_2px_var(--focus-ring)]',
+            ? 'shadow-[0_0_0_1px_var(--red)] focus:shadow-[0_0_0_1px_var(--red),0_0_0_3px_color-mix(in_srgb,var(--red)_35%,transparent)]'
+            : isGraphite()
+              ? 'focus:shadow-[inset_0_0_0_1px_var(--border-strong),0_0_0_2px_var(--focus-ring)]'
+              : 'focus:shadow-[0_0_0_2px_var(--focus-ring)]',
           className,
         )}
         {...props}
@@ -113,7 +115,9 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
           'w-full resize-none rounded px-3 py-2.5 text-base text-text',
           'placeholder:text-text-faint outline-none transition-shadow duration-150',
           fieldSurface(),
-          'focus:shadow-[0_0_0_2px_var(--focus-ring)]',
+          isGraphite()
+            ? 'focus:shadow-[inset_0_0_0_1px_var(--border-strong),0_0_0_2px_var(--focus-ring)]'
+            : 'focus:shadow-[0_0_0_2px_var(--focus-ring)]',
           className,
         )}
         {...props}

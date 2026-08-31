@@ -200,7 +200,8 @@ export function MessageList() {
    * mention count, so a long unread backlog reports what is actually in hand.
    */
   const unreadDividerIndex = entries.findIndex((entry) => entry.unreadDivider);
-  const unreadBelow = unreadDividerIndex === -1 ? 0 : entries.length - unreadDividerIndex;
+  const unreadBelow =
+    unreadDividerIndex === -1 ? 0 : Math.max(0, entries.length - unreadDividerIndex - 1);
 
   if (!channelId) return <EmptyChannelState />;
   if (isLoading) return <MessageSkeletonList />;
@@ -232,7 +233,7 @@ export function MessageList() {
             void fetchNextPage();
           }
         }}
-        increaseViewportBy={{ top: 600, bottom: 320 }}
+        increaseViewportBy={{ top: 600, bottom: isGraphite() ? 420 : 320 }}
         components={{
           Header: () => (
             <div className="pt-4">
@@ -247,7 +248,7 @@ export function MessageList() {
               )}
             </div>
           ),
-          Footer: () => <div className="h-10 shrink-0" aria-hidden />,
+          Footer: () => <div className={cn('shrink-0', isGraphite() ? 'h-14' : 'h-10')} aria-hidden />,
         }}
         itemContent={(_index, entry) => {
           const { message } = entry;
@@ -427,6 +428,16 @@ function DayDivider({ label }: { label: string }) {
 
 function UnreadDivider() {
   const t = useT();
+  if (isGraphite()) {
+    return (
+      <div className="my-3 flex justify-center" role="separator">
+        <span className="rounded-full bg-danger px-2.5 py-1 text-2xs font-semibold uppercase tracking-wide text-white">
+          {t('chat.unread')}
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div className="relative mx-4 my-2 flex items-center" role="separator">
       <span className="h-px flex-1 bg-danger" />
