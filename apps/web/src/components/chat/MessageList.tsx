@@ -259,6 +259,7 @@ export function MessageList() {
               <MessageGroup
                 message={message}
                 isGroupStart={entry.isGroupStart}
+                isGroupEnd={entry.isGroupEnd}
                 member={memberIndex.get(message.authorId)}
                 roleColor={roleColors.get(message.authorId) ?? null}
                 editing={editingMessageId === message.id}
