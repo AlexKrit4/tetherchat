@@ -14,6 +14,7 @@ import { Attachments, LinkPreviews } from './Attachments';
 import { Reactions } from './Reactions';
 import { MessageEditor } from './MessageEditor';
 import { DisplayName } from '@/components/plus/DisplayName';
+import { useAuthStore } from '@/stores/authStore';
 
 export interface MessageActionSet {
   canEdit: boolean;
@@ -77,6 +78,8 @@ export const MessageGroup = memo(function MessageGroup({
   const t = useT();
   const isMobile = useIsMobile();
   const hasHover = useHasHover();
+  const currentUserId = useAuthStore((state) => state.user?.id);
+  const mine = message.authorId === currentUserId;
   const [hovered, setHovered] = useState(false);
 
   const longPress = useLongPress(() => onOpenActions(message), { enabled: isMobile });
