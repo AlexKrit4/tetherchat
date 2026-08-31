@@ -1,0 +1,146 @@
+/**
+ * Graphite — the :1489 mockup.
+ *
+ * Chrome is lifted from Linear and Vercel: near-black neutrals that step by a
+ * point or two rather than a shade, hairlines instead of background jumps to
+ * separate surfaces, one indigo accent spent only on focus and selection, small
+ * radii, and motion short enough to read as instant.
+ *
+ * The conversation itself is lifted from Telegram: bubbles, a tail on the last
+ * message of a group, delivery ticks inside the bubble, floating date pills.
+ *
+ * This file sets variables and global element defaults only. It deliberately
+ * contains no `!important` and no selectors that reach into component markup or
+ * generated utility class names — the previous mockup did, and every component
+ * edit afterwards broke it. Anything structural lives in the components behind
+ * `isGraphite()`.
+ */
+
+@font-face {
+  font-family: 'InterVariable';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/inter-var.woff2') format('woff2');
+}
+
+[data-theme='graphite'] {
+  color-scheme: dark;
+
+  /**
+   * Surfaces. The steps are small on purpose: separation is the hairline's job,
+   * so the backgrounds only need to hint at depth.
+   */
+  --bg-tertiary: #08090a; /* app frame, server rail */
+  --bg-secondary: #0c0d0f; /* sidebar, member list */
+  --bg-primary: #101114; /* conversation, modals */
+  --bg-floating: #16181c; /* popovers, menus, tooltips */
+  --bg-overlay: rgba(4, 5, 6, 0.7);
+  --input-bg: #16181c;
+
+  --bg-modifier-hover: rgba(255, 255, 255, 0.038);
+  --bg-modifier-active: rgba(255, 255, 255, 0.07);
+  --bg-modifier-selected: rgba(94, 106, 210, 0.14);
+  --bg-modifier-accent: rgba(255, 255, 255, 0.05);
+
+  /* #8a8f98 is the grey that makes Linear read as Linear. */
+  --text-normal: #e6e7e9;
+  --text-muted: #8a8f98;
+  --text-faint: #63666d;
+  --text-link: #6e9fff;
+  --text-inverse: #08090a;
+  --header-primary: #f7f8f8;
+  --header-secondary: #b4b8bf;
+
+  --brand: #5e6ad2;
+  --brand-hover: #6f7ae0;
+  --brand-active: #4c56b0;
+  --green: #4cb782;
+  --yellow: #f2c94c;
+  --red: #eb5757;
+  --red-hover: #d94b4b;
+  --grey: #6b7280;
+
+  --mention-bg: rgba(94, 106, 210, 0.14);
+  --mention-text: #a5aef0;
+  --divider: rgba(255, 255, 255, 0.09);
+
+  --scrollbar-thumb: rgba(255, 255, 255, 0.11);
+  --scrollbar-track: transparent;
+
+  /* The structural device of the whole theme. */
+  --border-subtle: rgba(255, 255, 255, 0.055);
+  --border-default: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.14);
+
+  --focus-ring: #5e6ad2;
+  --selection-bg: rgba(94, 106, 210, 0.45);
+  --selection-text: #ffffff;
+
+  --radius-sm: 3px;
+  --radius-base: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 10px;
+  --radius-2xl: 12px;
+
+  /**
+   * A hairline already communicates the edge, so elevation only has to lift the
+   * surface off the page rather than draw its outline.
+   */
+  --elevation-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --elevation-2: 0 8px 24px rgba(0, 0, 0, 0.55);
+  --elevation-3: 0 -8px 32px rgba(0, 0, 0, 0.6);
+
+  --duration-fast: 90ms;
+  --duration-base: 130ms;
+  --duration-slow: 200ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  --font-sans: 'InterVariable', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif,
+    'Apple Color Emoji', 'Segoe UI Emoji';
+  --font-mono: 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace;
+  --letter-spacing-heading: -0.014em;
+
+  --font-size-message: 15px;
+  --line-height-message: 21px;
+  --font-size-message-mobile: 15px;
+  --line-height-message-mobile: 21px;
+
+  --bubble-in: #1a1d21;
+  --bubble-out: #2b3160;
+  --bubble-radius: 14px;
+  --bubble-radius-tail: 5px;
+}
+
+/**
+ * Inter ships its typographic niceties behind OpenType features rather than as
+ * defaults: contextual alternates fix shapes next to each other, `cv05` gives
+ * the lowercase l a tail so it stops reading as a capital I, and tabular
+ * figures keep timestamps from shifting width as the digits change.
+ */
+[data-theme='graphite'] body {
+  font-feature-settings: 'cv05' 1, 'ss03' 1, 'calt' 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.006em;
+}
+
+[data-theme='graphite'] .md-content code,
+[data-theme='graphite'] .md-content pre {
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+}
+
+[data-theme='graphite'] .md-content blockquote {
+  border-left-width: 2px;
+  border-left-color: var(--brand);
+}
+
+/* The rail marks the active server with a hairline inset, not a floating pill. */
+[data-theme='graphite'] .rail-pill {
+  left: -10px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--header-primary);
+}

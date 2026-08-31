@@ -66,6 +66,9 @@
   /* Focus ring colour; width lives in the utility. */
   --focus-ring: var(--brand);
 
+  --selection-bg: rgba(88, 101, 242, 0.6);
+  --selection-text: #ffffff;
+
   /* Corner radii. Names follow the Tailwind key each one feeds. */
   --radius-sm: 3px;
   --radius-base: 4px;
