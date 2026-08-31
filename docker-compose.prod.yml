@@ -103,10 +103,10 @@ services:
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-}
       LIVEKIT_URL: ${LIVEKIT_URL:-ws://livekit:7880}
       PUBLIC_LIVEKIT_URL: ${PUBLIC_LIVEKIT_URL:-wss://tetherchat.ru/livekit}
-      # SMTP relay (Brevo, Yandex, Mail.ru, etc.). Leave empty to fall back to Resend API or logging.
+      # SMTP (Gmail: smtps://tetherchat@gmail.com:APP_PASSWORD@smtp.gmail.com:465)
       SMTP_URL: ${SMTP_URL:-}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
-      MAIL_FROM: ${MAIL_FROM:-TetherChat <no-reply@tetherchat.ru>}
+      MAIL_FROM: ${MAIL_FROM:-TetherChat <tetherchat@gmail.com>}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       LLM_BASE_URL: ${LLM_BASE_URL:-https://api.groq.com/openai/v1}
       LLM_MODEL: ${LLM_MODEL:-openai/gpt-oss-20b}
