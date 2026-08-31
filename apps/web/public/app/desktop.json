@@ -1,0 +1,7 @@
+{
+  "version": "1.0.0",
+  "windowsUrl": "https://github.com/AlexKrit4/tetherchat/releases/latest/download/TetherChat-setup.exe",
+  "linuxAppImageUrl": "https://github.com/AlexKrit4/tetherchat/releases/latest/download/TetherChat.AppImage",
+  "linuxDebUrl": "https://github.com/AlexKrit4/tetherchat/releases/latest/download/TetherChat.deb",
+  "releaseNotes": "Нативное десктоп-приложение TetherChat для Windows и Linux. Не браузер — отдельная программа с тем же интерфейсом, что на сайте."
+}

@@ -3,10 +3,13 @@ import type { Socket } from 'socket.io-client';
 import type { ClientToServerEvents, ServerToClientEvents } from '@tetherchat/shared';
 import { API_BASE, getAccessToken, refreshSession } from './api';
 import { isSessionParked } from './appForeground';
+import { desktopWsOrigin, isDesktopApp } from './desktop';
 
 export type AppSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
-const WS_URL = import.meta.env.VITE_WS_URL ?? API_BASE;
+const WS_URL = isDesktopApp()
+  ? desktopWsOrigin()
+  : (import.meta.env.VITE_WS_URL ?? API_BASE);
 
 let socket: AppSocket | null = null;
 
@@ -18,7 +21,7 @@ let socket: AppSocket | null = null;
 export function getSocket(): AppSocket {
   if (socket) return socket;
 
-  socket = io(WS_URL || window.location.origin, {
+  socket = io(WS_URL || (isDesktopApp() ? desktopWsOrigin() : window.location.origin), {
     path: '/socket.io',
     transports: ['websocket', 'polling'],
     autoConnect: false,

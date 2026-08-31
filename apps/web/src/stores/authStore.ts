@@ -11,6 +11,7 @@ import {
   snapUser,
   stashOtherFromCurrent,
 } from '@/lib/accounts';
+import { isDesktopApp } from '@/lib/desktop';
 
 type AuthStatus = 'loading' | 'authenticated' | 'anonymous';
 
@@ -47,6 +48,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   bootstrap: async () => {
     try {
+      if (isDesktopApp()) {
+        const store = loadAccounts();
+        if (store.current?.refreshToken) {
+          const session = await refreshWithToken(store.current.refreshToken);
+          applySession(session);
+          set({ status: 'authenticated', user: session.user });
+          return;
+        }
+      }
       const session = await api.post<AuthResponse>('/api/auth/refresh', {}, { skipRefresh: true });
       applySession(session);
       set({ status: 'authenticated', user: session.user });

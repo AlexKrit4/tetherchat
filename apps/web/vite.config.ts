@@ -1,20 +1,35 @@
-import { fileURLToPath, URL } from 'node:url';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
-import { defineConfig, loadEnv } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { fileURLToPath, URL } from 'node:url';
 
-// A single .env at the repository root configures both the API and the web app.
 const envDir = fileURLToPath(new URL('../../', import.meta.url));
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, envDir, '');
+  const isDesktop = mode === 'desktop' || env.VITE_DESKTOP === '1';
   const apiTarget = env.VITE_DEV_API_PROXY ?? 'http://localhost:4000';
 
-  return {
-    envDir,
-    plugins: [
-      react(),
-      VitePWA({
+  const plugins: Plugin[] = [...react()];
+  if (isDesktop) {
+    plugins.push({
+      name: 'desktop-pwa-stub',
+      resolveId(id: string) {
+        if (id === 'virtual:pwa-register/react') return id;
+        return null;
+      },
+      load(id: string) {
+        if (id === 'virtual:pwa-register/react') {
+          return `export function useRegisterSW() {
+  return { needRefresh: [false, () => {}], updateServiceWorker: async () => {} };
+}`;
+        }
+        return null;
+      },
+    });
+  } else {
+    plugins.push(
+      ...VitePWA({
         registerType: 'prompt',
         injectRegister: null,
         strategies: 'injectManifest',
@@ -47,17 +62,20 @@ export default defineConfig(({ mode }) => {
               purpose: 'maskable',
             },
           ],
-          shortcuts: [
-            { name: 'Личные сообщения', url: '/channels/@me' },
-          ],
+          shortcuts: [{ name: 'Личные сообщения', url: '/channels/@me' }],
         },
         devOptions: { enabled: false },
       }),
-    ],
+    );
+  }
+
+  return {
+    envDir,
+    define: isDesktop ? { 'import.meta.env.VITE_DESKTOP': JSON.stringify('1') } : undefined,
+    plugins,
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url)),
-        // Dev-only: point at shared source so package changes hot-reload without rebuilding dist.
         ...(mode === 'development'
           ? {
               '@tetherchat/shared': fileURLToPath(

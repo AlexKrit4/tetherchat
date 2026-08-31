@@ -10,6 +10,7 @@ import Fastify from 'fastify';
 import type { FastifyInstance } from 'fastify';
 import { LIMITS } from '@tetherchat/shared';
 import { getConfig } from './config.js';
+import { webCorsOrigins } from './lib/corsOrigins.js';
 import { authPlugin } from './plugins/auth.js';
 import { errorHandlerPlugin } from './plugins/errorHandler.js';
 import { authRoutes } from './routes/auth.js';
@@ -50,7 +51,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   });
 
   await app.register(cors, {
-    origin: config.PUBLIC_WEB_ORIGIN.split(',').map((origin) => origin.trim()),
+    origin: webCorsOrigins(config.PUBLIC_WEB_ORIGIN),
     credentials: true,
   });
 
