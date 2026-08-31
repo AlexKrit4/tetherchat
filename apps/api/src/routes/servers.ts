@@ -6,6 +6,7 @@ import { ApiError } from '../errors.js';
 import { normalizeIcon } from '../lib/images.js';
 import { readMultipartFile } from '../lib/multipart.js';
 import {
+  assertCanManageRole,
   assertOutranks,
   assertPermission,
   loadMemberContext,
@@ -431,6 +432,10 @@ export async function serverRoutes(app: FastifyInstance) {
 
     const role = await prisma.role.findFirst({ where: { id: roleId, serverId } });
     if (!role) throw ApiError.notFound('Role not found');
+    await assertCanManageRole(context, role.position);
+    if (body.position !== undefined) {
+      await assertCanManageRole(context, body.position);
+    }
     if (role.isDefault && body.name) {
       throw ApiError.badRequest('The default role cannot be renamed');
     }
@@ -468,6 +473,7 @@ export async function serverRoutes(app: FastifyInstance) {
     const role = await prisma.role.findFirst({ where: { id: roleId, serverId } });
     if (!role) throw ApiError.notFound('Role not found');
     if (role.isDefault) throw ApiError.badRequest('The default role cannot be deleted');
+    await assertCanManageRole(context, role.position);
 
     await prisma.role.delete({ where: { id: roleId } });
     await broadcastRoles(serverId);

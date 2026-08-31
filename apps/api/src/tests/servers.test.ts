@@ -223,6 +223,121 @@ describe('servers', () => {
     expect(allowed.json<Role>().name).toBe('Viewer');
   });
 
+  it('refuses to edit or delete roles at or above the actor', async () => {
+    const app = await testApp();
+    const server = await createServer(owner, 'Hierarchy');
+    const manager = await createUser();
+
+    const invite = (
+      await app.inject({
+        method: 'POST',
+        url: `/api/servers/${server.id}/invite`,
+        headers: owner.auth,
+        payload: {},
+      })
+    ).json<Invite>();
+    await app.inject({
+      method: 'POST',
+      url: `/api/invite/${invite.code}/join`,
+      headers: manager.auth,
+    });
+
+    const staff = (
+      await app.inject({
+        method: 'POST',
+        url: `/api/servers/${server.id}/roles`,
+        headers: owner.auth,
+        payload: {
+          name: 'Staff',
+          permissions: Permission.VIEW_CHANNEL | Permission.MANAGE_ROLES | Permission.KICK_MEMBERS,
+        },
+      })
+    ).json<Role>();
+    const admin = (
+      await app.inject({
+        method: 'POST',
+        url: `/api/servers/${server.id}/roles`,
+        headers: owner.auth,
+        payload: {
+          name: 'Admin',
+          permissions: Permission.ADMINISTRATOR,
+        },
+      })
+    ).json<Role>();
+    expect(admin.position).toBeGreaterThan(staff.position);
+
+    const everyone = server.roles.find((role) => role.isDefault)!;
+    const assigned = await app.inject({
+      method: 'PATCH',
+      url: `/api/servers/${server.id}/members/${manager.id}`,
+      headers: owner.auth,
+      payload: { roleIds: [everyone.id, staff.id] },
+    });
+    expect(assigned.statusCode).toBe(200);
+
+    const stripAdmin = await app.inject({
+      method: 'PATCH',
+      url: `/api/servers/${server.id}/roles/${admin.id}`,
+      headers: manager.auth,
+      payload: { permissions: 0 },
+    });
+    expect(stripAdmin.statusCode).toBe(403);
+
+    const demoteAdmin = await app.inject({
+      method: 'PATCH',
+      url: `/api/servers/${server.id}/roles/${admin.id}`,
+      headers: manager.auth,
+      payload: { position: 0 },
+    });
+    expect(demoteAdmin.statusCode).toBe(403);
+
+    const deleteAdmin = await app.inject({
+      method: 'DELETE',
+      url: `/api/servers/${server.id}/roles/${admin.id}`,
+      headers: manager.auth,
+    });
+    expect(deleteAdmin.statusCode).toBe(403);
+
+    const raiseStaff = await app.inject({
+      method: 'PATCH',
+      url: `/api/servers/${server.id}/roles/${staff.id}`,
+      headers: manager.auth,
+      payload: { position: admin.position },
+    });
+    expect(raiseStaff.statusCode).toBe(403);
+
+    const moderator = (
+      await app.inject({
+        method: 'GET',
+        url: `/api/servers/${server.id}/roles`,
+        headers: owner.auth,
+      })
+    )
+      .json<Role[]>()
+      .find((role) => role.name === 'Moderator');
+    expect(moderator).toBeTruthy();
+    const renameBelow = await app.inject({
+      method: 'PATCH',
+      url: `/api/servers/${server.id}/roles/${moderator!.id}`,
+      headers: manager.auth,
+      payload: { name: 'Helpers' },
+    });
+    expect(renameBelow.statusCode).toBe(200);
+    expect(renameBelow.json<Role>().name).toBe('Helpers');
+
+    const stillThere = await app.inject({
+      method: 'GET',
+      url: `/api/servers/${server.id}/roles`,
+      headers: owner.auth,
+    });
+    const roles = stillThere.json<Role[]>();
+    expect(roles.some((role) => role.id === admin.id && role.permissions === Permission.ADMINISTRATOR)).toBe(
+      true,
+    );
+
+    await prisma.user.delete({ where: { id: manager.id } });
+  });
+
   it('never lets the default role be deleted or renamed', async () => {
     const app = await testApp();
     const server = await createServer(owner, 'Everyone Role');

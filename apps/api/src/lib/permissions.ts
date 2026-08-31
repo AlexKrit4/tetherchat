@@ -127,6 +127,22 @@ export async function highestRolePosition(serverId: string, userId: string): Pro
   return member.roles.reduce((max, entry) => Math.max(max, entry.role.position), 0);
 }
 
+/**
+ * A member with MANAGE_ROLES may only edit or delete roles that sit strictly
+ * below their highest role. Otherwise they can strip or reorder roles above
+ * them and then kick every non-owner. Owners bypass the check.
+ */
+export async function assertCanManageRole(
+  actor: MemberContext,
+  rolePosition: number,
+): Promise<void> {
+  if (actor.isOwner) return;
+  const actorTop = await highestRolePosition(actor.serverId, actor.userId);
+  if (rolePosition >= actorTop) {
+    throw ApiError.forbidden('You can only manage roles below your highest role');
+  }
+}
+
 export async function assertConversationMember(
   conversationId: string,
   userId: string,
