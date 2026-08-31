@@ -217,6 +217,33 @@ npm run test:e2e       # Playwright: seed + desktop + mobile
 
 Проверка живости: `GET /api/health`.
 
+### Порт 1488 и `SSL_ERROR_RX_RECORD_TOO_LONG`
+
+Если открываете `https://tetherchat.ru:1488` и Firefox/Chrome пишут
+`SSL_ERROR_RX_RECORD_TOO_LONG`, причина в том, что на этом порту слушает
+**обычный HTTP**, а браузер (часто из‑за HSTS после визита на
+`https://tetherchat.ru`) пытается установить **HTTPS**.
+
+Проверка с сервера или локально:
+
+```bash
+curl -I http://tetherchat.ru:1488    # должен быть HTTP/1.1 200
+curl -Ik https://tetherchat.ru:1488  # ошибка SSL — значит TLS на порту нет
+```
+
+**Как исправить на сервере**
+
+1. Убедитесь, что edge использует TLS-конфиг:
+   `NGINX_EDGE_CONF=./nginx/tetherchat.ru.conf`.
+2. В `docker-compose.prod.yml` пробросьте **1488 на внутренний 443**, а не на 80:
+   `'1488:443'` (уже есть в репозитории).
+3. Перезапустите edge:
+   `docker compose -f docker-compose.prod.yml up -d edge`.
+
+После этого `https://tetherchat.ru:1488` будет работать с тем же сертификатом,
+что и основной сайт. Пока правка не выкатана, можно зайти по
+`http://tetherchat.ru:1488` или использовать `https://tetherchat.ru` без порта.
+
 ## Android-приложение
 
 APK скачивается из **Настройки пользователя → Мой профиль → Скачать APK**

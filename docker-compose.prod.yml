@@ -16,6 +16,10 @@ services:
     ports:
       - '80:80'
       - '443:443'
+      # Alternate HTTPS entry (e.g. when 443 is blocked). Do NOT map 1488:80 —
+      # browsers with HSTS for tetherchat.ru force HTTPS and get
+      # SSL_ERROR_RX_RECORD_TOO_LONG on a plain-HTTP listener.
+      - '1488:443'
     volumes:
       # Default is HTTP so the stack boots before certificates exist.
       # After certbot, set NGINX_EDGE_CONF=./nginx/tetherchat.ru.conf
