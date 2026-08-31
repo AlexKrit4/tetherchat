@@ -5,6 +5,7 @@ import { ArrowDown, Hash } from 'lucide-react';
 import { Permission, buildMessageEntries, can } from '@tetherchat/shared';
 import type { Message, ServerMember } from '@tetherchat/shared';
 import { cn } from '@/lib/cn';
+import { isGraphite } from '@/lib/theme';
 import { dayLabel } from '@/lib/time';
 import { errorMessage } from '@/lib/api';
 import { useChatTarget } from '@/hooks/useChatTarget';
@@ -193,6 +194,14 @@ export function MessageList() {
   const manageMessages = Boolean(server && can(server.permissions, Permission.MANAGE_MESSAGES));
   const canReact = !server || can(server.permissions, Permission.ADD_REACTIONS);
 
+  /**
+   * How many messages sit below the unread divider. Counted from the loaded
+   * entries rather than the read state, which tracks only a boolean and a
+   * mention count, so a long unread backlog reports what is actually in hand.
+   */
+  const unreadDividerIndex = entries.findIndex((entry) => entry.unreadDivider);
+  const unreadBelow = unreadDividerIndex === -1 ? 0 : entries.length - unreadDividerIndex;
+
   if (!channelId) return <EmptyChannelState />;
   if (isLoading) return <MessageSkeletonList />;
 
@@ -317,18 +326,41 @@ export function MessageList() {
       />
 
       {!atBottom ? (
-        <button
-          type="button"
-          onClick={jumpToBottom}
-          className={cn(
-            'absolute right-4 flex items-center gap-2 rounded-full bg-surface-floating px-3 py-2',
-            'text-sm font-medium text-text-heading shadow-floating',
-            isMobile ? 'bottom-3' : 'bottom-4',
-          )}
-        >
-          <ArrowDown size={16} aria-hidden />
-          {t('chat.jumpToPresent')}
-        </button>
+        isGraphite() ? (
+          // Telegram's round button, with the count of unread messages below the
+          // viewport so the reader knows whether scrolling down is worth it.
+          <button
+            type="button"
+            onClick={jumpToBottom}
+            aria-label={t('chat.jumpToPresent')}
+            className={cn(
+              'absolute right-4 flex h-10 w-10 items-center justify-center rounded-full',
+              'bg-surface-floating text-text-heading shadow-floating',
+              'transition-colors duration-fast ease-out hover:bg-surface-hover',
+              isMobile ? 'bottom-3' : 'bottom-4',
+            )}
+          >
+            <ArrowDown size={17} aria-hidden />
+            {unreadBelow > 0 ? (
+              <span className="absolute -top-1 right-0 min-w-4 rounded-full bg-brand px-1 text-2xs font-bold leading-4 text-white">
+                {unreadBelow > 99 ? '99+' : unreadBelow}
+              </span>
+            ) : null}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={jumpToBottom}
+            className={cn(
+              'absolute right-4 flex items-center gap-2 rounded-full bg-surface-floating px-3 py-2',
+              'text-sm font-medium text-text-heading shadow-floating',
+              isMobile ? 'bottom-3' : 'bottom-4',
+            )}
+          >
+            <ArrowDown size={16} aria-hidden />
+            {t('chat.jumpToPresent')}
+          </button>
+        )
       ) : null}
 
       {/* Long-press sheet: the touch equivalent of the desktop hover toolbar. */}
@@ -373,6 +405,18 @@ export function MessageList() {
 }
 
 function DayDivider({ label }: { label: string }) {
+  // A bubble conversation has no column to hang a rule off, so the date becomes
+  // a pill centred over the messages instead of a line through them.
+  if (isGraphite()) {
+    return (
+      <div className="my-3 flex justify-center" aria-hidden>
+        <span className="rounded-full bg-surface-floating px-2.5 py-1 text-2xs font-semibold text-text-muted shadow-hairline">
+          {label}
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div className="relative mx-4 my-4 flex items-center justify-center" aria-hidden>
       <span className="absolute inset-x-0 top-1/2 h-px bg-divider" />

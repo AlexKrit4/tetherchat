@@ -76,6 +76,10 @@
   --control-hover: rgba(255, 255, 255, 0.09);
   --control-active: rgba(255, 255, 255, 0.13);
 
+  --reaction-me-bg: rgba(94, 106, 210, 0.22);
+  --reaction-me-text: #b3bbf5;
+  --reaction-hover-ring: rgba(255, 255, 255, 0.14);
+
   /* The structural device of the whole theme. */
   --border-subtle: rgba(255, 255, 255, 0.055);
   --border-default: rgba(255, 255, 255, 0.09);

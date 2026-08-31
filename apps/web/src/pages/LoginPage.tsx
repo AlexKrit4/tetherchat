@@ -9,6 +9,7 @@ import { QrLoginPanel } from '@/components/auth/QrLoginPanel';
 import { useAuthStore } from '@/stores/authStore';
 import { DM_ROUTE } from '@/hooks/useChatTarget';
 import { cn } from '@/lib/cn';
+import { isGraphite } from '@/lib/theme';
 
 type LoginMode = 'password' | 'qr';
 
@@ -74,12 +75,23 @@ export function LoginPage() {
       }
     >
       {!ticket ? (
-        <div className="mb-4 flex rounded-lg bg-surface-secondary p-1">
+        <div
+          className={cn(
+            'mb-4 flex p-1',
+            isGraphite()
+              ? 'rounded-lg bg-surface-secondary shadow-hairline'
+              : 'rounded-lg bg-surface-secondary',
+          )}
+        >
           <button
             type="button"
             className={cn(
               'flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-              mode === 'password' ? 'bg-surface text-text-heading shadow-sm' : 'text-text-muted',
+              mode === 'password'
+                ? isGraphite()
+                  ? 'bg-surface text-text-heading shadow-hairline'
+                  : 'bg-surface text-text-heading shadow-sm'
+                : 'text-text-muted',
             )}
             onClick={() => {
               setMode('password');
@@ -92,7 +104,11 @@ export function LoginPage() {
             type="button"
             className={cn(
               'flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-              mode === 'qr' ? 'bg-surface text-text-heading shadow-sm' : 'text-text-muted',
+              mode === 'qr'
+                ? isGraphite()
+                  ? 'bg-surface text-text-heading shadow-hairline'
+                  : 'bg-surface text-text-heading shadow-sm'
+                : 'text-text-muted',
             )}
             onClick={() => setMode('qr')}
           >

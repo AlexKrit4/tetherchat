@@ -60,6 +60,11 @@
   --control-hover: #4e5058;
   --control-active: #5c5e66;
 
+  /* Reaction chip the reader has already pressed. */
+  --reaction-me-bg: rgba(88, 101, 242, 0.18);
+  --reaction-me-text: #c9cdfb;
+  --reaction-hover-ring: #4f545c;
+
   /**
    * Hairlines. Classic keeps them transparent: it separates surfaces by
    * background step, and a visible border would double the separation.

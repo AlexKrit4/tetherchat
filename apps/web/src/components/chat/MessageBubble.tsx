@@ -1,6 +1,8 @@
+import { useCallback } from 'react';
 import { Check, CheckCheck, Forward } from 'lucide-react';
 import type { Message } from '@tetherchat/shared';
 import { cn } from '@/lib/cn';
+import { useSwipeReply } from '@/hooks/useSwipeReply';
 import { useT } from '@/i18n/useT';
 import { messageTimestamp, shortTime } from '@/lib/time';
 import { Avatar } from '@/components/ui/Avatar';
@@ -54,6 +56,9 @@ export function MessageBubble({
 }: MessagePresentationProps) {
   const t = useT();
 
+  const reply = useCallback(() => onReply(message), [message, onReply]);
+  const swipeReply = useSwipeReply(reply, isMobile && !editing);
+
   const replyAuthor =
     message.replyTo?.author?.displayName ??
     message.replyTo?.author?.username ??
@@ -92,8 +97,9 @@ export function MessageBubble({
         )}
       >
         <div
+          {...(isMobile ? swipeReply : {})}
           className={cn(
-            'relative px-3 py-1.5 text-message',
+            'relative px-3 py-1.5 text-message touch-pan-y',
             'transition-colors duration-fast ease-out',
             mine ? 'bg-bubble-out text-text-heading' : 'bg-bubble-in text-text',
             mentionsMe && !mine && 'shadow-[inset_2px_0_0_var(--mention-text)]',

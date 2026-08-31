@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 import { TetherWordmark } from '@/components/brand/TetherLogo';
+import { cn } from '@/lib/cn';
+import { isGraphite } from '@/lib/theme';
 
 /**
  * Auth screens are a single centred card on desktop and a full-bleed form on
@@ -16,14 +18,39 @@ export function AuthLayout({
   children: ReactNode;
   footer?: ReactNode;
 }) {
+  const graphite = isGraphite();
+
   return (
-    <div className="flex min-h-screen-dvh flex-col items-center justify-center bg-surface-tertiary px-safe pb-safe pt-safe md:p-6">
-      <div className="flex w-full max-w-[480px] flex-col gap-6 bg-surface p-6 md:rounded-lg md:p-8 md:shadow-floating">
+    <div
+      className={cn(
+        'flex min-h-screen-dvh flex-col items-center justify-center px-safe pb-safe pt-safe',
+        graphite ? 'bg-surface-tertiary md:p-8' : 'bg-surface-tertiary md:p-6',
+      )}
+    >
+      <div
+        className={cn(
+          'flex w-full max-w-[480px] flex-col gap-6 bg-surface p-6',
+          graphite
+            ? 'md:rounded-xl md:p-8 md:shadow-hairline-strong'
+            : 'md:rounded-lg md:p-8 md:shadow-floating',
+        )}
+      >
         <div className="flex flex-col items-center gap-3 text-center">
           <TetherWordmark />
           <div>
-            <h1 className="text-2xl font-bold text-text-heading">{title}</h1>
-            {subtitle ? <p className="mt-1 text-base text-text-muted">{subtitle}</p> : null}
+            <h1
+              className={cn(
+                'text-2xl font-bold text-text-heading',
+                graphite && 'tracking-heading',
+              )}
+            >
+              {title}
+            </h1>
+            {subtitle ? (
+              <p className={cn('mt-1 text-base text-text-muted', graphite && 'text-sm')}>
+                {subtitle}
+              </p>
+            ) : null}
           </div>
         </div>
 

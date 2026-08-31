@@ -86,7 +86,13 @@ const config: Config = {
         strong: 'var(--border-strong)',
         solid: 'var(--border-default)',
       },
-      focus: 'var(--focus-ring)',
+      reaction: {
+        me: {
+          bg: 'var(--reaction-me-bg)',
+          text: 'var(--reaction-me-text)',
+        },
+        ring: 'var(--reaction-hover-ring)',
+      },
       control: {
         DEFAULT: 'var(--control-bg)',
         hover: 'var(--control-hover)',
