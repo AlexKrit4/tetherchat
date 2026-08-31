@@ -164,7 +164,7 @@ export async function formatStatusReport(): Promise<string> {
 
   let redisOk = false;
   try {
-    redisOk = (await redis.ping()) === 'PONG';
+    redisOk = (await redis().ping()) === 'PONG';
   } catch {
     redisOk = false;
   }
