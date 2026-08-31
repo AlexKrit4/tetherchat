@@ -103,6 +103,7 @@ services:
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-}
       LIVEKIT_URL: ${LIVEKIT_URL:-ws://livekit:7880}
       PUBLIC_LIVEKIT_URL: ${PUBLIC_LIVEKIT_URL:-wss://tetherchat.ru/livekit}
+      # SMTP relay (Brevo, Yandex, Mail.ru, etc.). Leave empty to fall back to Resend API or logging.
       SMTP_URL: ${SMTP_URL:-}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       MAIL_FROM: ${MAIL_FROM:-TetherChat <no-reply@tetherchat.ru>}

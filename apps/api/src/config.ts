@@ -57,8 +57,9 @@ const schema = z.object({
   FCM_API_KEY: z.string().optional(),
   FCM_SENDER_ID: z.string().optional(),
 
+  /** SMTP relay URL (preferred). See .env.example for Brevo, Yandex, Mailpit. */
   SMTP_URL: z.string().optional(),
-  /** Resend API key (https://resend.com). Preferred over SMTP when set. */
+  /** Optional Resend API key (https://resend.com). Used only when SMTP_URL is empty. */
   RESEND_API_KEY: z.string().optional(),
   MAIL_FROM: z.string().default('TetherChat <no-reply@tetherchat.ru>'),
 

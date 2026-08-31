@@ -8,6 +8,20 @@ export type MailPayload = {
   html?: string;
 };
 
+async function sendViaSmtp(payload: MailPayload): Promise<void> {
+  const config = getConfig();
+  if (!config.SMTP_URL) return;
+
+  const transport = createTransport(config.SMTP_URL);
+  await transport.sendMail({
+    from: config.MAIL_FROM,
+    to: payload.to,
+    subject: payload.subject,
+    text: payload.text,
+    html: payload.html,
+  });
+}
+
 async function sendViaResend(payload: MailPayload): Promise<void> {
   const config = getConfig();
   const apiKey = config.RESEND_API_KEY;
@@ -34,35 +48,23 @@ async function sendViaResend(payload: MailPayload): Promise<void> {
   }
 }
 
-async function sendViaSmtp(payload: MailPayload): Promise<void> {
-  const config = getConfig();
-  if (!config.SMTP_URL) return;
-
-  const transport = createTransport(config.SMTP_URL);
-  await transport.sendMail({
-    from: config.MAIL_FROM,
-    to: payload.to,
-    subject: payload.subject,
-    text: payload.text,
-    html: payload.html,
-  });
-}
-
 /**
- * Sends transactional mail through Resend (preferred) or SMTP.
- * Without either configured, messages are logged in non-test environments.
+ * Sends transactional mail through SMTP (preferred), Resend API, or logs in dev.
+ *
+ * Local dev: run `docker compose up -d mailpit` and set SMTP_URL=smtp://127.0.0.1:1025.
+ * Production: Brevo, Yandex, Mail.ru, SES, etc. via SMTP_URL.
  */
 export async function sendMail(to: string, subject: string, text: string, html?: string): Promise<void> {
   const config = getConfig();
   const payload: MailPayload = { to, subject, text, html };
 
-  if (config.RESEND_API_KEY) {
-    await sendViaResend(payload);
+  if (config.SMTP_URL) {
+    await sendViaSmtp(payload);
     return;
   }
 
-  if (config.SMTP_URL) {
-    await sendViaSmtp(payload);
+  if (config.RESEND_API_KEY) {
+    await sendViaResend(payload);
     return;
   }
 
