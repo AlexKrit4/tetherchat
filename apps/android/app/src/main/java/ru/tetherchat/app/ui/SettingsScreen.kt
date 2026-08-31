@@ -39,11 +39,8 @@ import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.PersonOff
-<<<<<<< HEAD
 import androidx.compose.material.icons.outlined.Info
-=======
 import androidx.compose.material.icons.outlined.Download
->>>>>>> origin/cursor/desktop-app-8132
 import androidx.compose.material.icons.outlined.People
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.Button
@@ -112,11 +109,8 @@ fun SettingsScreen(model: AppViewModel) {
       SettingsRow(Icons.Outlined.Star, "TetherChat Plus", "Лимиты, бейдж, фон чата") { model.openPlusSettings() }
       SettingsRow(Icons.Outlined.People, "Аккаунты", "Быстрое переключение") { model.openAccounts() }
       SettingsRow(Icons.Outlined.PersonOff, "Чёрный список", "Заблокированные пользователи") { model.openBlacklist() }
-<<<<<<< HEAD
       SettingsRow(Icons.Outlined.Info, "О приложении", "Версия, создатель, история изменений") { model.openAboutApp() }
-=======
       SettingsRow(Icons.Outlined.Download, "Установить", "APK, Windows, Linux") { model.openInstall() }
->>>>>>> origin/cursor/desktop-app-8132
       Spacer(Modifier.height(12.dp))
       Button(
         onClick = model::logout,

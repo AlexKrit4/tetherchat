@@ -560,7 +560,6 @@ data class AndroidRelease(
 )
 
 @Serializable
-<<<<<<< HEAD
 data class VersionHistoryEntry(
   val versionCode: Int,
   val versionName: String = "",
@@ -573,7 +572,9 @@ data class VersionHistoryEntry(
 data class VersionHistoryResponse(
   val creator: String = "",
   val history: List<VersionHistoryEntry> = emptyList(),
-=======
+)
+
+@Serializable
 data class InstallPlatform(
   val versionName: String = "",
   val versionCode: Int = 0,
@@ -587,7 +588,6 @@ data class InstallDownloads(
   val windows: InstallPlatform = InstallPlatform(),
   val linuxAppImage: InstallPlatform = InstallPlatform(),
   val linuxDeb: InstallPlatform = InstallPlatform(),
->>>>>>> origin/cursor/desktop-app-8132
 )
 
 @Serializable

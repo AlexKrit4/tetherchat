@@ -91,13 +91,10 @@ sealed class Screen {
   data object PlusSettings : Screen()
   data object Accounts : Screen()
   data object Blacklist : Screen()
-<<<<<<< HEAD
   data object AboutApp : Screen()
   data object VersionHistory : Screen()
   data class VersionDetail(val entry: VersionHistoryEntry) : Screen()
-=======
   data object Install : Screen()
->>>>>>> origin/cursor/desktop-app-8132
   data object IncomingFriends : Screen()
   data object AdminCredentials : Screen()
   data object ServerSettings : Screen()
@@ -169,13 +166,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     private set
   var availableUpdate by mutableStateOf<AndroidRelease?>(null)
     private set
-<<<<<<< HEAD
   var appCreator by mutableStateOf("alexkrit")
     private set
   var versionHistory by mutableStateOf<List<VersionHistoryEntry>>(emptyList())
-=======
+    private set
   var installDownloads by mutableStateOf<InstallDownloads?>(null)
->>>>>>> origin/cursor/desktop-app-8132
     private set
   var updateDownloading by mutableStateOf(false)
     private set
@@ -1200,13 +1195,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
         screen = Screen.Home
       }
       Screen.Blacklist -> screen = Screen.Settings
-<<<<<<< HEAD
       Screen.AboutApp -> screen = Screen.Settings
       Screen.VersionHistory -> screen = Screen.AboutApp
       is Screen.VersionDetail -> screen = Screen.VersionHistory
-=======
       Screen.Install -> screen = Screen.Settings
->>>>>>> origin/cursor/desktop-app-8132
       Screen.IncomingFriends -> screen = Screen.Home
       Screen.AdminCredentials -> screen = Screen.AccountSettings
       Screen.Sessions -> screen = Screen.AccountSettings

@@ -35,12 +35,9 @@ fun TetherRoot(model: AppViewModel) {
       screen is Screen.ProfileSettings || screen is Screen.AccountSettings ||
       screen is Screen.Sessions || screen is Screen.QrScanner || screen is Screen.IncomingFriends || screen is Screen.AdminCredentials ||
       screen is Screen.AppearanceSettings || screen is Screen.UserProfile ||
-<<<<<<< HEAD
       screen is Screen.PlusSettings || screen is Screen.Accounts ||
-      screen is Screen.AboutApp || screen is Screen.VersionHistory || screen is Screen.VersionDetail
-=======
-      screen is Screen.PlusSettings || screen is Screen.Accounts || screen is Screen.Install
->>>>>>> origin/cursor/desktop-app-8132
+      screen is Screen.AboutApp || screen is Screen.VersionHistory || screen is Screen.VersionDetail ||
+      screen is Screen.Install
     if (toastable) {
       snack.showSnackbar(text)
       model.error = null
@@ -75,13 +72,10 @@ fun TetherRoot(model: AppViewModel) {
       Screen.PlusSettings -> PlusSettingsScreen(model)
       Screen.Accounts -> AccountsScreen(model)
       Screen.Blacklist -> BlacklistScreen(model)
-<<<<<<< HEAD
       Screen.AboutApp -> AboutAppScreen(model)
       Screen.VersionHistory -> VersionHistoryScreen(model)
       is Screen.VersionDetail -> VersionDetailScreen(model, screen.entry)
-=======
       Screen.Install -> InstallScreen(model)
->>>>>>> origin/cursor/desktop-app-8132
       Screen.IncomingFriends -> IncomingFriendsScreen(model)
       Screen.AdminCredentials -> AdminCredentialsScreen(model)
       Screen.ServerSettings -> ServerSettingsScreen(model)
