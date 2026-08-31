@@ -12,6 +12,8 @@ import {
 import { botKindForUsername } from '../lib/bots.js';
 import { ensureAiConversation } from '../lib/aiBot.js';
 import { ensureVpnConversation } from '../lib/vpnBot.js';
+import { canAccessMonitorBot } from '../lib/monitorBotAccess.js';
+import { ensureMonitorConversation } from '../lib/monitorBot.js';
 import { conversationInclude, publicUserSelect, toConversation, toPublicUser } from '../lib/serialize.js';
 import { emitToUser, joinUserToRoom } from '../ws/realtime.js';
 import { socketRooms } from '@tetherchat/shared';
@@ -112,10 +114,15 @@ export async function friendRoutes(app: FastifyInstance) {
     const { isBot, ...publicTarget } = target;
     if (isBot) {
       const kind = botKindForUsername(publicTarget.username);
+      if (kind === 'monitor' && !(await canAccessMonitorBot(request.userId))) {
+        throw ApiError.forbidden('Недостаточно прав');
+      }
       const conversation =
         kind === 'vpn'
           ? await ensureVpnConversation(request.userId)
-          : await ensureAiConversation(request.userId);
+          : kind === 'monitor'
+            ? await ensureMonitorConversation(request.userId)
+            : await ensureAiConversation(request.userId);
       reply.status(200).send({
         accepted: false,
         user: toPublicUser(publicTarget),

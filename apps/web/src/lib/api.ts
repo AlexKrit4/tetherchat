@@ -1,8 +1,12 @@
 import type { ApiErrorBody, AuthResponse } from '@tetherchat/shared';
 import { t } from '@/i18n';
+import { desktopApiOrigin, isDesktopApp } from '@/lib/desktop';
+import { loadAccounts, rememberCurrent } from '@/lib/accounts';
 
-/** Empty base means same-origin, which is how nginx serves production. */
-export const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
+/** Empty base means same-origin, which is how nginx serves production. Desktop uses VITE_API_URL. */
+export const API_BASE = isDesktopApp()
+  ? desktopApiOrigin()
+  : (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
 
 export class ApiRequestError extends Error {
   constructor(
@@ -43,6 +47,19 @@ export function onTokenChange(listener: TokenListener): () => void {
 export function refreshSession(): Promise<string | null> {
   refreshPromise ??= (async () => {
     try {
+      if (isDesktopApp()) {
+        const store = loadAccounts();
+        const refreshToken = store.current?.refreshToken;
+        if (!refreshToken) {
+          setAccessToken(null);
+          return null;
+        }
+        const data = await refreshWithToken(refreshToken);
+        setAccessToken(data.accessToken);
+        rememberCurrent(data.user, data.refreshToken);
+        return data.accessToken;
+      }
+
       const response = await fetch(`${API_BASE}/api/auth/refresh`, {
         method: 'POST',
         credentials: 'include',

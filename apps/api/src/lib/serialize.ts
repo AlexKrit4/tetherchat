@@ -272,7 +272,8 @@ export function toConversation(row: ConversationRow, currentUserId?: string): Di
   const isSaved = row.isSaved;
   const isAi = row.isAi;
   const isVpn = row.isVpn;
-  const isOneToOne = !row.isGroup && !isSaved && !isAi && !isVpn && active.length === 2;
+  const isMonitor = row.isMonitor;
+  const isOneToOne = !row.isGroup && !isSaved && !isAi && !isVpn && !isMonitor && active.length === 2;
   const peer =
     currentUserId && isOneToOne ? active.find((member) => member.userId !== currentUserId) : undefined;
   const selfMember = currentUserId ? row.members.find((member) => member.userId === currentUserId) : undefined;
@@ -283,6 +284,7 @@ export function toConversation(row: ConversationRow, currentUserId?: string): Di
     isSaved,
     isAi,
     isVpn,
+    isMonitor,
     isSecret: row.isSecret,
     name: row.name,
     iconUrl: row.iconUrl,

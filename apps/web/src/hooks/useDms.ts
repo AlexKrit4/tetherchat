@@ -76,21 +76,24 @@ export function conversationTitle(
   savedLabel = 'Избранное',
   aiLabel = 'Нейросеть',
   vpnLabel = 'Enigma VPN',
+  monitorLabel = 'Server Monitor',
 ): string {
   if (conversation.isSaved) return savedLabel;
   if (conversation.isAi) return aiLabel;
   if (conversation.isVpn) return vpnLabel;
+  if (conversation.isMonitor) return monitorLabel;
   if (conversation.name) return conversation.name;
   const others = conversation.members.filter((member) => member.id !== currentUserId);
   if (others.length === 0) return savedLabel;
   return others.map((member) => member.displayName ?? member.username).join(', ');
 }
 
-/** Saved Messages, then the AI chat, then VPN bot, then pins, then recency. */
+/** Saved Messages, then the AI chat, then VPN bot, then monitor bot, then pins, then recency. */
 export function sortDirectConversations(a: DirectConversation, b: DirectConversation): number {
   if (Boolean(a.isSaved) !== Boolean(b.isSaved)) return a.isSaved ? -1 : 1;
   if (Boolean(a.isAi) !== Boolean(b.isAi)) return a.isAi ? -1 : 1;
   if (Boolean(a.isVpn) !== Boolean(b.isVpn)) return a.isVpn ? -1 : 1;
+  if (Boolean(a.isMonitor) !== Boolean(b.isMonitor)) return a.isMonitor ? -1 : 1;
   if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
   return (b.lastMessageAt ?? '').localeCompare(a.lastMessageAt ?? '');
 }

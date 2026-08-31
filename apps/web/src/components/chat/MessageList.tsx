@@ -197,7 +197,7 @@ export function MessageList() {
   if (isLoading) return <MessageSkeletonList />;
 
   if (entries.length === 0) {
-    return <ChannelIntro name={title} isDm={isDm} isAi={Boolean(conversation?.isAi)} isVpn={Boolean(conversation?.isVpn)} />;
+    return <ChannelIntro name={title} isDm={isDm} isAi={Boolean(conversation?.isAi)} isVpn={Boolean(conversation?.isVpn)} isMonitor={Boolean(conversation?.isMonitor)} />;
   }
 
   return (
@@ -234,7 +234,7 @@ export function MessageList() {
               ) : hasNextPage ? (
                 <div className="h-4" />
               ) : (
-                <ChannelIntro name={title} isDm={isDm} isAi={Boolean(conversation?.isAi)} isVpn={Boolean(conversation?.isVpn)} compact />
+                <ChannelIntro name={title} isDm={isDm} isAi={Boolean(conversation?.isAi)} isVpn={Boolean(conversation?.isVpn)} isMonitor={Boolean(conversation?.isMonitor)} compact />
               )}
             </div>
           ),
@@ -397,12 +397,14 @@ function ChannelIntro({
   isDm,
   isAi,
   isVpn,
+  isMonitor,
   compact,
 }: {
   name: string;
   isDm: boolean;
   isAi?: boolean;
   isVpn?: boolean;
+  isMonitor?: boolean;
   compact?: boolean;
 }) {
   const t = useT();
@@ -417,7 +419,15 @@ function ChannelIntro({
         {isDm ? name : t('chat.welcomeChannel', { name })}
       </h2>
       <p className="mt-1 text-base text-text-muted">
-        {isAi ? t('chat.startAi') : isVpn ? t('chat.startVpn') : isDm ? t('chat.startDm') : t('chat.startChannel', { name })}
+        {isAi
+          ? t('chat.startAi')
+          : isVpn
+            ? t('chat.startVpn')
+            : isMonitor
+              ? t('chat.startMonitor')
+              : isDm
+                ? t('chat.startDm')
+                : t('chat.startChannel', { name })}
       </p>
     </div>
   );

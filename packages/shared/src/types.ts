@@ -158,6 +158,8 @@ export interface DirectConversation {
   isAi?: boolean;
   /** VPN subscription bot (Enigma / Happ). */
   isVpn?: boolean;
+  /** Server monitor bot for platform admins only. */
+  isMonitor?: boolean;
   /** End-to-end encrypted 1:1 conversation. The server never receives plaintext. */
   isSecret?: boolean;
   name: string | null;

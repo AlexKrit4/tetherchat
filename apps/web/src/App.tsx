@@ -4,6 +4,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { ErrorBoundary } from '@/components/system/ErrorBoundary';
 import { Toaster } from '@/components/ui/Toaster';
 import { UpdatePrompt } from '@/components/system/UpdatePrompt';
+import { isDesktopApp } from '@/lib/desktop';
 import { Spinner } from '@/components/ui/Spinner';
 import { DM_ROUTE } from '@/hooks/useChatTarget';
 import { LoginPage } from '@/pages/LoginPage';
@@ -24,7 +25,7 @@ export function App() {
   }, [bootstrap]);
 
   useEffect(() => {
-    if (status !== 'authenticated') return;
+    if (status !== 'authenticated' || isDesktopApp()) return;
     void ensurePushSubscription();
   }, [status]);
 

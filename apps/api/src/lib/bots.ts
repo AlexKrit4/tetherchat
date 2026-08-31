@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { prisma } from '../db.js';
 import { hashPassword } from './tokens.js';
 
-export type BotKind = 'ai' | 'vpn';
+export type BotKind = 'ai' | 'vpn' | 'monitor';
 
 const BOT_PROFILES = {
   ai: {
@@ -16,6 +16,12 @@ const BOT_PROFILES = {
     email: 'tethervpn@tetherchat.invalid',
     displayName: 'Enigma VPN',
     bio: 'VPN для Happ — тарифы, оплата и подписка',
+  },
+  monitor: {
+    username: 'tethermonitor',
+    email: 'tethermonitor@tetherchat.invalid',
+    displayName: 'Server Monitor',
+    bio: 'Мониторинг сервера TetherChat — только для администратора',
   },
 } as const;
 

@@ -41,7 +41,7 @@ export function DirectMessageList({
   const openMenu = (event: { clientX: number; clientY: number }, conversation: DirectConversation) => {
     const title = conversationTitle(conversation, currentUserId, t('dm.savedMessages'), t('dm.aiChat'), t('dm.vpnChat'));
     const peer = conversation.members.find((member) => member.id !== currentUserId);
-    const locked = Boolean(conversation.isSaved || conversation.isAi || conversation.isVpn);
+    const locked = Boolean(conversation.isSaved || conversation.isAi || conversation.isVpn || conversation.isMonitor);
 
     const afterDelete = () => {
       if (conversation.id === activeConversationId) {
@@ -178,7 +178,7 @@ function DmRow({
   const isMobile = useIsMobile();
   const others = conversation.members.filter((member) => member.id !== currentUserId);
   const title = conversationTitle(conversation, currentUserId, t('dm.savedMessages'), t('dm.aiChat'), t('dm.vpnChat'));
-  const locked = Boolean(conversation.isSaved || conversation.isAi || conversation.isVpn);
+  const locked = Boolean(conversation.isSaved || conversation.isAi || conversation.isVpn || conversation.isMonitor);
   const longPress = useLongPress(
     () => onOpenMenu({ clientX: 24, clientY: 120 }, conversation),
     { enabled: isMobile && !locked },

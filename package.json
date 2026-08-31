@@ -12,6 +12,7 @@
   ],
   "scripts": {
     "build": "npm run build -w @tetherchat/shared && npm run build -w @tetherchat/api && npm run build -w @tetherchat/web",
+    "build:desktop": "npm run build -w @tetherchat/shared && npm run build -w @tetherchat/desktop",
     "dev": "concurrently -n api,web -c blue,magenta \"npm run dev -w @tetherchat/api\" \"npm run dev -w @tetherchat/web\"",
     "typecheck": "npm run typecheck -w @tetherchat/shared && npm run typecheck -w @tetherchat/api && npm run typecheck -w @tetherchat/web",
     "lint": "eslint .",

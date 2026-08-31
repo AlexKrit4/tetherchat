@@ -64,6 +64,9 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /:/host:ro
     environment:
       NODE_ENV: production
       PORT: 4000
@@ -120,6 +123,9 @@ services:
       VPN_TRIAL_TRAFFIC_GB: ${VPN_TRIAL_TRAFFIC_GB:-5}
       VPN_TRIAL_DEVICE_LIMIT: ${VPN_TRIAL_DEVICE_LIMIT:-1}
       VPN_NODE_ID: ${VPN_NODE_ID:-nl-1}
+      MONITOR_DISK_PATHS: ${MONITOR_DISK_PATHS:-/host}
+      MONITOR_DOCKER_SOCKET: ${MONITOR_DOCKER_SOCKET:-/var/run/docker.sock}
+      MONITOR_HEALTH_URL: ${MONITOR_HEALTH_URL:-http://127.0.0.1:4000/api/health}
     expose:
       - '4000'
     healthcheck:

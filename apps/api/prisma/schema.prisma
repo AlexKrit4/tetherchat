@@ -364,9 +364,11 @@ model DirectConversation {
   savedForUserId String?   @unique
   isAi           Boolean   @default(false)
   isVpn          Boolean   @default(false)
+  isMonitor      Boolean   @default(false)
   isSecret       Boolean   @default(false)
   aiForUserId    String?   @unique
   vpnForUserId   String?   @unique
+  monitorForUserId String? @unique
   name           String?
   iconUrl        String?
   ownerId        String?

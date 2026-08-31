@@ -47,6 +47,7 @@ export interface CreateMessageInput {
   /** Internal: do not enqueue another AI reply (the bot's own messages). */
   skipAiReply?: boolean;
   skipVpnReply?: boolean;
+  skipMonitorReply?: boolean;
 }
 
 interface Target {
@@ -59,6 +60,7 @@ interface Target {
   canMentionEveryone: boolean;
   isAi?: boolean;
   isVpn?: boolean;
+  isMonitor?: boolean;
   isSecret?: boolean;
 }
 
@@ -95,7 +97,7 @@ async function resolveTarget(input: CreateMessageInput): Promise<Target> {
     });
 
     const recipientIds = conversation.members.map((member) => member.userId);
-    if (!conversation.isGroup && !conversation.isAi && !conversation.isVpn && !conversation.isSaved) {
+    if (!conversation.isGroup && !conversation.isAi && !conversation.isVpn && !conversation.isMonitor && !conversation.isSaved) {
       const otherId = recipientIds.find((id) => id !== input.authorId);
       if (otherId && (await isBlockedEitherWay(input.authorId, otherId))) {
         throw ApiError.forbidden('You cannot message this user');
@@ -115,6 +117,7 @@ async function resolveTarget(input: CreateMessageInput): Promise<Target> {
       canMentionEveryone: false,
       isAi: conversation.isAi,
       isVpn: conversation.isVpn,
+      isMonitor: conversation.isMonitor,
       isSecret: conversation.isSecret,
     };
   }
@@ -311,6 +314,17 @@ export async function createMessage(input: CreateMessageInput): Promise<Message>
     if (input.authorId !== botId) {
       const { replyAsVpn } = await import('./vpnReplyService.js');
       const pending = replyAsVpn(target.id, input.authorId, payload.content);
+      if (isTest()) await pending;
+      else void pending;
+    }
+  }
+
+  if (target.kind === 'conversation' && target.isMonitor && !input.skipMonitorReply) {
+    const { getMonitorBotUserId } = await import('../lib/monitorBot.js');
+    const botId = await getMonitorBotUserId();
+    if (input.authorId !== botId) {
+      const { replyAsMonitor } = await import('./monitorReplyService.js');
+      const pending = replyAsMonitor(target.id, input.authorId, payload.content);
       if (isTest()) await pending;
       else void pending;
     }

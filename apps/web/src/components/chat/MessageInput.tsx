@@ -25,6 +25,7 @@ import { useT } from '@/i18n/useT';
 import { conversationNeedsFriendship, isFriendOf, useFriends } from '@/hooks/useFriends';
 import { formatBytes } from './Attachments';
 import { VpnBotKeyboard } from './VpnBotKeyboard';
+import { MonitorBotKeyboard } from './MonitorBotKeyboard';
 
 const TYPING_THROTTLE_MS = 3_000;
 
@@ -94,11 +95,12 @@ export function MessageInput() {
   const peerId = conversation?.members.find((member) => member.id !== user?.id)?.id;
   const peerUsername = conversation?.members.find((member) => member.id !== user?.id)?.username;
   const isVpnBot = Boolean(conversation?.isVpn) || peerUsername === 'tethervpn';
+  const isMonitorBot = Boolean(conversation?.isMonitor) || peerUsername === 'tethermonitor';
   const friendsReady = !needsFriendship || friends !== undefined;
-  const canMessagePeer = isVpnBot || !needsFriendship || isFriendOf(friends, peerId);
+  const canMessagePeer = isVpnBot || isMonitorBot || !needsFriendship || isFriendOf(friends, peerId);
   const canSend =
     (isDm || !server || can(server.permissions, Permission.SEND_MESSAGES)) &&
-    (isVpnBot || !friendsReady || canMessagePeer);
+    (isVpnBot || isMonitorBot || !friendsReady || canMessagePeer);
   const canAttach =
     canSend &&
     !conversation?.isSecret &&
@@ -330,6 +332,8 @@ export function MessageInput() {
     nudgeScrollBottom();
   };
 
+  const sendMonitorCommand = sendVpnCommand;
+
   const applyMention = (replacement: { text: string; start: number; length: number }) => {
     if (!channelId) return;
     const next =
@@ -373,7 +377,9 @@ export function MessageInput() {
         ? t('chat.messageAi')
         : conversation?.isVpn
           ? t('chat.messageVpn')
-          : t('chat.messageUser', { name: title })
+          : conversation?.isMonitor
+            ? t('chat.messageMonitor')
+            : t('chat.messageUser', { name: title })
       : t('chat.messageChannel', { name: title })
     : t('chat.selectChannel');
 
@@ -386,6 +392,7 @@ export function MessageInput() {
       {replyTo ? <ReplyBar message={replyTo} onCancel={() => setReplyDraft(channelId, null)} /> : null}
 
       {isVpnBot ? <VpnBotKeyboard disabled={!canSend || send.isPending} onCommand={sendVpnCommand} /> : null}
+      {isMonitorBot ? <MonitorBotKeyboard disabled={!canSend || send.isPending} onCommand={sendMonitorCommand} /> : null}
 
       {pending.length > 0 ? (
         <div className="mb-1 flex flex-wrap gap-2 rounded-t-lg bg-surface-input p-2">

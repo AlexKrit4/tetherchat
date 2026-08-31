@@ -9,6 +9,8 @@ import { assertConversationMember } from '../lib/permissions.js';
 import { conversationInclude, toConversation } from '../lib/serialize.js';
 import { ensureAiConversation, getAiBotUserId } from '../lib/aiBot.js';
 import { ensureVpnConversation, getVpnBotUserId } from '../lib/vpnBot.js';
+import { canAccessMonitorBot } from '../lib/monitorBotAccess.js';
+import { ensureMonitorConversation, getMonitorBotUserId } from '../lib/monitorBot.js';
 import { assertPlus, loadPlus, pinnedDmLimit } from '../lib/plus.js';
 import { readWallpaperUpload } from '../lib/wallpaper.js';
 import {
@@ -48,6 +50,9 @@ export async function dmRoutes(app: FastifyInstance) {
     await ensureSavedConversation(request.userId);
     await ensureAiConversation(request.userId);
     await ensureVpnConversation(request.userId);
+    if (await canAccessMonitorBot(request.userId)) {
+      await ensureMonitorConversation(request.userId);
+    }
     const conversations = await prisma.directConversation.findMany({
       where: { members: { some: { userId: request.userId, leftAt: null, hiddenAt: null } } },
       include: conversationInclude,
@@ -66,6 +71,7 @@ export async function dmRoutes(app: FastifyInstance) {
           conversation.isSaved ||
           conversation.isAi ||
           conversation.isVpn ||
+          conversation.isMonitor ||
           conversation.isGroup ||
           !conversation.members.some((member) => member.id !== request.userId && blocked.has(member.id)),
       );
@@ -74,6 +80,7 @@ export async function dmRoutes(app: FastifyInstance) {
         if (a.isSaved !== b.isSaved) return a.isSaved ? -1 : 1;
         if (Boolean(a.isAi) !== Boolean(b.isAi)) return a.isAi ? -1 : 1;
         if (Boolean(a.isVpn) !== Boolean(b.isVpn)) return a.isVpn ? -1 : 1;
+        if (Boolean(a.isMonitor) !== Boolean(b.isMonitor)) return a.isMonitor ? -1 : 1;
         if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
         const aTime = a.lastMessageAt ?? '';
         const bTime = b.lastMessageAt ?? '';
@@ -185,6 +192,14 @@ export async function dmRoutes(app: FastifyInstance) {
     if (otherIds.includes(vpnBotId)) {
       if (otherIds.length > 1) throw ApiError.badRequest('Нельзя добавить VPN-бота в группу');
       const conversation = await ensureVpnConversation(request.userId);
+      reply.send(toConversation(conversation, request.userId));
+      return;
+    }
+
+    const monitorBotId = await getMonitorBotUserId();
+    if (otherIds.includes(monitorBotId)) {
+      if (otherIds.length > 1) throw ApiError.badRequest('Нельзя добавить monitor-бота в группу');
+      const conversation = await ensureMonitorConversation(request.userId);
       reply.send(toConversation(conversation, request.userId));
       return;
     }
@@ -407,7 +422,7 @@ export async function dmRoutes(app: FastifyInstance) {
       include: { members: { select: { userId: true, leftAt: true } } },
     });
 
-    if (conversation.isSaved || conversation.isAi || conversation.isVpn) {
+    if (conversation.isSaved || conversation.isAi || conversation.isVpn || conversation.isMonitor) {
       throw ApiError.badRequest('This chat cannot be deleted');
     }
 

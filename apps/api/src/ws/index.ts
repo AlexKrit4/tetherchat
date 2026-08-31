@@ -4,6 +4,7 @@ import type { FastifyInstance } from 'fastify';
 import { TYPING_TIMEOUT_MS, socketRooms, PRESENCE_STATUSES } from '@tetherchat/shared';
 import type { AckResult } from '@tetherchat/shared';
 import { getConfig } from '../config.js';
+import { webCorsOrigins } from '../lib/corsOrigins.js';
 import { prisma } from '../db.js';
 import { isApiError } from '../errors.js';
 import { verifyAccessToken } from '../lib/tokens.js';
@@ -64,7 +65,7 @@ export async function attachSocketServer(app: FastifyInstance): Promise<TypedSer
   const io: TypedServer = new SocketServer(app.server, {
     path: '/socket.io',
     serveClient: false,
-    cors: { origin: config.PUBLIC_WEB_ORIGIN.split(',').map((o) => o.trim()), credentials: true },
+    cors: { origin: webCorsOrigins(config.PUBLIC_WEB_ORIGIN), credentials: true },
     pingInterval: 25_000,
     pingTimeout: 20_000,
     maxHttpBufferSize: 1e6,

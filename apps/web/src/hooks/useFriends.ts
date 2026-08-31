@@ -18,7 +18,7 @@ export function conversationNeedsFriendship(
   currentUserId?: string,
 ): boolean {
   if (!conversation) return false;
-  if (conversation.isSaved || conversation.isAi || conversation.isVpn || conversation.isGroup) return false;
+  if (conversation.isSaved || conversation.isAi || conversation.isVpn || conversation.isMonitor || conversation.isGroup) return false;
   const peer = currentUserId
     ? conversation.members.find((member) => member.id !== currentUserId)
     : conversation.members[0];
