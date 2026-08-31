@@ -1,0 +1,45 @@
+{
+  "name": "tetherchat",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TetherChat \u2014 text messenger for tetherchat.ru",
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @tetherchat/shared && npm run build -w @tetherchat/api && npm run build -w @tetherchat/web",
+    "build:desktop": "npm run build -w @tetherchat/shared && npm run build -w @tetherchat/desktop",
+    "dev": "concurrently -n api,web -c blue,magenta \"npm run dev -w @tetherchat/api\" \"npm run dev -w @tetherchat/web\"",
+    "typecheck": "npm run typecheck -w @tetherchat/shared && npm run typecheck -w @tetherchat/api && npm run typecheck -w @tetherchat/web",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,css,md}\"",
+    "test": "npm run build -w @tetherchat/shared && npm run test -w @tetherchat/shared && npm run test -w @tetherchat/api && npm run test -w @tetherchat/web",
+    "test:e2e": "npm run db:seed -w @tetherchat/api && playwright test -c e2e/playwright.config.ts",
+    "db:generate": "npm run db:generate -w @tetherchat/api",
+    "db:migrate": "npm run db:migrate -w @tetherchat/api",
+    "db:deploy": "npm run db:deploy -w @tetherchat/api",
+    "db:seed": "npm run db:seed -w @tetherchat/api",
+    "db:reset": "npm run db:reset -w @tetherchat/api",
+    "test:e2e:only": "playwright test -c e2e/playwright.config.ts",
+    "db:studio": "npm run db:studio -w @tetherchat/api"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@playwright/test": "^1.49.1",
+    "@types/node": "^22.10.2",
+    "concurrently": "^9.1.2",
+    "eslint": "^9.17.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "globals": "^15.14.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.19.0",
+    "wait-on": "^9.1.0"
+  },
+  "type": "module"
+}
