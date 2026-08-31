@@ -35,8 +35,10 @@ export function ChatArea({ className }: { className?: string }) {
       ) : null}
       <div className="relative flex min-h-0 flex-1 flex-col">
         <ChatHeader />
-        <MessageList />
-        <MessageInput />
+        <div className="relative min-h-0 flex-1">
+          <MessageList />
+          <MessageInput />
+        </div>
         <PinnedMessagesPanel />
         <SearchPanel />
         <MediaPanel />

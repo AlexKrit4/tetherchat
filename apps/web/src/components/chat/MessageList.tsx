@@ -58,6 +58,8 @@ export function MessageList() {
   const loadingHistoryRef = useRef(false);
   const [atBottom, setAtBottom] = useState(true);
   const scrollBottomNonce = useUiStore((state) => state.scrollBottomNonce);
+  const composerHeight = useUiStore((state) => state.composerHeight);
+  const bottomInset = Math.max(composerHeight, isMobile ? 96 : 80);
   const [actionSheetFor, setActionSheetFor] = useState<Message | null>(null);
   const [forwardFor, setForwardFor] = useState<Message | null>(null);
   const [reportFor, setReportFor] = useState<Message | null>(null);
@@ -150,6 +152,11 @@ export function MessageList() {
   }, [keyboardOffset, stickToBottom]);
 
   useEffect(() => {
+    if (!atBottomRef.current || loadingHistoryRef.current) return;
+    stickToBottom();
+  }, [composerHeight, stickToBottom]);
+
+  useEffect(() => {
     if (scrollBottomNonce === 0) return;
     atBottomRef.current = true;
     setAtBottom(true);
@@ -201,7 +208,7 @@ export function MessageList() {
   }
 
   return (
-    <div className="relative min-h-0 flex-1">
+    <div className="absolute inset-0 min-h-0">
       <Virtuoso
         key={channelId}
         ref={virtuoso}
@@ -238,7 +245,7 @@ export function MessageList() {
               )}
             </div>
           ),
-          Footer: () => <div className="h-10 shrink-0" aria-hidden />,
+          Footer: () => <div className="shrink-0" style={{ height: bottomInset }} aria-hidden />,
         }}
         itemContent={(_index, entry) => {
           const { message } = entry;
@@ -322,8 +329,8 @@ export function MessageList() {
           className={cn(
             'absolute right-4 flex items-center gap-2 rounded-full bg-surface-floating px-3 py-2',
             'text-sm font-medium text-text-heading shadow-floating',
-            isMobile ? 'bottom-3' : 'bottom-4',
           )}
+          style={{ bottom: bottomInset + (isMobile ? 12 : 16) }}
         >
           <ArrowDown size={16} aria-hidden />
           {t('chat.jumpToPresent')}

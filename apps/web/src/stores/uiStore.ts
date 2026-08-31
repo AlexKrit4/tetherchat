@@ -28,6 +28,8 @@ interface UiState {
   drafts: Record<string, string>;
   volatileDrafts: Record<string, string>;
   scrollBottomNonce: number;
+  /** Measured height of the composer so the message list can pad its bottom. */
+  composerHeight: number;
 
   setMobileView: (view: MobileView) => void;
   pushMobileView: (view: MobileView) => void;
@@ -46,6 +48,7 @@ interface UiState {
   setDraft: (channelId: string, value: string) => void;
   setVolatileDraft: (channelId: string, value: string) => void;
   nudgeScrollBottom: () => void;
+  setComposerHeight: (height: number) => void;
 }
 
 export const useUiStore = create<UiState>()(
@@ -65,6 +68,7 @@ export const useUiStore = create<UiState>()(
   drafts: {},
   volatileDrafts: {},
   scrollBottomNonce: 0,
+  composerHeight: 96,
 
   setMobileView: (view) => set({ mobileView: view, mobileHistory: [] }),
 
@@ -116,6 +120,11 @@ export const useUiStore = create<UiState>()(
     set((state) => ({ volatileDrafts: { ...state.volatileDrafts, [channelId]: value } })),
 
   nudgeScrollBottom: () => set((state) => ({ scrollBottomNonce: state.scrollBottomNonce + 1 })),
+
+  setComposerHeight: (height) =>
+    set((state) =>
+      state.composerHeight === height ? state : { composerHeight: Math.ceil(height) },
+    ),
     }),
     {
       name: 'tetherchat-ui',

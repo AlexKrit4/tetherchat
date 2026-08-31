@@ -87,6 +87,8 @@ export function MessageInput() {
   const send = useSendMessage(channelId ?? '', isDm, isSecret);
   const upload = useUploadAttachment();
   const nudgeScrollBottom = useUiStore((state) => state.nudgeScrollBottom);
+  const setComposerHeight = useUiStore((state) => state.setComposerHeight);
+  const composerRef = useRef<HTMLDivElement>(null);
 
   const maxHeight = isMobile ? 120 : 350;
   useAutoResize(textareaRef, draft, maxHeight);
@@ -106,6 +108,27 @@ export function MessageInput() {
     !conversation?.isSecret &&
     (isDm || !server || can(server.permissions, Permission.ATTACH_FILES));
   const enterToSend = isMobile ? false : (user?.enterToSend ?? true);
+
+  useEffect(() => {
+    const node = composerRef.current;
+    if (!node) return;
+
+    const report = () => setComposerHeight(node.getBoundingClientRect().height);
+    report();
+
+    const observer = new ResizeObserver(report);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [
+    setComposerHeight,
+    channelId,
+    replyTo?.id,
+    pending.length,
+    isVpnBot,
+    isMonitorBot,
+    recording,
+    voicePreview,
+  ]);
 
   // Focus the composer when the user starts typing anywhere on desktop.
   useEffect(() => {
@@ -388,7 +411,13 @@ export function MessageInput() {
   if (!channelId) return null;
 
   return (
-    <div className={cn('relative shrink-0 px-4 pb-2 md:pb-6', isMobile && 'pb-safe')}>
+    <div
+      ref={composerRef}
+      className={cn(
+        'absolute inset-x-0 bottom-0 z-10 shrink-0 bg-surface px-4 pb-2 shadow-[0_-8px_24px_rgba(0,0,0,0.18)] md:pb-6',
+        isMobile && 'pb-safe',
+      )}
+    >
       {replyTo ? <ReplyBar message={replyTo} onCancel={() => setReplyDraft(channelId, null)} /> : null}
 
       {isVpnBot ? <VpnBotKeyboard disabled={!canSend || send.isPending} onCommand={sendVpnCommand} /> : null}
