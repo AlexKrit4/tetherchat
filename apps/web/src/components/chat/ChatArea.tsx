@@ -24,6 +24,7 @@ export function ChatArea({ className }: { className?: string }) {
   return (
     <main
       className={cn('relative flex min-w-0 flex-1 flex-col bg-surface', className)}
+      data-chat-dm={isDm ? '' : undefined}
       style={isMobile && offset > 0 ? { paddingBottom: offset } : undefined}
     >
       {wallpaper ? (

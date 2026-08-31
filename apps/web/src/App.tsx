@@ -14,6 +14,7 @@ import { ForgotPasswordPage, ResetPasswordPage } from '@/pages/ForgotPasswordPag
 import { VerifyEmailPage } from '@/pages/VerifyEmailPage';
 import { useAuthStore } from '@/stores/authStore';
 import { useT } from '@/i18n/useT';
+import { PreviewBanner } from '@/components/system/PreviewBanner';
 import { ensurePushSubscription } from '@/lib/push';
 
 export function App() {
@@ -34,6 +35,7 @@ export function App() {
   return (
     <ErrorBoundary>
       <div className="h-full">
+        <PreviewBanner />
         <Routes>
           <Route path="/login" element={<AnonymousOnly><LoginPage /></AnonymousOnly>} />
           <Route path="/register" element={<AnonymousOnly><RegisterPage /></AnonymousOnly>} />

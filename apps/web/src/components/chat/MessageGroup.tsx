@@ -97,6 +97,7 @@ export const MessageGroup = memo(function MessageGroup({
   return (
     <div
       {...longPress}
+      data-mine={mine ? 'true' : undefined}
       onMouseEnter={hasHover ? () => setHovered(true) : undefined}
       onMouseLeave={hasHover ? () => setHovered(false) : undefined}
       className={cn(
