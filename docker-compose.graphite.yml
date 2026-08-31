@@ -1,0 +1,25 @@
+# Graphite redesign mockup on port 1489 (same backend as production).
+#
+#   docker compose -f docker-compose.prod.yml -f docker-compose.graphite.yml up -d --build web-graphite
+#
+# Public HTTPS is terminated by the edge container, which proxies 1489 to this
+# service over the compose network. Publishing 1489 here instead would serve
+# plain HTTP on a host the browser has pinned to HTTPS via HSTS.
+
+name: tetherchat
+
+services:
+  web-graphite:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile.preview
+      args:
+        VITE_API_URL: ''
+        VITE_WS_URL: ''
+        VITE_THEME: graphite
+        PREVIEW_PORT: '1489'
+    restart: unless-stopped
+    expose:
+      - '1489'
+    networks:
+      - default
