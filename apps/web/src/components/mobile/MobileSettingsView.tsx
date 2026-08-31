@@ -1,9 +1,16 @@
 import { useState } from 'react';
-<<<<<<< HEAD
-import { Bell, Ban, ChevronRight, Info, LogOut, Palette, ShieldCheck, Sparkles, User } from 'lucide-react';
-=======
-import { Bell, Ban, ChevronRight, Download, LogOut, Palette, ShieldCheck, Sparkles, User } from 'lucide-react';
->>>>>>> origin/cursor/desktop-app-8132
+import {
+  Bell,
+  Ban,
+  ChevronRight,
+  Download,
+  Info,
+  LogOut,
+  Palette,
+  ShieldCheck,
+  Sparkles,
+  User,
+} from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { useT } from '@/i18n/useT';
@@ -16,19 +23,21 @@ import { AppearanceSettings } from '@/components/settings/AppearanceSettings';
 import { AccountSettings } from '@/components/settings/AccountSettings';
 import { BlacklistSettings } from '@/components/settings/BlacklistSettings';
 import { PlusSettings } from '@/components/plus/PlusSettings';
-<<<<<<< HEAD
 import { AboutAppSettings } from '@/components/settings/AboutAppSettings';
-import { useAuthStore } from '@/stores/authStore';
-import { useUiStore } from '@/stores/uiStore';
-
-type Section = 'root' | 'profile' | 'account' | 'notifications' | 'appearance' | 'blocked' | 'plus' | 'about';
-=======
 import { InstallSettings } from '@/components/settings/InstallSettings';
 import { useAuthStore } from '@/stores/authStore';
 import { useUiStore } from '@/stores/uiStore';
 
-type Section = 'root' | 'profile' | 'account' | 'notifications' | 'appearance' | 'blocked' | 'plus' | 'install';
->>>>>>> origin/cursor/desktop-app-8132
+type Section =
+  | 'root'
+  | 'profile'
+  | 'account'
+  | 'notifications'
+  | 'appearance'
+  | 'blocked'
+  | 'plus'
+  | 'about'
+  | 'install';
 
 /** Full-screen settings with a second level, instead of a desktop modal. */
 export function MobileSettingsView() {
@@ -45,11 +54,8 @@ export function MobileSettingsView() {
     appearance: t('settings.appearance'),
     blocked: t('settings.blockedUsers'),
     plus: t('settings.plus'),
-<<<<<<< HEAD
     about: t('settings.aboutApp'),
-=======
     install: t('settings.install'),
->>>>>>> origin/cursor/desktop-app-8132
   };
 
   if (section !== 'root') {
@@ -63,11 +69,8 @@ export function MobileSettingsView() {
           {section === 'appearance' ? <AppearanceSettings /> : null}
           {section === 'blocked' ? <BlacklistSettings /> : null}
           {section === 'plus' ? <PlusSettings /> : null}
-<<<<<<< HEAD
           {section === 'about' ? <AboutAppSettings /> : null}
-=======
           {section === 'install' ? <InstallSettings /> : null}
->>>>>>> origin/cursor/desktop-app-8132
         </div>
       </div>
     );
@@ -125,15 +128,14 @@ export function MobileSettingsView() {
             onSelect={() => setSection('plus')}
           />
           <SettingsRow
-<<<<<<< HEAD
             icon={Info}
             label={t('settings.aboutApp')}
             onSelect={() => setSection('about')}
-=======
+          />
+          <SettingsRow
             icon={Download}
             label={t('settings.install')}
             onSelect={() => setSection('install')}
->>>>>>> origin/cursor/desktop-app-8132
           />
         </SettingsGroup>
 
