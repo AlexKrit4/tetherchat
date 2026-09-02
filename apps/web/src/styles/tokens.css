@@ -1,0 +1,137 @@
+/**
+ * Default (classic) look: surface hierarchy expressed purely through background
+ * layers — no borders, no glows. Values mirror the Discord dark theme used as
+ * the visual reference.
+ *
+ * Themes in styles/themes/ override these variables and nothing else, so the
+ * vocabulary below has to be able to describe looks that separate surfaces with
+ * hairlines instead of background steps. Classic neutralises those families
+ * (transparent hairlines, its own radii and font stack) and therefore renders
+ * byte-identically to before they existed.
+ */
+:root {
+  color-scheme: dark;
+
+  /* Backgrounds, darkest to lightest */
+  --bg-tertiary: #1e1f22; /* server rail, deepest wells */
+  --bg-secondary: #2b2d31; /* channel sidebar, member list */
+  --bg-primary: #313338; /* chat area, modals */
+  --bg-floating: #111214; /* tooltips, popovers, context menus */
+  --bg-overlay: rgba(0, 0, 0, 0.5);
+  --input-bg: #383a40;
+
+  /* Interaction layers */
+  --bg-modifier-hover: #35373c;
+  --bg-modifier-active: #404249;
+  --bg-modifier-selected: #404249;
+  --bg-modifier-accent: rgba(255, 255, 255, 0.06);
+
+  /* Text */
+  --text-normal: #dbdee1;
+  --text-muted: #949ba4;
+  --text-faint: #6d6f78;
+  --text-link: #00a8fc;
+  --text-inverse: #313338;
+  --header-primary: #f2f3f5;
+  --header-secondary: #b5bac1;
+
+  /* Accents */
+  --brand: #5865f2;
+  --brand-hover: #4752c4;
+  --brand-active: #3c45a5;
+  --green: #23a559;
+  --yellow: #f0b232;
+  --red: #f23f43;
+  --red-hover: #da373c;
+  --grey: #80848e;
+
+  --mention-bg: rgba(240, 178, 50, 0.1);
+  --mention-text: #f0b232;
+  --divider: #3f4147;
+
+  --scrollbar-thumb: #1a1b1e;
+  --scrollbar-track: transparent;
+
+  /* Bottom strip of the sidebar; a shade off --bg-secondary in classic. */
+  --user-panel-bg: #232428;
+
+  /* Neutral (secondary) button fill. */
+  --control-bg: var(--bg-modifier-active);
+  --control-hover: #4e5058;
+  --control-active: #5c5e66;
+
+  /* Reaction chip the reader has already pressed. */
+  --reaction-me-bg: rgba(88, 101, 242, 0.18);
+  --reaction-me-text: #c9cdfb;
+  --reaction-hover-ring: #4f545c;
+
+  /**
+   * Hairlines. Classic keeps them transparent: it separates surfaces by
+   * background step, and a visible border would double the separation.
+   *
+   * These are consumed as inset box-shadows (`shadow-hairline-*`) rather than
+   * real borders so that switching themes cannot move anything by a pixel.
+   */
+  --border-subtle: transparent;
+  --border-default: var(--divider);
+  --border-strong: var(--divider);
+
+  /* Focus ring colour; width lives in the utility. */
+  --focus-ring: var(--brand);
+
+  --selection-bg: rgba(88, 101, 242, 0.6);
+  --selection-text: #ffffff;
+
+  /* Corner radii. Names follow the Tailwind key each one feeds. */
+  --radius-sm: 3px;
+  --radius-base: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+
+  /* Elevation. Reserved for surfaces that genuinely float above the app. */
+  --elevation-1: 0 2px 10px 0 rgba(0, 0, 0, 0.2);
+  --elevation-2: 0 8px 16px rgba(0, 0, 0, 0.24);
+  --elevation-3: 0 -4px 24px rgba(0, 0, 0, 0.32);
+
+  /* Motion */
+  --duration-fast: 100ms;
+  --duration-base: 150ms;
+  --duration-slow: 250ms;
+  --ease-out: ease-out;
+  --ease-in-out: ease-in-out;
+
+  /* Typography stacks */
+  --font-sans: 'gg sans', 'Noto Sans', 'Helvetica Neue', Helvetica, 'Segoe UI', sans-serif,
+    'Apple Color Emoji', 'Segoe UI Emoji';
+  --font-mono: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+  --letter-spacing-heading: 0;
+
+  /* Message body size is the main density lever a theme has. */
+  --font-size-message: 16px;
+  --line-height-message: 22px;
+  --font-size-message-mobile: 15px;
+  --line-height-message-mobile: 21px;
+
+  /**
+   * Message bubbles. Classic renders messages as full-width rows and ignores
+   * these; they exist so bubble themes have somewhere to put their values.
+   */
+  --bubble-in: var(--bg-modifier-hover);
+  --bubble-out: var(--brand);
+  --bubble-radius: 12px;
+  --bubble-radius-tail: 4px;
+
+  /* Layout metrics referenced from both CSS and TS */
+  --rail-width: 72px;
+  --sidebar-width: 240px;
+  --members-width: 240px;
+  --header-height: 48px;
+
+  /* Safe areas resolve to 0px on devices without insets */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}

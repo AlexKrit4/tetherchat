@@ -1,0 +1,161 @@
+/**
+ * Aurora — experimental TetherChat look for the :1488 preview.
+ * Activated with data-theme="aurora" on <html>.
+ */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Manrope:wght@400;500;600;700;800&display=swap');
+
+[data-theme='aurora'] {
+  color-scheme: dark;
+
+  --bg-tertiary: #080910;
+  --bg-secondary: rgba(18, 20, 30, 0.92);
+  --bg-primary: #0f111a;
+  --bg-floating: #151822;
+  --bg-overlay: rgba(4, 6, 12, 0.72);
+  --input-bg: rgba(255, 255, 255, 0.06);
+
+  --bg-modifier-hover: rgba(255, 255, 255, 0.06);
+  --bg-modifier-active: rgba(255, 255, 255, 0.1);
+  --bg-modifier-selected: rgba(45, 212, 191, 0.14);
+  --bg-modifier-accent: rgba(251, 113, 133, 0.08);
+
+  --text-normal: #e8eaef;
+  --text-muted: #9aa3b5;
+  --text-faint: #6b7285;
+  --text-link: #5eead4;
+  --text-inverse: #0a0b10;
+  --header-primary: #f8fafc;
+  --header-secondary: #c7cedb;
+
+  --brand: #2dd4bf;
+  --brand-hover: #14b8a6;
+  --brand-active: #0d9488;
+  --green: #34d399;
+  --yellow: #fbbf24;
+  --red: #fb7185;
+  --red-hover: #f43f5e;
+  --grey: #64748b;
+
+  --mention-bg: rgba(251, 191, 36, 0.12);
+  --mention-text: #fcd34d;
+  --divider: rgba(255, 255, 255, 0.08);
+
+  --scrollbar-thumb: rgba(255, 255, 255, 0.14);
+  --aurora-glow: 0 0 0 1px rgba(45, 212, 191, 0.25), 0 12px 40px rgba(45, 212, 191, 0.12);
+  --aurora-gradient: linear-gradient(135deg, #2dd4bf 0%, #818cf8 48%, #fb7185 100%);
+}
+
+[data-theme='aurora'] body {
+  font-family: 'Manrope', 'Segoe UI', sans-serif;
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(45, 212, 191, 0.12), transparent 55%),
+    radial-gradient(900px 500px at 90% 0%, rgba(251, 113, 133, 0.1), transparent 50%),
+    radial-gradient(800px 400px at 50% 100%, rgba(129, 140, 248, 0.08), transparent 55%),
+    var(--bg-tertiary);
+}
+
+[data-theme='aurora'] .md-content code,
+[data-theme='aurora'] .md-content pre {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+[data-theme='aurora'] nav[aria-label] {
+  background: linear-gradient(180deg, rgba(8, 9, 16, 0.98) 0%, rgba(12, 14, 22, 0.98) 100%) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+[data-theme='aurora'] nav[aria-label] button {
+  border-radius: 18px !important;
+  transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+
+[data-theme='aurora'] nav[aria-label] button:hover {
+  transform: translateY(-1px);
+}
+
+[data-theme='aurora'] nav[aria-label] .rail-pill {
+  background: var(--aurora-gradient) !important;
+  box-shadow: 0 0 12px rgba(45, 212, 191, 0.45);
+}
+
+[data-theme='aurora'] .w-sidebar {
+  backdrop-filter: blur(18px);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(14, 16, 24, 0.88) !important;
+}
+
+[data-theme='aurora'] .w-sidebar header,
+[data-theme='aurora'] .w-sidebar > button:first-of-type {
+  background: transparent !important;
+  box-shadow: none !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+[data-theme='aurora'] main.bg-surface {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(45, 212, 191, 0.06), transparent 60%),
+    var(--bg-primary) !important;
+}
+
+[data-theme='aurora'] .bg-surface-input {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px !important;
+  box-shadow: var(--aurora-glow);
+}
+
+[data-theme='aurora'] .absolute.inset-x-0.bottom-0.z-10.bg-surface,
+[data-theme='aurora'] .relative.shrink-0.px-4 {
+  background: linear-gradient(180deg, transparent 0%, rgba(8, 9, 16, 0.92) 28%, rgba(8, 9, 16, 0.98) 100%) !important;
+  box-shadow: none !important;
+}
+
+[data-theme='aurora'] .h-header {
+  backdrop-filter: blur(16px);
+  background: rgba(10, 12, 18, 0.72) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: none !important;
+}
+
+[data-theme='aurora'][data-chat-dm] .group\/message {
+  margin-left: 12px;
+  margin-right: 12px;
+  padding: 10px 14px !important;
+  border-radius: 18px;
+  max-width: min(78%, 560px);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+[data-theme='aurora'][data-chat-dm] .group\/message[data-mine='true'] {
+  margin-left: auto;
+  background: linear-gradient(135deg, rgba(45, 212, 191, 0.22), rgba(129, 140, 248, 0.18));
+  border-color: rgba(45, 212, 191, 0.35);
+}
+
+[data-theme='aurora'][data-chat-dm] .group\/message .pl-\[48px\],
+[data-theme='aurora'][data-chat-dm] .group\/message .pl-\[56px\] {
+  padding-left: 0 !important;
+}
+
+[data-theme='aurora'][data-chat-dm] .group\/message > .flex.gap-4 > button.shrink-0,
+[data-theme='aurora'][data-chat-dm] .group\/message > .flex.gap-4 > span.shrink-0 {
+  display: none;
+}
+
+[data-theme='aurora']:not([data-chat-dm]) .group\/message {
+  border-radius: 10px;
+  margin-inline: 8px;
+}
+
+[data-theme='aurora'] button.bg-brand,
+[data-theme='aurora'] .bg-brand.text-white {
+  background: var(--aurora-gradient) !important;
+  color: #0a0b10 !important;
+  font-weight: 700;
+}
+
+[data-theme='aurora'] ::selection {
+  background: rgba(45, 212, 191, 0.35);
+  color: #fff;
+}

@@ -1,0 +1,25 @@
+# Aurora redesign mockup on port 1488 (same backend as production).
+#
+#   docker compose -f docker-compose.prod.yml -f docker-compose.preview.yml up -d --build web-preview
+#
+# Public HTTPS is terminated by the edge container, which proxies 1488 to this
+# service over the compose network. Publishing 1488 here instead would serve
+# plain HTTP on a host the browser has pinned to HTTPS via HSTS.
+
+name: tetherchat
+
+services:
+  web-preview:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile.preview
+      args:
+        VITE_API_URL: ''
+        VITE_WS_URL: ''
+        VITE_THEME: aurora
+        PREVIEW_PORT: '1488'
+    restart: unless-stopped
+    expose:
+      - '1488'
+    networks:
+      - default

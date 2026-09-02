@@ -1,0 +1,15 @@
+{
+  "name": "@tetherchat/desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TetherChat desktop shell for Windows and Linux",
+  "scripts": {
+    "dev": "tauri dev",
+    "build:web": "VITE_API_URL=https://tetherchat.ru VITE_WS_URL=https://tetherchat.ru npm run build:desktop -w @tetherchat/web",
+    "build": "npm run build:web && tauri build",
+    "typecheck": "echo \"desktop shell has no TS sources\""
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.2.5"
+  }
+}
