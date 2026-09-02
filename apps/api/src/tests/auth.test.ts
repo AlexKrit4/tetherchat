@@ -46,6 +46,36 @@ describe('auth', () => {
     expect(sameUsername.statusCode).toBe(409);
   });
 
+  it('rejects refresh after an account is marked as a bot', async () => {
+    const user = await createUser();
+    created.push(user);
+    const app = await testApp();
+
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { login: user.email, password: user.password },
+    });
+    expect(login.statusCode).toBe(200);
+    const cookie = login.cookies.find((entry) => entry.name === 'tc_refresh')!.value;
+
+    await prisma.user.update({ where: { id: user.id }, data: { isBot: true } });
+
+    const refresh = await app.inject({
+      method: 'POST',
+      url: '/api/auth/refresh',
+      cookies: { tc_refresh: cookie },
+    });
+    expect(refresh.statusCode).toBe(401);
+
+    const me = await app.inject({
+      method: 'GET',
+      url: '/api/users/@me',
+      headers: user.auth,
+    });
+    expect(me.statusCode).toBe(401);
+  });
+
   it('does not grant platform admin at registration and reserves the operator identity', async () => {
     const app = await testApp();
     const squatter = await app.inject({

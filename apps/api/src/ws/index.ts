@@ -93,8 +93,12 @@ export async function attachSocketServer(app: FastifyInstance): Promise<TypedSer
       data.userId = payload.sub;
       data.username = payload.username;
       data.silent = handshakeIsSilent(socket.handshake.auth, socket.handshake.query);
-      void activeSiteBan(payload.sub).then((ban) => {
-        if (ban) next(new Error('account_banned'));
+      void Promise.all([
+        activeSiteBan(payload.sub),
+        prisma.user.findUnique({ where: { id: payload.sub }, select: { isBot: true } }),
+      ]).then(([ban, account]) => {
+        if (!account || account.isBot) next(new Error('unauthorized'));
+        else if (ban) next(new Error('account_banned'));
         else next();
       });
     } catch {

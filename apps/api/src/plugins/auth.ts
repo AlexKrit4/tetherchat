@@ -1,5 +1,6 @@
 import fp from 'fastify-plugin';
 import type { FastifyRequest } from 'fastify';
+import { prisma } from '../db.js';
 import { ApiError } from '../errors.js';
 import { mskDateKey } from '../lib/adminCredentials.js';
 import { activeSiteBan, banLoginMessage } from '../lib/platformAdmin.js';
@@ -32,6 +33,11 @@ export const authPlugin = fp(async (app) => {
     const token = bearerToken(request);
     if (!token) throw ApiError.unauthorized('Missing bearer token');
     request.userId = verifyAccessToken(token).sub;
+    const account = await prisma.user.findUnique({
+      where: { id: request.userId },
+      select: { isBot: true },
+    });
+    if (!account || account.isBot) throw ApiError.unauthorized('Invalid or expired access token');
     const ban = await activeSiteBan(request.userId);
     if (ban) throw ApiError.banned(banLoginMessage(ban));
   });

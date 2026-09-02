@@ -18,6 +18,7 @@ import {
 } from '../lib/totp.js';
 import { assertPlatformAdmin, activeSiteBan, banLoginMessage, syncPlatformAdminFlag } from '../lib/platformAdmin.js';
 import { isReservedUsername } from '../lib/aiBot.js';
+import { isReservedEmail } from '../lib/bots.js';
 import { redis } from '../redis.js';
 import {
   expiredPoll,
@@ -76,7 +77,7 @@ export async function authRoutes(app: FastifyInstance) {
     if (isReservedUsername(username) || username === PLATFORM_ADMIN_USERNAME) {
       throw ApiError.conflict('That username is taken');
     }
-    if (email === PLATFORM_ADMIN_EMAIL) {
+    if (email === PLATFORM_ADMIN_EMAIL || isReservedEmail(email)) {
       throw ApiError.conflict('That username is taken');
     }
 
@@ -279,10 +280,10 @@ export async function authRoutes(app: FastifyInstance) {
 
     const stored = await prisma.refreshToken.findUnique({
       where: { tokenHash: hashToken(presented) },
-      include: { user: { select: selfSelect } },
+      include: { user: { select: { ...selfSelect, isBot: true } } },
     });
 
-    if (!stored || stored.revokedAt || stored.expiresAt < new Date()) {
+    if (!stored || stored.revokedAt || stored.expiresAt < new Date() || stored.user.isBot) {
       throw ApiError.unauthorized('Refresh token is no longer valid');
     }
 

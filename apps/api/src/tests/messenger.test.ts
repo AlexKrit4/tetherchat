@@ -1,6 +1,8 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import type { DirectConversation, Message, Session } from '@tetherchat/shared';
 import { prisma } from '../db.js';
+import { getBotUserId } from '../lib/bots.js';
+import { hashPassword } from '../lib/tokens.js';
 import { closeTestApp, createServer, createUser, firstChannel, linkFriends, testApp } from './harness.js';
 import type { TestUser } from './harness.js';
 
@@ -75,6 +77,84 @@ describe('ai chat', () => {
       },
     });
     expect(response.statusCode).toBe(409);
+  });
+
+  it('rejects registering reserved bot emails', async () => {
+    const app = await testApp();
+    for (const email of [
+      'tetherai@tetherchat.invalid',
+      'tethervpn@tetherchat.invalid',
+      'tethermonitor@tetherchat.invalid',
+    ]) {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/auth/register',
+        payload: {
+          email,
+          username: `sq${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+          password: 'sup3r-secret-pass',
+        },
+      });
+      expect(response.statusCode).toBe(409);
+    }
+  });
+
+  it('does not promote a regular account that squatted a bot email into the bot', async () => {
+    const occupied = await prisma.user.findUnique({
+      where: { email: 'tethermonitor@tetherchat.invalid' },
+      select: { id: true, isBot: true },
+    });
+
+    const emailSquatter = occupied
+      ? null
+      : await prisma.user.create({
+          data: {
+            email: 'tethermonitor@tetherchat.invalid',
+            username: `msq${Date.now().toString(36).slice(-8)}`,
+            passwordHash: await hashPassword('sup3r-secret-pass'),
+          },
+        });
+    if (emailSquatter) {
+      created.push({
+        id: emailSquatter.id,
+        email: emailSquatter.email,
+        username: emailSquatter.username,
+        password: 'sup3r-secret-pass',
+        accessToken: '',
+        auth: { authorization: '' },
+      });
+    }
+
+    const bystander = await prisma.user.create({
+      data: {
+        email: `squat-${Date.now()}@example.test`,
+        username: `sq${Date.now().toString(36).slice(-8)}`,
+        passwordHash: await hashPassword('sup3r-secret-pass'),
+      },
+    });
+    created.push({
+      id: bystander.id,
+      email: bystander.email,
+      username: bystander.username,
+      password: 'sup3r-secret-pass',
+      accessToken: '',
+      auth: { authorization: '' },
+    });
+
+    const botId = await getBotUserId('monitor');
+    expect(botId).not.toBe(bystander.id);
+    if (emailSquatter) expect(botId).not.toBe(emailSquatter.id);
+
+    const stillBystander = await prisma.user.findUniqueOrThrow({ where: { id: bystander.id } });
+    expect(stillBystander.isBot).toBe(false);
+
+    if (emailSquatter) {
+      const stillHuman = await prisma.user.findUniqueOrThrow({ where: { id: emailSquatter.id } });
+      expect(stillHuman.isBot).toBe(false);
+      const bot = await prisma.user.findUniqueOrThrow({ where: { id: botId } });
+      expect(bot.isBot).toBe(true);
+      expect(bot.username).toBe('tethermonitor');
+    }
   });
 });
 
