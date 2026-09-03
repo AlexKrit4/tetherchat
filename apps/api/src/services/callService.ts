@@ -16,7 +16,9 @@ import { emitToUser } from '../ws/realtime.js';
 const RING_TIMEOUT_MS = 45_000;
 const ACTIVE_STATUSES: CallStatus[] = ['ringing', 'active'];
 const STALE_RINGING_MS = RING_TIMEOUT_MS + 10_000;
-const STALE_ACTIVE_MS = 3 * 60_000;
+/** Crash leftovers only. Must stay far above any realistic live call, because
+ * `startedAt` is the call's birth time — not last activity. */
+const STALE_ACTIVE_MS = 12 * 60 * 60 * 1000;
 const BUSY_RETRY_MS = 30_000;
 
 async function forceEndCall(
@@ -136,10 +138,15 @@ async function userBusy(userId: string): Promise<boolean> {
     select: { id: true, status: true, startedAt: true, callerId: true, calleeId: true, conversationId: true },
   });
   if (!active) return false;
-  const age = Date.now() - active.startedAt.getTime();
-  if (age > BUSY_RETRY_MS) {
-    await forceEndCall(active, active.status === 'ringing' ? 'missed' : 'ended');
-    return false;
+  // A stuck ring (crashed caller, missed timeout job) should not block forever.
+  // An answered call must stay up — `startedAt` is when it began, not last activity,
+  // so treating a 30s conversation as stale would drop anyone another friend dials.
+  if (active.status === 'ringing') {
+    const age = Date.now() - active.startedAt.getTime();
+    if (age > BUSY_RETRY_MS) {
+      await forceEndCall(active, 'missed');
+      return false;
+    }
   }
   return true;
 }
