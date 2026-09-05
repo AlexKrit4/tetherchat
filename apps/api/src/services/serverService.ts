@@ -103,6 +103,8 @@ export async function getServerDetail(serverId: string, userId: string): Promise
     roleMasks: member.roles.map((entry) => entry.role.permissions),
   });
 
+  const visible = new Set(await visibleChannelIdsForServers(userId, [serverId]));
+
   return {
     id: server.id,
     name: server.name,
@@ -111,7 +113,7 @@ export async function getServerDetail(serverId: string, userId: string): Promise
     ownerId: server.ownerId,
     memberCount: server._count.members,
     categories: server.categories.map(toCategory),
-    channels: server.channels.map(toChannel),
+    channels: server.channels.filter((channel) => visible.has(channel.id)).map(toChannel),
     roles: server.roles.map(toRole),
     permissions,
   };
@@ -181,6 +183,18 @@ export async function joinByInvite(code: string, userId: string): Promise<{ serv
   });
 
   const member = await prisma.$transaction(async (tx) => {
+    // Claim a use atomically, then refuse if this join pushed the invite over maxUses.
+    // Concurrent joiners can both pass the pre-check above; the post-increment
+    // comparison rolls the extra memberships back.
+    await tx.invite.update({ where: { code }, data: { uses: { increment: 1 } } });
+    const claimed = await tx.invite.findUniqueOrThrow({ where: { code } });
+    if (claimed.expiresAt && claimed.expiresAt < new Date()) {
+      throw ApiError.notFound('This invite has expired');
+    }
+    if (claimed.maxUses !== null && claimed.uses > claimed.maxUses) {
+      throw ApiError.notFound('This invite has reached its usage limit');
+    }
+
     const created = await tx.serverMember.create({
       data: { serverId: invite.serverId, userId },
       include: memberInclude,
@@ -188,7 +202,6 @@ export async function joinByInvite(code: string, userId: string): Promise<{ serv
     if (everyone) {
       await tx.serverMemberRole.create({ data: { memberId: created.id, roleId: everyone.id } });
     }
-    await tx.invite.update({ where: { code }, data: { uses: { increment: 1 } } });
     return created;
   });
 

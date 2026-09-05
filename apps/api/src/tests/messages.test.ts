@@ -157,6 +157,49 @@ describe('messages', () => {
     expect(byMember.statusCode).toBe(403);
   });
 
+  it('refuses to let a kicked member delete their old messages', async () => {
+    const app = await testApp();
+    const host = await createUser();
+    const visitor = await createUser();
+    const server = await createServer(host, 'Kick Delete');
+    const target = firstChannel(server).id;
+    await joinServer(server.id, visitor);
+
+    const posted = await app.inject({
+      method: 'POST',
+      url: `/api/channels/${target}/messages`,
+      headers: visitor.auth,
+      payload: { content: 'please erase me later' },
+    });
+    expect(posted.statusCode).toBe(201);
+    const messageId = posted.json<Message>().id;
+
+    const kicked = await app.inject({
+      method: 'DELETE',
+      url: `/api/servers/${server.id}/members/${visitor.id}`,
+      headers: host.auth,
+    });
+    expect(kicked.statusCode).toBe(204);
+
+    const erased = await app.inject({
+      method: 'DELETE',
+      url: `/api/messages/${messageId}`,
+      headers: visitor.auth,
+    });
+    expect(erased.statusCode).toBe(403);
+
+    const history = await app.inject({
+      method: 'GET',
+      url: `/api/channels/${target}/messages`,
+      headers: host.auth,
+    });
+    expect(history.json<{ items: Message[] }>().items.some((item) => item.id === messageId)).toBe(
+      true,
+    );
+
+    await prisma.user.deleteMany({ where: { id: { in: [host.id, visitor.id] } } });
+  });
+
   it('toggles a reaction on and off', async () => {
     const app = await testApp();
     const message = (await send(owner, { content: 'react here' })).json<Message>();

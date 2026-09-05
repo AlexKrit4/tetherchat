@@ -15,6 +15,7 @@ import {
   assertConversationMember,
   assertPermission,
   loadChannelContext,
+  memberIdsWhoCanViewChannel,
 } from '../lib/permissions.js';
 import { consumeRateLimit } from '../redis.js';
 import { emitToChannel, emitToConversation } from '../ws/realtime.js';
@@ -73,10 +74,7 @@ async function resolveTarget(input: CreateMessageInput): Promise<Target> {
       where: { id: input.channelId },
       select: { name: true, serverId: true },
     });
-    const members = await prisma.serverMember.findMany({
-      where: { serverId: channel.serverId },
-      select: { userId: true },
-    });
+    const recipientIds = await memberIdsWhoCanViewChannel(input.channelId);
 
     return {
       kind: 'channel',
@@ -84,7 +82,7 @@ async function resolveTarget(input: CreateMessageInput): Promise<Target> {
       serverId: channel.serverId,
       serverName: context.serverName,
       channelName: channel.name,
-      recipientIds: members.map((member) => member.userId),
+      recipientIds,
       canMentionEveryone: can(context.permissions, Permission.MENTION_EVERYONE),
     };
   }
@@ -530,10 +528,18 @@ export async function deleteMessage(messageId: string, userId: string): Promise<
   });
   if (!existing || existing.deletedAt) throw ApiError.notFound('Message not found');
 
-  if (existing.authorId !== userId) {
-    if (!existing.channelId) throw ApiError.forbidden('You can only delete your own messages');
+  if (existing.channelId) {
     const context = await loadChannelContext(existing.channelId, userId);
-    assertPermission(context, Permission.MANAGE_MESSAGES);
+    if (existing.authorId !== userId) {
+      assertPermission(context, Permission.MANAGE_MESSAGES);
+    }
+  } else if (existing.conversationId) {
+    await assertConversationMember(existing.conversationId, userId);
+    if (existing.authorId !== userId) {
+      throw ApiError.forbidden('You can only delete your own messages');
+    }
+  } else {
+    throw ApiError.notFound('Message not found');
   }
 
   await prisma.message.delete({ where: { id: messageId } });

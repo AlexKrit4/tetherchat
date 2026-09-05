@@ -124,6 +124,113 @@ describe('servers', () => {
     await prisma.user.deleteMany({ where: { id: { in: [first.id, second.id] } } });
   });
 
+  it('does not let two callers consume a single-use invite at once', async () => {
+    const app = await testApp();
+    const server = await createServer(owner, 'Race Invite');
+    const invite = (
+      await app.inject({
+        method: 'POST',
+        url: `/api/servers/${server.id}/invite`,
+        headers: owner.auth,
+        payload: { maxUses: 1 },
+      })
+    ).json<Invite>();
+
+    const first = await createUser();
+    const second = await createUser();
+    const results = await Promise.all([
+      app.inject({ method: 'POST', url: `/api/invite/${invite.code}/join`, headers: first.auth }),
+      app.inject({ method: 'POST', url: `/api/invite/${invite.code}/join`, headers: second.auth }),
+    ]);
+
+    expect(results.filter((row) => row.statusCode === 200)).toHaveLength(1);
+    expect(results.filter((row) => row.statusCode === 404)).toHaveLength(1);
+
+    const members = await prisma.serverMember.count({ where: { serverId: server.id } });
+    expect(members).toBe(2);
+
+    const uses = await prisma.invite.findUniqueOrThrow({
+      where: { code: invite.code },
+      select: { uses: true },
+    });
+    expect(uses.uses).toBe(1);
+
+    await prisma.user.deleteMany({ where: { id: { in: [first.id, second.id] } } });
+  });
+
+  it('hides channels from members who lack VIEW_CHANNEL', async () => {
+    const app = await testApp();
+    const server = await createServer(owner, 'Staff Only');
+    const everyone = server.roles.find((role) => role.isDefault);
+    expect(everyone).toBeTruthy();
+
+    const invite = (
+      await app.inject({
+        method: 'POST',
+        url: `/api/servers/${server.id}/invite`,
+        headers: owner.auth,
+        payload: {},
+      })
+    ).json<Invite>();
+    await app.inject({
+      method: 'POST',
+      url: `/api/invite/${invite.code}/join`,
+      headers: guest.auth,
+    });
+
+    await app.inject({
+      method: 'PATCH',
+      url: `/api/servers/${server.id}/roles/${everyone!.id}`,
+      headers: owner.auth,
+      payload: { permissions: 0 },
+    });
+
+    const detail = await app.inject({
+      method: 'GET',
+      url: `/api/servers/${server.id}`,
+      headers: guest.auth,
+    });
+    expect(detail.statusCode).toBe(200);
+    expect(detail.json<ServerDetail>().channels).toHaveLength(0);
+
+    const listed = await app.inject({
+      method: 'GET',
+      url: `/api/servers/${server.id}/channels`,
+      headers: guest.auth,
+    });
+    expect(listed.json<Channel[]>()).toHaveLength(0);
+
+    const channelId = firstChannel(server).id;
+    const history = await app.inject({
+      method: 'GET',
+      url: `/api/channels/${channelId}/messages`,
+      headers: guest.auth,
+    });
+    expect(history.statusCode).toBe(403);
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/channels/${channelId}/messages`,
+      headers: owner.auth,
+      payload: { content: '@everyone secret staff note' },
+    });
+
+    const states = await app.inject({
+      method: 'GET',
+      url: '/api/users/@me/read-states',
+      headers: guest.auth,
+    });
+    const leaked = states.json<{ channelId: string; mentionCount: number }[]>().find(
+      (row) => row.channelId === channelId,
+    );
+    expect(leaked).toBeUndefined();
+
+    const mentionRow = await prisma.readState.findUnique({
+      where: { userId_channelId: { userId: guest.id, channelId } },
+    });
+    expect(mentionRow?.mentionCount ?? 0).toBe(0);
+  });
+
   it('requires MANAGE_CHANNELS to create or delete a channel', async () => {
     const app = await testApp();
     const server = await createServer(owner, 'Channel Perms');
