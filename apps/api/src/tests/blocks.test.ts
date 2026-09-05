@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, it } from 'vitest';
-import type { DirectConversation, PublicUser } from '@tetherchat/shared';
+import type { DirectConversation, Message, PublicUser } from '@tetherchat/shared';
 import { prisma } from '../db.js';
 import { closeTestApp, createUser, linkFriends, testApp } from './harness.js';
 import type { TestUser } from './harness.js';
@@ -77,6 +77,23 @@ describe('user blocks', () => {
       payload: { userIds: [alice.id] },
     });
     expect(reopen.statusCode).toBe(403);
+
+    const wipe = await app.inject({
+      method: 'DELETE',
+      url: `/api/dms/${conversation.id}?scope=all`,
+      headers: bob.auth,
+    });
+    expect(wipe.statusCode).toBe(403);
+
+    const stillThere = await app.inject({
+      method: 'GET',
+      url: `/api/dms/${conversation.id}/messages`,
+      headers: alice.auth,
+    });
+    expect(stillThere.statusCode).toBe(200);
+    expect(stillThere.json<{ items: Message[] }>().items.some((item) => item.content === 'hello')).toBe(
+      true,
+    );
 
     const unblocked = await app.inject({
       method: 'DELETE',

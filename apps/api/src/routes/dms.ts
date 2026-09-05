@@ -466,6 +466,17 @@ export async function dmRoutes(app: FastifyInstance) {
       return;
     }
 
+    const peerId = activeMemberIds.find((id) => id !== request.userId);
+    if (peerId) {
+      const blockedByPeer = await prisma.userBlock.findFirst({
+        where: { blockerId: peerId, blockedId: request.userId },
+        select: { id: true },
+      });
+      if (blockedByPeer) {
+        throw ApiError.forbidden('You cannot delete this chat for everyone');
+      }
+    }
+
     await prisma.$transaction(async (tx) => {
       await tx.message.deleteMany({ where: { conversationId } });
       await tx.directConversation.update({

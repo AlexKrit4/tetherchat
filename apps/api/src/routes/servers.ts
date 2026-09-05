@@ -9,6 +9,7 @@ import {
   assertOutranks,
   assertPermission,
   loadMemberContext,
+  visibleChannelIdsForServers,
 } from '../lib/permissions.js';
 import {
   banInclude,
@@ -149,11 +150,12 @@ export async function serverRoutes(app: FastifyInstance) {
   app.get('/:serverId/channels', async (request) => {
     const { serverId } = idParam.parse(request.params);
     await loadMemberContext(serverId, request.userId);
+    const visible = new Set(await visibleChannelIdsForServers(request.userId, [serverId]));
     const channels = await prisma.channel.findMany({
       where: { serverId },
       orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
     });
-    return channels.map(toChannel);
+    return channels.filter((channel) => visible.has(channel.id)).map(toChannel);
   });
 
   app.post('/:serverId/channels', async (request, reply) => {

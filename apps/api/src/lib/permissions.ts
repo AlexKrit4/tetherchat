@@ -139,6 +139,33 @@ export async function assertConversationMember(
   }
 }
 
+type ChannelOverwriteBits = { roleId: string; allow: number; deny: number };
+
+function canViewChannel(input: {
+  isOwner: boolean;
+  roleIds: string[];
+  roleMasks: number[];
+  overwrites: ChannelOverwriteBits[];
+}): boolean {
+  if (input.isOwner) return true;
+  let allow = 0;
+  let deny = 0;
+  for (const overwrite of input.overwrites) {
+    if (!input.roleIds.includes(overwrite.roleId)) continue;
+    allow |= overwrite.allow;
+    deny |= overwrite.deny;
+  }
+  return can(
+    resolvePermissions({
+      isOwner: false,
+      roleMasks: input.roleMasks,
+      channelAllow: allow,
+      channelDeny: deny,
+    }),
+    Permission.VIEW_CHANNEL,
+  );
+}
+
 /**
  * Channel ids the user may actually see, after @everyone and per-channel
  * overwrites. Used when joining Socket.IO rooms so a private channel does not
@@ -170,31 +197,47 @@ export async function visibleChannelIdsForServers(
   for (const channel of channels) {
     const member = memberByServer.get(channel.serverId);
     if (!member) continue;
-
-    const isOwner = member.server.ownerId === userId;
-    if (isOwner) {
+    if (
+      canViewChannel({
+        isOwner: member.server.ownerId === userId,
+        roleIds: member.roles.map((entry) => entry.role.id),
+        roleMasks: member.roles.map((entry) => entry.role.permissions),
+        overwrites: channel.overwrites,
+      })
+    ) {
       visible.push(channel.id);
-      continue;
     }
-
-    const roleIds = member.roles.map((entry) => entry.role.id);
-    const roleMasks = member.roles.map((entry) => entry.role.permissions);
-    let allow = 0;
-    let deny = 0;
-    for (const overwrite of channel.overwrites) {
-      if (!roleIds.includes(overwrite.roleId)) continue;
-      allow |= overwrite.allow;
-      deny |= overwrite.deny;
-    }
-
-    const permissions = resolvePermissions({
-      isOwner,
-      roleMasks,
-      channelAllow: allow,
-      channelDeny: deny,
-    });
-    if (can(permissions, Permission.VIEW_CHANNEL)) visible.push(channel.id);
   }
 
   return visible;
+}
+
+/** Server members who currently hold VIEW_CHANNEL on this channel (for push/mentions). */
+export async function memberIdsWhoCanViewChannel(channelId: string): Promise<string[]> {
+  const channel = await prisma.channel.findUnique({
+    where: { id: channelId },
+    include: {
+      server: { select: { ownerId: true } },
+      overwrites: true,
+    },
+  });
+  if (!channel) return [];
+
+  const members = await prisma.serverMember.findMany({
+    where: { serverId: channel.serverId },
+    include: {
+      roles: { include: { role: { select: { id: true, permissions: true } } } },
+    },
+  });
+
+  return members
+    .filter((member) =>
+      canViewChannel({
+        isOwner: channel.server.ownerId === member.userId,
+        roleIds: member.roles.map((entry) => entry.role.id),
+        roleMasks: member.roles.map((entry) => entry.role.permissions),
+        overwrites: channel.overwrites,
+      }),
+    )
+    .map((member) => member.userId);
 }

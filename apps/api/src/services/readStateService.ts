@@ -1,7 +1,7 @@
 import type { ReadState } from '@tetherchat/shared';
 import { ApiError } from '../errors.js';
 import { prisma } from '../db.js';
-import { loadChannelContext } from '../lib/permissions.js';
+import { loadChannelContext, visibleChannelIdsForServers } from '../lib/permissions.js';
 import { emitToConversation } from '../ws/realtime.js';
 
 /** Marks a channel as read up to a message and clears its mention counter. */
@@ -117,11 +117,7 @@ export async function listReadStates(userId: string): Promise<ReadState[]> {
   const serverIds = memberships.map((row) => row.serverId);
   if (serverIds.length === 0) return [];
 
-  const channels = await prisma.channel.findMany({
-    where: { serverId: { in: serverIds } },
-    select: { id: true },
-  });
-  const channelIds = channels.map((channel) => channel.id);
+  const channelIds = await visibleChannelIdsForServers(userId, serverIds);
   if (channelIds.length === 0) return [];
 
   const [states, latest] = await Promise.all([
