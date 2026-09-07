@@ -16,6 +16,8 @@ import { CallOverlay } from '@/components/call/CallOverlay';
 import { CallBanner } from '@/components/call/CallBanner';
 import { PlusUpsellSheet } from '@/components/plus/PlusUpsellSheet';
 import { SecretProtectOverlay } from '@/components/plus/SecretProtectOverlay';
+import { useDraftSync } from '@/hooks/useDraftSync';
+import { useAppBadge } from '@/hooks/useAppBadge';
 import { useLiveKitRoom } from '@/hooks/useLiveKitRoom';
 import { useAuthStore } from '@/stores/authStore';
 import { ensureE2eeDevice, processPendingSecretClaims } from '@/lib/e2ee';
@@ -28,6 +30,8 @@ export function AppShell() {
   const layout = useLayout();
   const connection = useRealtime();
   useLiveKitRoom();
+  useDraftSync();
+  useAppBadge();
   const userId = useAuthStore((state) => state.user?.id);
   usePresenceLifecycle();
   const navigate = useNavigate();

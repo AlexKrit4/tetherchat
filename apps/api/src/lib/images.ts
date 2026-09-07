@@ -32,6 +32,21 @@ export async function normalizeIcon(buffer: Buffer): Promise<{ body: Buffer; con
   return { body, contentType: 'image/webp' };
 }
 
+/** Tiny blur placeholder for chat images, inlined as a data URL. */
+export async function makeThumbnail(buffer: Buffer): Promise<string | null> {
+  try {
+    const webp = await sharp(buffer, { animated: false, failOn: 'none' })
+      .rotate()
+      .resize(32, 32, { fit: 'inside' })
+      .webp({ quality: 40 })
+      .toBuffer();
+    if (webp.byteLength > 12_000) return null;
+    return `data:image/webp;base64,${webp.toString('base64')}`;
+  } catch {
+    return null;
+  }
+}
+
 /** Chat wallpaper: wide, compressed, still sharp enough on a phone. */
 export async function normalizeWallpaper(buffer: Buffer): Promise<{ body: Buffer; contentType: string }> {
   const body = await sharp(buffer, { animated: false })

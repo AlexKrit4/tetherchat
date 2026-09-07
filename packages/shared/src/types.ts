@@ -93,6 +93,8 @@ export interface Attachment {
   durationMs?: number | null;
   spoiler?: boolean;
   transcript?: string | null;
+  /** Tiny data-URL preview so images can paint before the signed file loads. */
+  thumbnailData?: string | null;
 }
 
 export interface Reaction {
@@ -138,6 +140,9 @@ export interface Message {
   system: boolean;
   replyTo: MessageReference | null;
   forwardedFrom?: MessageReference | null;
+  /** Present on replies that belong to a thread rather than the main timeline. */
+  threadRootId?: string | null;
+  threadReplyCount?: number;
   attachments: Attachment[];
   reactions: Reaction[];
   previews: LinkPreview[];
@@ -147,6 +152,17 @@ export interface Message {
   pending?: boolean;
   failed?: boolean;
   nonce?: string;
+  /** Client-only: payload needed to retry a failed optimistic send. */
+  outbox?: {
+    content: string;
+    replyToId?: string | null;
+    threadRootId?: string | null;
+    attachmentIds?: string[];
+    attachmentDurations?: Record<string, number>;
+    attachmentSpoilers?: Record<string, boolean>;
+    isDm: boolean;
+    isSecret: boolean;
+  };
 }
 
 export interface DirectConversation {
@@ -170,6 +186,10 @@ export interface DirectConversation {
   /** Peer read cursor for 1:1 DMs only. Absent on groups, servers, and Saved Messages. */
   peerLastReadMessageId?: string | null;
   peerLastReadAt?: string | null;
+  /** Small group DMs only (3–12 people). Server channels never get this. */
+  memberReadCursors?: { userId: string; lastReadMessageId: string | null; lastReadAt: string | null }[];
+  /** The requesting member's own read cursor, used for unread counts. */
+  selfLastReadAt?: string | null;
   /** Per-member pin in the DM list. Saved Messages stays above pinned chats. */
   pinned?: boolean;
   wallpaperUrl?: string | null;
@@ -188,6 +208,19 @@ export interface CryptoDevice {
 export interface WrappedSecretKey {
   deviceId: string;
   wrappedKey: string;
+}
+
+export interface SearchHit {
+  message: Message;
+  contextTitle: string;
+  contextKind: 'channel' | 'dm';
+  isDm: boolean;
+  match: 'content' | 'file' | 'link';
+}
+
+export interface ComposerDraft {
+  text: string;
+  updatedAt: number;
 }
 
 export interface Session {

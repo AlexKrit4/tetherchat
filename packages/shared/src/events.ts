@@ -25,6 +25,7 @@ export interface ClientToServerEvents {
       attachmentDurations?: Record<string, number>;
       attachmentSpoilers?: Record<string, boolean>;
       forwardMessageId?: string;
+      threadRootId?: string | null;
       nonce?: string;
     },
     ack?: (result: AckResult<Message>) => void,

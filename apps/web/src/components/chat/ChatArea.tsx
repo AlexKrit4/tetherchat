@@ -7,6 +7,7 @@ import { MessageInput } from './MessageInput';
 import { PinnedMessagesPanel } from './PinnedMessagesPanel';
 import { MediaPanel } from './MediaPanel';
 import { SearchPanel } from './SearchPanel';
+import { ThreadPanel } from './ThreadPanel';
 import { useChatTarget } from '@/hooks/useChatTarget';
 import { useChannelNotificationSetting } from '@/hooks/useReadStates';
 
@@ -34,13 +35,16 @@ export function ChatArea({ className }: { className?: string }) {
           style={{ backgroundImage: `url(${wallpaper})` }}
         />
       ) : null}
-      <div className="relative flex min-h-0 flex-1 flex-col">
-        <ChatHeader />
-        <MessageList />
-        <MessageInput />
-        <PinnedMessagesPanel />
-        <SearchPanel />
-        <MediaPanel />
+      <div className="relative flex min-h-0 flex-1">
+        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+          <ChatHeader />
+          <MessageList />
+          <MessageInput />
+          <PinnedMessagesPanel />
+          <SearchPanel />
+          <MediaPanel />
+        </div>
+        <ThreadPanel />
       </div>
     </main>
   );

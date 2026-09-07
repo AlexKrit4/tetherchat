@@ -15,3 +15,26 @@ export function desktopWsOrigin(): string {
   const configured = (import.meta.env.VITE_WS_URL ?? '').replace(/\/$/, '');
   return configured || desktopApiOrigin();
 }
+
+function tauriInvoke(command: string, args: Record<string, unknown>): Promise<unknown> {
+  const internals = (window as Window & { __TAURI_INTERNALS__?: { invoke: (cmd: string, args: unknown) => Promise<unknown> } }).__TAURI_INTERNALS__;
+  if (!internals?.invoke) return Promise.reject(new Error('not tauri'));
+  return internals.invoke(command, args);
+}
+
+/** Native tray notifications, so the desktop shell is not just a browser frame. */
+export function installDesktopNotifier(): void {
+  if (!isDesktopApp() || typeof window === 'undefined') return;
+  if (window.TetherChatNative) return;
+  window.TetherChatNative = {
+    showNotification(title, body) {
+      void tauriInvoke('show_notification', { title, body });
+    },
+    notificationsAllowed() {
+      return true;
+    },
+    requestNotifications() {
+      void tauriInvoke('plugin:notification|request_permission', {});
+    },
+  };
+}

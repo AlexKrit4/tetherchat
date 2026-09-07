@@ -8,6 +8,8 @@ export const queryKeys = {
   messages: (channelId: string) => ['messages', channelId] as const,
   pins: (channelId: string) => ['pins', channelId] as const,
   search: (channelId: string, query: string) => ['search', channelId, query] as const,
+  globalSearch: (query: string) => ['search-global', query] as const,
+  thread: (rootId: string) => ['thread', rootId] as const,
   readStates: ['read-states'] as const,
   dms: ['dms'] as const,
   dm: (conversationId: string) => ['dm', conversationId] as const,

@@ -1,4 +1,4 @@
-import { Copy, Flag, Forward, Pencil, Pin, Reply, SmilePlus, Trash2 } from 'lucide-react';
+import { Copy, Flag, Forward, MessagesSquare, Pencil, Pin, Reply, SmilePlus, Trash2 } from 'lucide-react';
 import type { Message } from '@tetherchat/shared';
 import { useT } from '@/i18n/useT';
 import { BottomSheet, SheetAction } from '@/components/ui/BottomSheet';
@@ -20,6 +20,8 @@ export interface MessageActionSheetProps {
   onReact: (message: Message, emoji: string) => void;
   onOpenEmojiPicker: (message: Message) => void;
   onReport?: (message: Message) => void;
+  onOpenThread?: (message: Message) => void;
+  onSelect?: (message: Message) => void;
 }
 
 /**
@@ -40,6 +42,8 @@ export function MessageActionSheet({
   onReact,
   onOpenEmojiPicker,
   onReport,
+  onOpenThread,
+  onSelect,
 }: MessageActionSheetProps) {
   const t = useT();
 
@@ -87,6 +91,20 @@ export function MessageActionSheet({
                 icon={<Forward size={18} aria-hidden />}
                 label={t('chat.forward')}
                 onSelect={() => run(() => onForward(message))}
+              />
+            ) : null}
+            {onOpenThread ? (
+              <SheetAction
+                icon={<MessagesSquare size={18} aria-hidden />}
+                label={t('chat.openThread')}
+                onSelect={() => run(() => onOpenThread(message))}
+              />
+            ) : null}
+            {onSelect ? (
+              <SheetAction
+                icon={<Copy size={18} aria-hidden />}
+                label={t('chat.select')}
+                onSelect={() => run(() => onSelect(message))}
               />
             ) : null}
             <SheetAction

@@ -6,7 +6,7 @@ import type { CallRingPayload, CallSignalPayload } from '@tetherchat/shared';
 import { connectSocket, getSocket } from '@/lib/socket';
 import { isSessionParked } from '@/lib/appForeground';
 import { notifyIncomingMessage } from '@/lib/push';
-import { messageCache } from './useMessages';
+import { drainOutbox, hydrateOutbox, messageCache } from './useMessages';
 import { sortDirectConversations } from './useDms';
 import { useAuthStore } from '@/stores/authStore';
 import { useCallStore } from '@/stores/callStore';
@@ -39,6 +39,9 @@ export function useRealtime(): ConnectionState {
       if (preferred && preferred !== 'offline') {
         socket.emit('presence:update', { status: preferred });
       }
+      const user = useAuthStore.getState().user;
+      if (user) hydrateOutbox(client, user);
+      void drainOutbox();
     };
     const onDisconnect = () => {
       if (isSessionParked()) return;
@@ -181,14 +184,20 @@ export function useRealtime(): ConnectionState {
       lastReadAt: string;
     }) => {
       if (payload.userId === currentUserId) return;
-      const patch = (conversation: DirectConversation): DirectConversation =>
-        conversation.id === payload.conversationId
-          ? {
-              ...conversation,
-              peerLastReadMessageId: payload.lastReadMessageId,
-              peerLastReadAt: payload.lastReadAt,
-            }
-          : conversation;
+      const patch = (conversation: DirectConversation): DirectConversation => {
+        if (conversation.id !== payload.conversationId) return conversation;
+        const cursors = conversation.memberReadCursors?.map((cursor) =>
+          cursor.userId === payload.userId
+            ? { ...cursor, lastReadMessageId: payload.lastReadMessageId, lastReadAt: payload.lastReadAt }
+            : cursor,
+        );
+        return {
+          ...conversation,
+          peerLastReadMessageId: payload.lastReadMessageId,
+          peerLastReadAt: payload.lastReadAt,
+          memberReadCursors: cursors,
+        };
+      };
       client.setQueryData<DirectConversation[]>(queryKeys.dms, (current) => current?.map(patch));
       client.setQueryData<DirectConversation>(queryKeys.dm(payload.conversationId), (current) =>
         current ? patch(current) : current,

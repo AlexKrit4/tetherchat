@@ -13,6 +13,7 @@ import { broadcastPresence } from '../ws/presence.js';
 import { readMultipartFile } from '../lib/multipart.js';
 import { assertPlus, bioLimit, loadPlus } from '../lib/plus.js';
 import { assertPlatformAdmin } from '../lib/platformAdmin.js';
+import { mergeDrafts, parseDrafts } from '../lib/drafts.js';
 
 const selfSelect = {
   ...publicUserSelect,
@@ -51,6 +52,39 @@ export async function userRoutes(app: FastifyInstance) {
       select: selfSelect,
     });
     return toSelfUser(user);
+  });
+
+  app.get('/@me/drafts', async (request) => {
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { id: request.userId },
+      select: { drafts: true },
+    });
+    return { drafts: parseDrafts(user.drafts) };
+  });
+
+  app.patch('/@me/drafts', async (request) => {
+    const body = z
+      .object({
+        drafts: z.record(
+          z.string().min(1).max(64),
+          z.object({
+            text: z.string().max(LIMITS.messageContent.max),
+            updatedAt: z.number().int().nonnegative(),
+          }),
+        ),
+      })
+      .parse(request.body);
+
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { id: request.userId },
+      select: { drafts: true },
+    });
+    const merged = mergeDrafts(parseDrafts(user.drafts), body.drafts);
+    await prisma.user.update({
+      where: { id: request.userId },
+      data: { drafts: merged as object },
+    });
+    return { drafts: merged };
   });
 
   app.patch('/@me', async (request) => {

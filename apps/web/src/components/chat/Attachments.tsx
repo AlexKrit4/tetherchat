@@ -66,6 +66,11 @@ export function Attachments({ attachments }: { attachments: Attachment[] }) {
                     'h-auto w-full rounded-lg bg-surface-tertiary object-cover',
                     spoiler && 'blur-2xl brightness-50',
                   )}
+                  style={
+                    attachment.thumbnailData && !spoiler
+                      ? { backgroundImage: `url(${attachment.thumbnailData})`, backgroundSize: 'cover' }
+                      : undefined
+                  }
                 />
                 {spoiler ? (
                   <span className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-white">

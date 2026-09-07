@@ -53,6 +53,10 @@ export function MessageBubble({
   onJumpToMessage,
   onForward,
   onReport,
+  onOpenThread,
+  onRetry,
+  selected,
+  seenByCount,
 }: MessagePresentationProps) {
   const t = useT();
 
@@ -72,7 +76,10 @@ export function MessageBubble({
         isGroupStart ? 'mt-3 first:mt-0' : 'mt-0.5',
         message.failed && 'opacity-70',
         mine ? 'justify-end' : 'justify-start',
+        selected && 'bg-surface-accent/40',
       )}
+      onClick={message.failed && onRetry ? () => onRetry(message) : undefined}
+      role={message.failed ? 'button' : undefined}
     >
       {/* Incoming runs reserve the avatar column on every message so the
           bubbles in a run stay on one vertical line. */}
@@ -174,10 +181,21 @@ export function MessageBubble({
                 receipt={receipt}
                 mine={mine}
                 hasContent={Boolean(message.content)}
+                seenByCount={seenByCount}
               />
             </>
           )}
         </div>
+
+        {(message.threadReplyCount ?? 0) > 0 && onOpenThread ? (
+          <button
+            type="button"
+            onClick={() => onOpenThread(message)}
+            className="mt-1 text-xs font-medium text-text-link hover:underline"
+          >
+            {t('chat.threadReplies', { count: message.threadReplyCount ?? 0 })}
+          </button>
+        ) : null}
 
         {!editing ? (
           <div className={cn('flex', mine ? 'justify-end' : 'justify-start')}>
@@ -202,6 +220,7 @@ export function MessageBubble({
           onOpenEmojiPicker={onOpenEmojiPicker}
           onForward={onForward}
           onReport={onReport}
+          onOpenThread={onOpenThread}
           className={cn('absolute -top-3 z-20', mine ? 'right-2' : 'left-2')}
         />
       ) : null}
@@ -220,11 +239,13 @@ function BubbleMeta({
   receipt,
   mine,
   hasContent,
+  seenByCount,
 }: {
   message: Pick<Message, 'createdAt' | 'editedAt' | 'pending' | 'failed'>;
   receipt?: MessageReceipt;
   mine: boolean;
   hasContent: boolean;
+  seenByCount?: number;
 }) {
   const t = useT();
 
@@ -241,15 +262,14 @@ function BubbleMeta({
           <span>{t('chat.edited')}</span>
         </Tooltip>
       ) : null}
-      {message.failed ? <span className="text-danger">{t('chat.failed')}</span> : null}
+      {message.failed ? <span className="text-danger">{t('chat.retrySend')}</span> : null}
       <Tooltip content={messageTimestamp(message.createdAt)}>
         <span className="tabular-nums">{shortTime(message.createdAt)}</span>
       </Tooltip>
-      {message.pending ? (
-        <Clock3Dot />
-      ) : (
-        <ReceiptMark receipt={receipt} />
-      )}
+      {message.pending ? <Clock3Dot /> : receipt ? <ReceiptMark receipt={receipt} /> : null}
+      {typeof seenByCount === 'number' && seenByCount > 0 ? (
+        <span>{t('chat.seenBy', { count: seenByCount })}</span>
+      ) : null}
     </span>
   );
 }

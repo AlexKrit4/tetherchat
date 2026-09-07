@@ -80,6 +80,7 @@ export async function channelRoutes(app: FastifyInstance) {
         before: z.string().optional(),
         after: z.string().optional(),
         limit: z.coerce.number().int().min(1).max(100).default(LIMITS.messagePageSize),
+        thread: z.string().min(1).optional(),
       })
       .parse(request.query);
 
@@ -87,7 +88,7 @@ export async function channelRoutes(app: FastifyInstance) {
 
     return listMessages(
       { channelId, serverId: context.serverId },
-      { ...query, currentUserId: request.userId },
+      { ...query, threadRootId: query.thread ?? null, currentUserId: request.userId },
     );
   });
 
@@ -101,6 +102,7 @@ export async function channelRoutes(app: FastifyInstance) {
         attachmentDurations: z.record(z.string(), z.number().int().min(1).max(15 * 60_000)).optional(),
         attachmentSpoilers: z.record(z.string(), z.boolean()).optional(),
         forwardMessageId: z.string().min(1).optional(),
+        threadRootId: z.string().min(1).nullable().optional(),
         nonce: z.string().max(64).optional(),
       })
       .parse(request.body);
@@ -114,6 +116,7 @@ export async function channelRoutes(app: FastifyInstance) {
       attachmentDurations: body.attachmentDurations,
       attachmentSpoilers: body.attachmentSpoilers,
       forwardMessageId: body.forwardMessageId,
+      threadRootId: body.threadRootId ?? null,
       nonce: body.nonce,
     });
 

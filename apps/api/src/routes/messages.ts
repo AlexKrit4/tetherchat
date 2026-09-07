@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { FastifyInstance } from 'fastify';
 import { LIMITS } from '@tetherchat/shared';
-import { deleteMessage, editMessage, toggleReaction } from '../services/messageService.js';
+import { deleteMessage, editMessage, listThread, toggleReaction } from '../services/messageService.js';
 
 const messageParam = z.object({ messageId: z.string().min(1) });
 
@@ -27,5 +27,10 @@ export async function messageRoutes(app: FastifyInstance) {
     const { emoji } = z.object({ emoji: z.string().min(1).max(32) }).parse(request.body);
     const reactions = await toggleReaction(messageId, request.userId, emoji);
     return { messageId, reactions };
+  });
+
+  app.get('/:messageId/thread', async (request) => {
+    const { messageId } = messageParam.parse(request.params);
+    return listThread(messageId, request.userId);
   });
 }

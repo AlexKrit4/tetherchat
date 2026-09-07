@@ -1,4 +1,4 @@
-import { Flag, Forward, Pencil, Pin, Reply, SmilePlus, Trash2 } from 'lucide-react';
+import { Flag, Forward, MessagesSquare, Pencil, Pin, Reply, SmilePlus, Trash2 } from 'lucide-react';
 import type { Message } from '@tetherchat/shared';
 import { cn } from '@/lib/cn';
 import { isGraphite } from '@/lib/theme';
@@ -16,6 +16,7 @@ export interface MessageToolbarProps {
   onOpenEmojiPicker: () => void;
   onForward?: (message: Message) => void;
   onReport?: (message: Message) => void;
+  onOpenThread?: (message: Message) => void;
   className?: string;
 }
 
@@ -34,6 +35,7 @@ export function MessageToolbar({
   onOpenEmojiPicker,
   onForward,
   onReport,
+  onOpenThread,
   className,
 }: MessageToolbarProps) {
   const t = useT();
@@ -55,6 +57,14 @@ export function MessageToolbar({
         />
       ) : null}
       <IconButton icon={Reply} label={t('chat.reply')} size="sm" onClick={() => onReply(message)} />
+      {onOpenThread ? (
+        <IconButton
+          icon={MessagesSquare}
+          label={t('chat.openThread')}
+          size="sm"
+          onClick={() => onOpenThread(message)}
+        />
+      ) : null}
       {onForward ? (
         <IconButton
           icon={Forward}

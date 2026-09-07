@@ -6,7 +6,7 @@ import {
   extractUserMentions,
   mentionsEveryone as detectEveryone,
 } from '@tetherchat/shared';
-import type { Message } from '@tetherchat/shared';
+import type { Message, SearchHit } from '@tetherchat/shared';
 import { prisma } from '../db.js';
 import { ApiError } from '../errors.js';
 import { enqueue } from '../jobs/queue.js';
@@ -15,6 +15,7 @@ import {
   assertConversationMember,
   assertPermission,
   loadChannelContext,
+  visibleChannelIdsForServers,
 } from '../lib/permissions.js';
 import { consumeRateLimit } from '../redis.js';
 import { emitToChannel, emitToConversation } from '../ws/realtime.js';
@@ -33,6 +34,7 @@ export interface CreateMessageInput {
   conversationId?: string;
   content: string;
   replyToId?: string | null;
+  threadRootId?: string | null;
   attachmentIds?: string[];
   attachmentDurations?: Record<string, number>;
   attachmentSpoilers?: Record<string, boolean>;
@@ -165,13 +167,33 @@ export async function createMessage(input: CreateMessageInput): Promise<Message>
   if (input.replyToId) {
     const parent = await prisma.message.findUnique({
       where: { id: input.replyToId },
-      select: { channelId: true, conversationId: true },
+      select: { channelId: true, conversationId: true, threadRootId: true },
     });
     const sameTarget =
       target.kind === 'channel' ? parent?.channelId === target.id : parent?.conversationId === target.id;
     if (!parent || !sameTarget) {
       throw ApiError.badRequest('The message you are replying to does not exist here');
     }
+  }
+
+  let threadRootId: string | null = null;
+  if (input.threadRootId) {
+    const root = await prisma.message.findUnique({
+      where: { id: input.threadRootId },
+      select: {
+        id: true,
+        channelId: true,
+        conversationId: true,
+        threadRootId: true,
+        deletedAt: true,
+      },
+    });
+    const sameTarget =
+      target.kind === 'channel' ? root?.channelId === target.id : root?.conversationId === target.id;
+    if (!root || root.deletedAt || !sameTarget || root.threadRootId) {
+      throw ApiError.badRequest('That thread does not exist here');
+    }
+    threadRootId = root.id;
   }
 
   if (attachmentIds.length > 0) {
@@ -196,12 +218,20 @@ export async function createMessage(input: CreateMessageInput): Promise<Message>
         authorId: input.authorId,
         content,
         replyToId: forwarded ? null : (input.replyToId ?? null),
+        threadRootId,
         forwardedFromId: forwarded?.id ?? null,
         mentionedUserIds,
         mentionsEveryone,
       },
       include: messageInclude,
     });
+
+    if (threadRootId) {
+      await tx.message.update({
+        where: { id: threadRootId },
+        data: { threadReplyCount: { increment: 1 } },
+      });
+    }
 
     if (attachmentIds.length > 0) {
       await tx.attachment.updateMany({
@@ -240,6 +270,9 @@ export async function createMessage(input: CreateMessageInput): Promise<Message>
           width: attachment.width,
           height: attachment.height,
           durationMs: attachment.durationMs,
+          spoiler: attachment.spoiler,
+          thumbnailData: attachment.thumbnailData,
+          transcript: attachment.transcript,
         })),
       });
     }
@@ -288,6 +321,18 @@ export async function createMessage(input: CreateMessageInput): Promise<Message>
     emitToConversation(target.id, 'message:new', payload);
     if (unhiddenMembers > 0) {
       void emitConversationRefresh(target.id);
+    }
+  }
+
+  if (threadRootId) {
+    const root = await prisma.message.findUnique({
+      where: { id: threadRootId },
+      include: messageInclude,
+    });
+    if (root) {
+      const rootPayload = { ...toMessage(root, null), serverId: target.serverId };
+      if (target.kind === 'channel') emitToChannel(target.id, 'message:updated', rootPayload);
+      else emitToConversation(target.id, 'message:updated', rootPayload);
     }
   }
 
@@ -634,6 +679,8 @@ export interface ListMessagesOptions {
   around?: string;
   limit?: number;
   currentUserId: string;
+  /** When set, return that thread (root + replies). Otherwise hide thread replies. */
+  threadRootId?: string | null;
 }
 
 /** Returns messages newest-last, which is the order the UI renders them in. */
@@ -642,9 +689,15 @@ export async function listMessages(
   options: ListMessagesOptions,
 ): Promise<{ items: Message[]; hasMore: boolean }> {
   const limit = Math.min(Math.max(options.limit ?? LIMITS.messagePageSize, 1), 100);
-  const where = target.channelId
+  const scope = target.channelId
     ? { channelId: target.channelId, deletedAt: null }
     : { conversationId: target.conversationId, deletedAt: null };
+  const where = options.threadRootId
+    ? {
+        ...scope,
+        OR: [{ id: options.threadRootId }, { threadRootId: options.threadRootId }],
+      }
+    : { ...scope, threadRootId: null };
 
   const cursorBoundary = await resolveCursor(options.before ?? options.after ?? options.around);
 
@@ -706,6 +759,7 @@ export async function searchMessages(
     where: {
       ...(target.channelId ? { channelId: target.channelId } : { conversationId: target.conversationId }),
       deletedAt: null,
+      threadRootId: null,
       content: { contains: term, mode: 'insensitive' },
     },
     include: messageInclude,
@@ -714,6 +768,146 @@ export async function searchMessages(
   });
 
   return rows.map((row) => ({ ...toMessage(row, currentUserId), serverId: target.serverId }));
+}
+
+export async function listThread(rootId: string, userId: string): Promise<{ root: Message; items: Message[] }> {
+  const root = await prisma.message.findUnique({
+    where: { id: rootId },
+    include: messageInclude,
+  });
+  if (!root || root.deletedAt) throw ApiError.notFound('Thread not found');
+  if (root.threadRootId) throw ApiError.badRequest('That message is already inside a thread');
+
+  let serverId: string | null = null;
+  if (root.channelId) {
+    const context = await loadChannelContext(root.channelId, userId);
+    serverId = context.serverId;
+  } else if (root.conversationId) {
+    await assertConversationMember(root.conversationId, userId);
+  } else {
+    throw ApiError.notFound('Thread not found');
+  }
+
+  const replies = await prisma.message.findMany({
+    where: { threadRootId: rootId, deletedAt: null },
+    include: messageInclude,
+    orderBy: { createdAt: 'asc' },
+    take: 200,
+  });
+
+  return {
+    root: { ...toMessage(root, userId), serverId },
+    items: replies.map((row) => ({ ...toMessage(row, userId), serverId })),
+  };
+}
+
+export async function searchEverywhere(
+  userId: string,
+  query: string,
+  limit = 40,
+): Promise<SearchHit[]> {
+  const term = query.trim();
+  if (term.length < 2) return [];
+
+  const memberships = await prisma.serverMember.findMany({
+    where: { userId },
+    select: { serverId: true },
+  });
+  const channelIds = await visibleChannelIdsForServers(
+    userId,
+    memberships.map((row) => row.serverId),
+  );
+  const conversations = await prisma.directConversationMember.findMany({
+    where: { userId, leftAt: null, conversation: { isSecret: false } },
+    select: {
+      conversationId: true,
+      conversation: { select: { name: true, isGroup: true, isSaved: true, isAi: true, isVpn: true } },
+    },
+  });
+  const conversationIds = conversations.map((row) => row.conversationId);
+  if (channelIds.length === 0 && conversationIds.length === 0) return [];
+
+  const channels =
+    channelIds.length > 0
+      ? await prisma.channel.findMany({
+          where: { id: { in: channelIds } },
+          select: { id: true, name: true, serverId: true, server: { select: { name: true } } },
+        })
+      : [];
+  const channelMeta = new Map(channels.map((channel) => [channel.id, channel]));
+  const conversationMeta = new Map(
+    conversations.map((row) => [row.conversationId, row.conversation]),
+  );
+
+  const rows = await prisma.message.findMany({
+    where: {
+      deletedAt: null,
+      encryptionVersion: 0,
+      OR: [
+        ...(channelIds.length ? [{ channelId: { in: channelIds } }] : []),
+        ...(conversationIds.length ? [{ conversationId: { in: conversationIds } }] : []),
+      ],
+      AND: {
+        OR: [
+          { content: { contains: term, mode: 'insensitive' } },
+          {
+            attachments: {
+              some: {
+                OR: [
+                  { filename: { contains: term, mode: 'insensitive' } },
+                  { transcript: { contains: term, mode: 'insensitive' } },
+                ],
+              },
+            },
+          },
+          { previews: { some: { url: { contains: term, mode: 'insensitive' } } } },
+        ],
+      },
+    },
+    include: messageInclude,
+    orderBy: { createdAt: 'desc' },
+    take: Math.min(limit, 50),
+  });
+
+  const lower = term.toLowerCase();
+  return rows.map((row) => {
+    const isDm = Boolean(row.conversationId);
+    const channel = row.channelId ? channelMeta.get(row.channelId) : undefined;
+    const conversation = row.conversationId ? conversationMeta.get(row.conversationId) : undefined;
+    let contextTitle = 'Чат';
+    if (channel) contextTitle = `#${channel.name} · ${channel.server.name}`;
+    else if (conversation?.isSaved) contextTitle = 'Избранное';
+    else if (conversation?.isAi) contextTitle = 'Нейросеть';
+    else if (conversation?.isVpn) contextTitle = 'VPN';
+    else if (conversation?.name) contextTitle = conversation.name;
+    else if (isDm) contextTitle = 'Личные сообщения';
+
+    const filenameHit = row.attachments.some(
+      (attachment) =>
+        attachment.filename.toLowerCase().includes(lower) ||
+        (attachment.transcript ?? '').toLowerCase().includes(lower),
+    );
+    const linkHit = row.previews.some((preview) => preview.url.toLowerCase().includes(lower));
+    const match: SearchHit['match'] = row.content.toLowerCase().includes(lower)
+      ? 'content'
+      : filenameHit
+        ? 'file'
+        : linkHit
+          ? 'link'
+          : 'content';
+
+    return {
+      message: {
+        ...toMessage(row, userId),
+        serverId: channel?.serverId ?? null,
+        channelId: row.channelId ?? row.conversationId ?? '',
+      },
+      contextTitle,
+      contextKind: isDm ? 'dm' : 'channel',
+      isDm,
+      match,
+    };
+  });
 }
 
 async function resolveTargetForExisting(

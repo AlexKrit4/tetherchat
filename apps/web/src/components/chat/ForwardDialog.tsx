@@ -16,10 +16,10 @@ import { toast } from '@/stores/toastStore';
 import { useT } from '@/i18n/useT';
 
 export function ForwardDialog({
-  message,
+  messages,
   onClose,
 }: {
-  message: Message | null;
+  messages: Message[];
   onClose: () => void;
 }) {
   const t = useT();
@@ -32,9 +32,10 @@ export function ForwardDialog({
   const [query, setQuery] = useState('');
   const [details, setDetails] = useState<ServerDetail[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const open = messages.length > 0;
 
   useEffect(() => {
-    if (!message) {
+    if (!open) {
       setQuery('');
       return;
     }
@@ -51,7 +52,7 @@ export function ForwardDialog({
     return () => {
       cancelled = true;
     };
-  }, [message, servers]);
+  }, [open, servers]);
 
   const targets = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -97,16 +98,18 @@ export function ForwardDialog({
   }, [conversations, currentUserId, details, friends, query, t]);
 
   const sendTo = async (target: { id: string; dm: boolean }) => {
-    if (!message) return;
+    if (messages.length === 0) return;
     setBusyId(target.id);
     try {
-      await api.post(messagesPath(target.id, target.dm), {
-        content: '',
-        forwardMessageId: message.id,
-        nonce: nonce(),
-      });
+      for (const message of messages) {
+        await api.post(messagesPath(target.id, target.dm), {
+          content: '',
+          forwardMessageId: message.id,
+          nonce: nonce(),
+        });
+      }
       void client.invalidateQueries({ queryKey: queryKeys.messages(target.id) });
-      toast.success(t('chat.forwarded'));
+      toast.success(messages.length > 1 ? t('chat.forwardedMany', { count: messages.length }) : t('chat.forwarded'));
       onClose();
     } catch (error) {
       toast.error(errorMessage(error));
@@ -116,7 +119,7 @@ export function ForwardDialog({
   };
 
   return (
-    <Modal open={Boolean(message)} onClose={onClose} title={t('chat.forwardTo')} width="sm">
+    <Modal open={open} onClose={onClose} title={t('chat.forwardTo')} width="sm">
       <div className="flex flex-col gap-3">
         <Input
           value={query}

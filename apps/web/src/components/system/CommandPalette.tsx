@@ -28,8 +28,9 @@ import { JoinServerDialog } from '@/components/modals/JoinServerDialog';
 import { UserSettingsDialog } from '@/components/modals/UserSettingsDialog';
 import { useAuthStore } from '@/stores/authStore';
 import { useUiStore } from '@/stores/uiStore';
+import { useGlobalSearch } from '@/hooks/useMessages';
 
-type ItemKind = 'server' | 'channel' | 'conversation' | 'friend' | 'action';
+type ItemKind = 'server' | 'channel' | 'conversation' | 'friend' | 'message' | 'action';
 
 type PaletteDialog = 'create-server' | 'join-server' | 'user-settings' | null;
 
@@ -43,13 +44,14 @@ interface PaletteItem {
   run: () => void;
 }
 
-const SECTION_ORDER: ItemKind[] = ['channel', 'conversation', 'server', 'friend', 'action'];
+const SECTION_ORDER: ItemKind[] = ['message', 'channel', 'conversation', 'server', 'friend', 'action'];
 
 const SECTION_LABEL: Record<ItemKind, string> = {
   channel: 'palette.channels',
   conversation: 'palette.conversations',
   server: 'palette.servers',
   friend: 'palette.friends',
+  message: 'palette.messages',
   action: 'palette.actions',
 };
 
@@ -78,6 +80,7 @@ export function CommandPalette() {
   const { data: servers } = useServers();
   const { data: conversations } = useConversations();
   const { data: friends } = useFriends();
+  const { data: messageHits } = useGlobalSearch(open ? query : '');
   const createConversation = useCreateConversation();
   const setFriendsOpen = useUiStore((state) => state.setFriendsRailOpen);
 
@@ -192,6 +195,26 @@ export function CommandPalette() {
       });
     }
 
+    const setHighlight = useUiStore.getState().setHighlightMessage;
+    for (const hit of messageHits ?? []) {
+      result.push({
+        id: `message:${hit.message.id}`,
+        kind: 'message',
+        label: hit.message.content.slice(0, 80) || hit.contextTitle,
+        detail: hit.contextTitle,
+        icon: Search,
+        run: () => {
+          setFriendsOpen(false);
+          setHighlight(hit.message.id);
+          if (hit.message.serverId) {
+            navigate(`/channels/${hit.message.serverId}/${hit.message.channelId}`);
+          } else {
+            navigate(`/channels/${DM_ROUTE}/${hit.message.channelId}`);
+          }
+        },
+      });
+    }
+
     result.push(
       {
         id: 'action:dms',
@@ -240,6 +263,7 @@ export function CommandPalette() {
     createConversation,
     currentUserId,
     friends,
+    messageHits,
     navigate,
     open,
     servers,
