@@ -10,11 +10,13 @@ import { useChatTarget } from '@/hooks/useChatTarget';
 import { useMembers } from '@/hooks/useServers';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
+import { safeHref } from '@/lib/safeHref';
 
 /**
  * Renders message markdown. Mentions are resolved from the member cache before
  * markdown runs so a rename shows up everywhere without rewriting history, and
- * raw HTML stays disabled (react-markdown's default) to keep content inert.
+ * raw HTML stays disabled (react-markdown's default). href/src values are
+ * restricted to http(s)/mailto so a javascript: link cannot run as the reader.
  */
 export function MessageContent({ content, className }: { content: string; className?: string }) {
   const tr = useT();
@@ -86,12 +88,16 @@ function MarkdownWithSpoilers({ text }: { text: string }) {
             remarkPlugins={[remarkGfm]}
             components={{
               a: ({ href, children }) => (
-                <a href={href} target="_blank" rel="noopener noreferrer nofollow">
+                <a href={safeHref(href)} target="_blank" rel="noopener noreferrer nofollow">
                   {children}
                 </a>
               ),
               img: ({ src, alt }) => (
-                <a href={typeof src === 'string' ? src : '#'} target="_blank" rel="noopener noreferrer">
+                <a
+                  href={safeHref(typeof src === 'string' ? src : undefined)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   {alt || src}
                 </a>
               ),

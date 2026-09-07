@@ -9,6 +9,7 @@ import { api, errorMessage } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import { usePlusStore } from '@/stores/plusStore';
 import { toast } from '@/stores/toastStore';
+import { safeHref, safeHttpUrl } from '@/lib/safeHref';
 
 const MAX_INLINE_WIDTH = 520;
 const MAX_INLINE_HEIGHT = 350;
@@ -180,10 +181,12 @@ export function LinkPreviews({ previews }: { previews: LinkPreview[] }) {
 
   return (
     <div className="mt-1 flex flex-col gap-2">
-      {previews.map((preview) => (
+      {previews.map((preview) => {
+        const imageUrl = safeHttpUrl(preview.imageUrl);
+        return (
         <a
           key={preview.url}
-          href={preview.url}
+          href={safeHref(preview.url)}
           target="_blank"
           rel="noopener noreferrer nofollow"
           className={cn(
@@ -202,9 +205,9 @@ export function LinkPreviews({ previews }: { previews: LinkPreview[] }) {
               <span className="line-clamp-3 text-sm text-text">{preview.description}</span>
             ) : null}
           </span>
-          {preview.imageUrl ? (
+          {imageUrl ? (
             <img
-              src={preview.imageUrl}
+              src={imageUrl}
               alt=""
               loading="lazy"
               decoding="async"
@@ -212,7 +215,8 @@ export function LinkPreviews({ previews }: { previews: LinkPreview[] }) {
             />
           ) : null}
         </a>
-      ))}
+        );
+      })}
     </div>
   );
 }
