@@ -68,7 +68,13 @@ export async function ackConversation(
     !conversation.isSaved &&
     !conversation.isAi &&
     conversation.members.length === 2;
-  if (isOneToOne) {
+  const smallGroup =
+    conversation.isGroup &&
+    !conversation.isSaved &&
+    !conversation.isAi &&
+    conversation.members.length >= 3 &&
+    conversation.members.length <= 12;
+  if (isOneToOne || smallGroup) {
     emitToConversation(conversationId, 'receipt:update', {
       conversationId,
       userId,

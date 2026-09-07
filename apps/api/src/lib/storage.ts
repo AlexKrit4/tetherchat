@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { dirname, extname, join, resolve } from 'node:path';
-import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getConfig } from '../config.js';
 
 export interface StoredFile {
@@ -9,9 +9,22 @@ export interface StoredFile {
   url: string;
 }
 
+export interface StoredObject {
+  body: Buffer;
+  contentType?: string;
+}
+
 export interface Storage {
   put(input: { body: Buffer; contentType: string; filename: string; prefix: string }): Promise<StoredFile>;
+  get(key: string): Promise<StoredObject | null>;
   remove(key: string): Promise<void>;
+}
+
+/** Avatars, server icons and wallpapers stay publicly cacheable. Attachments do not. */
+export const PUBLIC_STORAGE_PREFIXES = ['avatars/', 'icons/', 'wallpapers/'] as const;
+
+export function isPublicStorageKey(key: string): boolean {
+  return PUBLIC_STORAGE_PREFIXES.some((prefix) => key.startsWith(prefix));
 }
 
 function safeExtension(filename: string, contentType: string): string {
@@ -34,6 +47,15 @@ function buildKey(prefix: string, filename: string, contentType: string): string
   return `${prefix}/${Date.now()}-${hash}${safeExtension(filename, contentType)}`;
 }
 
+function publicUrlFor(key: string): string {
+  const config = getConfig();
+  if (config.STORAGE_DRIVER === 's3') {
+    const base = config.S3_PUBLIC_URL ?? `${config.S3_ENDPOINT}/${config.S3_BUCKET}`;
+    return `${base.replace(/\/$/, '')}/${key}`;
+  }
+  return `${config.PUBLIC_API_ORIGIN}/files/${key}`;
+}
+
 class LocalStorage implements Storage {
   private readonly root: string;
 
@@ -46,7 +68,16 @@ class LocalStorage implements Storage {
     const target = join(this.root, key);
     await mkdir(dirname(target), { recursive: true });
     await writeFile(target, input.body);
-    return { key, url: `${getConfig().PUBLIC_API_ORIGIN}/files/${key}` };
+    return { key, url: publicUrlFor(key) };
+  }
+
+  async get(key: string): Promise<StoredObject | null> {
+    try {
+      const body = await readFile(join(this.root, key));
+      return { body };
+    } catch {
+      return null;
+    }
   }
 
   async remove(key: string) {
@@ -79,11 +110,29 @@ class S3Storage implements Storage {
         Key: key,
         Body: input.body,
         ContentType: input.contentType,
-        CacheControl: 'public, max-age=31536000, immutable',
+        CacheControl: isPublicStorageKey(key)
+          ? 'public, max-age=31536000, immutable'
+          : 'private, max-age=0, no-store',
       }),
     );
-    const base = config.S3_PUBLIC_URL ?? `${config.S3_ENDPOINT}/${config.S3_BUCKET}`;
-    return { key, url: `${base.replace(/\/$/, '')}/${key}` };
+    return { key, url: publicUrlFor(key) };
+  }
+
+  async get(key: string): Promise<StoredObject | null> {
+    const config = getConfig();
+    try {
+      const out = await this.client.send(
+        new GetObjectCommand({
+          Bucket: config.S3_BUCKET,
+          Key: key,
+        }),
+      );
+      const bytes = await out.Body?.transformToByteArray();
+      if (!bytes) return null;
+      return { body: Buffer.from(bytes), contentType: out.ContentType };
+    } catch {
+      return null;
+    }
   }
 
   async remove(key: string) {

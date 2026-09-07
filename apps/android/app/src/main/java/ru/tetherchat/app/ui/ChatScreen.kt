@@ -352,6 +352,7 @@ fun ChatScreen(model: AppViewModel, chat: Screen.Chat) {
           isGroupStart = isMessageGroupStart(reversedMessages, index),
           model = model,
           onLongPress = { selected = message },
+          onReply = { model.replyTo = message },
           onOpenProfile = { model.openProfile(message.authorId) },
           onOpenAttachment = { attachment ->
             if (attachment.isImage) preview = attachment
@@ -733,6 +734,7 @@ private fun MessageRow(
   isGroupStart: Boolean,
   model: AppViewModel,
   onLongPress: () -> Unit,
+  onReply: () -> Unit,
   onOpenProfile: () -> Unit,
   onOpenAttachment: (Attachment) -> Unit,
 ) {
@@ -748,6 +750,21 @@ private fun MessageRow(
   Row(
     modifier = Modifier
       .fillMaxWidth()
+      .pointerInput(message.id) {
+        var total = 0f
+        awaitEachGesture {
+          awaitFirstDown(requireUnconsumed = false)
+          total = 0f
+          do {
+            val event = awaitPointerEvent()
+            val change = event.changes.firstOrNull() ?: break
+            total += change.position.x - change.previousPosition.x
+            val dy = kotlin.math.abs(change.position.y - change.previousPosition.y)
+            if (kotlin.math.abs(total) > 24 && dy < 40) change.consume()
+          } while (event.changes.any { !it.changedToUpIgnoreConsumed() })
+          if (total > 72) onReply()
+        }
+      }
       .combinedClickable(onClick = {}, onLongClick = onLongPress)
       .padding(
         horizontal = 12.dp,

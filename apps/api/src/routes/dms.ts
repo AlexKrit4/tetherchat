@@ -32,6 +32,7 @@ const messageBody = z.object({
   attachmentDurations: z.record(z.string(), z.number().int().min(1).max(15 * 60_000)).optional(),
   attachmentSpoilers: z.record(z.string(), z.boolean()).optional(),
   forwardMessageId: z.string().min(1).optional(),
+  threadRootId: z.string().min(1).nullable().optional(),
   nonce: z.string().max(64).optional(),
   encrypted: z
     .object({
@@ -271,11 +272,15 @@ export async function dmRoutes(app: FastifyInstance) {
         before: z.string().optional(),
         after: z.string().optional(),
         limit: z.coerce.number().int().min(1).max(100).default(LIMITS.messagePageSize),
+        thread: z.string().min(1).optional(),
       })
       .parse(request.query);
 
     await assertConversationMember(conversationId, request.userId);
-    return listMessages({ conversationId, serverId: null }, { ...query, currentUserId: request.userId });
+    return listMessages(
+      { conversationId, serverId: null },
+      { ...query, threadRootId: query.thread ?? null, currentUserId: request.userId },
+    );
   });
 
   app.post('/:conversationId/messages', async (request, reply) => {
@@ -293,7 +298,7 @@ export async function dmRoutes(app: FastifyInstance) {
           encrypted: body.encrypted,
           nonce: body.nonce,
           hasUnsupportedPayload: Boolean(
-            body.content || body.replyToId || body.attachmentIds?.length || body.forwardMessageId,
+            body.content || body.replyToId || body.attachmentIds?.length || body.forwardMessageId || body.threadRootId,
           ),
         })
       : await createMessage({
@@ -305,6 +310,7 @@ export async function dmRoutes(app: FastifyInstance) {
           attachmentDurations: body.attachmentDurations,
           attachmentSpoilers: body.attachmentSpoilers,
           forwardMessageId: body.forwardMessageId,
+          threadRootId: body.threadRootId ?? null,
           nonce: body.nonce,
         });
 

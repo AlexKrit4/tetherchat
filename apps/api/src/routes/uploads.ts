@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { FastifyInstance } from 'fastify';
 import { ALLOWED_ATTACHMENT_MIME, LIMITS, isAudioMime, isImageMime } from '@tetherchat/shared';
 import { prisma } from '../db.js';
-import { readImageInfo } from '../lib/images.js';
+import { readImageInfo, makeThumbnail } from '../lib/images.js';
 import { readMultipartFile } from '../lib/multipart.js';
 import { toAttachment } from '../lib/serialize.js';
 import { storage } from '../lib/storage.js';
@@ -44,6 +44,7 @@ export async function uploadRoutes(app: FastifyInstance) {
     const dimensions = isImageMime(file.mimetype)
       ? await readImageInfo(file.buffer)
       : { width: null, height: null };
+    const thumbnailData = isImageMime(file.mimetype) ? await makeThumbnail(file.buffer) : null;
 
     const stored = await storage().put({
       body: file.buffer,
@@ -63,6 +64,7 @@ export async function uploadRoutes(app: FastifyInstance) {
         width: dimensions.width,
         height: dimensions.height,
         durationMs: query.durationMs ?? null,
+        thumbnailData,
       },
     });
 
@@ -127,10 +129,9 @@ export async function attachmentRoutes(app: FastifyInstance) {
       return { transcript: attachment.transcript, cached: true };
     }
 
-    const audio = await fetch(attachment.url);
-    if (!audio.ok) throw ApiError.internal('Не удалось загрузить аудио для расшифровки');
-    const buffer = Buffer.from(await audio.arrayBuffer());
-    const transcript = await transcribeAudio(buffer, attachment.filename, attachment.contentType);
+    const stored = await storage().get(attachment.storageKey);
+    if (!stored) throw ApiError.internal('Не удалось загрузить аудио для расшифровки');
+    const transcript = await transcribeAudio(stored.body, attachment.filename, attachment.contentType);
 
     const updated = await prisma.attachment.update({
       where: { id: attachment.id },

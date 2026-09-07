@@ -21,6 +21,7 @@ object NotificationHelper {
   const val EXTRA_CALL_ID = "callId"
   const val EXTRA_DM = "dm"
   const val EXTRA_NOTIFICATION_ID = "notificationId"
+  private const val BADGE_NOTIFICATION_ID = 41
   private const val CHANNEL_NAME = "Сообщения"
   private const val CALLS_CHANNEL_NAME = "Звонки"
 
@@ -279,6 +280,7 @@ object NotificationHelper {
       .setStyle(NotificationCompat.BigTextStyle().bigText(body))
       .setContentIntent(pending)
       .setAutoCancel(true)
+      .setNumber(1)
       .setPriority(NotificationCompat.PRIORITY_HIGH)
       .setCategory(NotificationCompat.CATEGORY_MESSAGE)
       .setDefaults(NotificationCompat.DEFAULT_ALL)
@@ -287,6 +289,40 @@ object NotificationHelper {
       .build()
     try {
       NotificationManagerCompat.from(context).notify(id, notification)
+    } catch (_: SecurityException) {
+    }
+  }
+
+  fun setUnreadCount(context: Context, count: Int) {
+    ensureChannels(context)
+    val manager = NotificationManagerCompat.from(context)
+    if (count <= 0) {
+      manager.cancel(BADGE_NOTIFICATION_ID)
+      return
+    }
+    val open = Intent(context, MainActivity::class.java).apply {
+      flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+    }
+    val pending = PendingIntent.getActivity(
+      context,
+      BADGE_NOTIFICATION_ID,
+      open,
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
+    val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+      .setSmallIcon(R.drawable.ic_stat_notify)
+      .setColor(ContextCompat.getColor(context, R.color.brand))
+      .setContentTitle(context.getString(R.string.app_name))
+      .setContentText("Непрочитанных: $count")
+      .setNumber(count)
+      .setOnlyAlertOnce(true)
+      .setSilent(true)
+      .setOngoing(false)
+      .setContentIntent(pending)
+      .setPriority(NotificationCompat.PRIORITY_LOW)
+      .build()
+    try {
+      manager.notify(BADGE_NOTIFICATION_ID, notification)
     } catch (_: SecurityException) {
     }
   }

@@ -52,6 +52,7 @@ class MainActivity : ComponentActivity() {
     }
     PushRegistrar.sync(this)
     applyDeepLink(intent)
+    applyShare(intent)
     if (intent.getBooleanExtra(EXTRA_RESTORE_CALL, false)) model.expandCall()
     intent.getStringExtra(EXTRA_ACCEPT_CALL_ID)?.let { callId ->
       val channelId = intent.getStringExtra(EXTRA_CHANNEL_ID)
@@ -73,6 +74,7 @@ class MainActivity : ComponentActivity() {
     super.onNewIntent(intent)
     setIntent(intent)
     applyDeepLink(intent)
+    applyShare(intent)
     if (intent.getBooleanExtra(EXTRA_RESTORE_CALL, false)) model.expandCall()
     intent.getStringExtra(EXTRA_ACCEPT_CALL_ID)?.let { callId ->
       val channelId = intent.getStringExtra(EXTRA_CHANNEL_ID)
@@ -80,6 +82,21 @@ class MainActivity : ComponentActivity() {
       model.handleIncomingCallDeepLink(callId, channelId)
       model.acceptIncomingCall()
     }
+  }
+
+  private fun applyShare(intent: Intent?) {
+    intent ?: return
+    val action = intent.action ?: return
+    if (action != Intent.ACTION_SEND && action != Intent.ACTION_SEND_MULTIPLE) return
+    val text = intent.getStringExtra(Intent.EXTRA_TEXT)
+    val uris = mutableListOf<android.net.Uri>()
+    if (action == Intent.ACTION_SEND) {
+      intent.getParcelableExtra<android.net.Uri>(Intent.EXTRA_STREAM)?.let { uris.add(it) }
+    } else {
+      intent.getParcelableArrayListExtra<android.net.Uri>(Intent.EXTRA_STREAM)?.let { uris.addAll(it) }
+    }
+    if (text.isNullOrBlank() && uris.isEmpty()) return
+    model.offerShare(text, uris)
   }
 
   private fun applyDeepLink(intent: Intent?) {

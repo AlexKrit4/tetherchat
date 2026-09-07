@@ -5,12 +5,12 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
-import fastifyStatic from '@fastify/static';
 import Fastify from 'fastify';
 import type { FastifyInstance } from 'fastify';
 import { LIMITS } from '@tetherchat/shared';
 import { getConfig } from './config.js';
 import { webCorsOrigins } from './lib/corsOrigins.js';
+import { ApiError } from './errors.js';
 import { authPlugin } from './plugins/auth.js';
 import { errorHandlerPlugin } from './plugins/errorHandler.js';
 import { authRoutes } from './routes/auth.js';
@@ -29,6 +29,9 @@ import { e2eeRoutes } from './routes/e2ee.js';
 import { serverRoutes } from './routes/servers.js';
 import { uploadRoutes, attachmentRoutes } from './routes/uploads.js';
 import { userRoutes } from './routes/users.js';
+import { fileRoutes } from './routes/files.js';
+import { searchRoutes } from './routes/search.js';
+import { isPublicStorageKey, storage } from './lib/storage.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const config = getConfig();
@@ -78,17 +81,22 @@ export async function buildApp(): Promise<FastifyInstance> {
   if (config.STORAGE_DRIVER === 'local') {
     const root = resolve(config.STORAGE_LOCAL_DIR);
     await mkdir(root, { recursive: true });
-    await app.register(fastifyStatic, {
-      root,
-      prefix: '/files/',
-      decorateReply: false,
-      cacheControl: true,
-      maxAge: '365d',
+    app.get('/files/*', async (request, reply) => {
+      const key = (request.params as { '*': string })['*'];
+      if (!key || !isPublicStorageKey(key)) {
+        throw ApiError.notFound();
+      }
+      const stored = await storage().get(key);
+      if (!stored) throw ApiError.notFound();
+      reply.header('Cache-Control', 'public, max-age=31536000, immutable');
+      reply.type(stored.contentType ?? 'application/octet-stream');
+      return reply.send(stored.body);
     });
   }
 
   app.get('/api/health', async () => ({ status: 'ok', uptime: process.uptime() }));
 
+  await app.register(fileRoutes, { prefix: '/api/files' });
   await app.register(authRoutes, { prefix: '/api/auth' });
   await app.register(userRoutes, { prefix: '/api/users' });
   await app.register(serverRoutes, { prefix: '/api/servers' });
@@ -106,6 +114,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(e2eeRoutes, { prefix: '/api/e2ee' });
   await app.register(appRoutes, { prefix: '/api/app' });
   await app.register(vpnRoutes, { prefix: '/api/vpn' });
+  await app.register(searchRoutes, { prefix: '/api/search' });
 
   return app;
 }

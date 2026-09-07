@@ -91,7 +91,38 @@ fun TetherRoot(model: AppViewModel) {
     UpdateDialog(model)
     CallOverlay(model)
     PlusUpsellDialog(model)
+    ShareTargetDialog(model)
   }
+}
+
+@Composable
+private fun ShareTargetDialog(model: AppViewModel) {
+  val share = model.pendingShare ?: return
+  val meId = model.me?.id ?: return
+  AlertDialog(
+    onDismissRequest = model::dismissShare,
+    title = { Text("Отправить в TetherChat") },
+    text = {
+      Column {
+        Text(
+          if (!share.text.isNullOrBlank()) share.text else "Выберите чат для вложения",
+          maxLines = 3,
+        )
+        Spacer(Modifier.height(12.dp))
+        model.dms.take(12).forEach { conversation ->
+          TextButton(onClick = {
+            model.acceptShare(conversation.id, null, conversation.title(meId), true)
+          }) {
+            Text(conversation.title(meId))
+          }
+        }
+      }
+    },
+    confirmButton = {},
+    dismissButton = {
+      TextButton(onClick = model::dismissShare) { Text("Отмена") }
+    },
+  )
 }
 
 @Composable

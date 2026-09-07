@@ -1,4 +1,5 @@
-# Graphite redesign mockup on port 1489 (same backend as production).
+# Graphite — the single experimental client on port 1489 (same backend as production).
+# Production stays Classic on 443. Aurora on 1488 is frozen.
 #
 #   docker compose -f docker-compose.prod.yml -f docker-compose.graphite.yml up -d --build web-graphite
 #

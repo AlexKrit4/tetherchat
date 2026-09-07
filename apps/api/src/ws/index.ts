@@ -137,6 +137,7 @@ export async function attachSocketServer(app: FastifyInstance): Promise<TypedSer
             attachmentDurations: payload.attachmentDurations,
             attachmentSpoilers: payload.attachmentSpoilers,
             forwardMessageId: payload.forwardMessageId,
+            threadRootId: payload.threadRootId ?? null,
             nonce: payload.nonce,
           });
           clearTyping(payload.channelId, userId, io);

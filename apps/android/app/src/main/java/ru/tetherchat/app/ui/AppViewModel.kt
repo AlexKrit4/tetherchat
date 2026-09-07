@@ -121,6 +121,11 @@ data class VoiceDraft(
   val samples: List<Float>,
 )
 
+data class PendingShare(
+  val text: String?,
+  val uris: List<android.net.Uri>,
+)
+
 class AppViewModel(application: Application) : AndroidViewModel(application), DefaultLifecycleObserver {
   private val session = SessionStore.get(application)
   private val drafts = DraftStore.get(application)
@@ -241,6 +246,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
   var chatWallpaperUrl by mutableStateOf<String?>(null)
     private set
   var pendingUploads by mutableStateOf<List<PendingUpload>>(emptyList())
+  var pendingShare by mutableStateOf<PendingShare?>(null)
+    private set
     private set
   var replyTo by mutableStateOf<Message?>(null)
   var editing by mutableStateOf<Message?>(null)
@@ -342,6 +349,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     friends = api.friends()
     incomingFriendCount = runCatching { api.incomingFriendCount() }.getOrDefault(0)
     api.readStates().forEach { readStates[it.channelId] = it }
+    refreshLauncherBadge()
     val current = selectedServerId
     if (current != null) {
       serverDetail = api.server(current)
@@ -1420,6 +1428,35 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
         error = it.userMessage()
       }
     }
+  }
+
+  fun offerShare(text: String?, uris: List<android.net.Uri>) {
+    pendingShare = PendingShare(text?.trim()?.takeIf { it.isNotBlank() }, uris)
+  }
+
+  fun dismissShare() {
+    pendingShare = null
+  }
+
+  fun acceptShare(channelId: String, serverId: String?, title: String, dm: Boolean) {
+    val share = pendingShare ?: return
+    pendingShare = null
+    openChat(channelId, serverId, title, dm)
+    if (!share.text.isNullOrBlank()) {
+      draft = listOf(draft, share.text).filter { it.isNotBlank() }.joinToString("\n")
+    }
+    if (share.uris.isNotEmpty()) attachUris(share.uris)
+  }
+
+  fun unreadCount(): Int = readStates.values.count { it.unread } +
+    dms.count { conversation ->
+      val last = conversation.lastMessageAt ?: return@count false
+      val readAt = conversation.selfLastReadAt
+      readAt.isNullOrBlank() || last > readAt
+    }
+
+  fun refreshLauncherBadge() {
+    NotificationHelper.setUnreadCount(getApplication(), unreadCount())
   }
 
   fun attachUris(uris: List<Uri>) {

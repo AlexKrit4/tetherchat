@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Message } from '@tetherchat/shared';
+import type { ComposerDraft, Message } from '@tetherchat/shared';
 
 /** Which single panel the phone layout is showing. */
 export type MobileView = 'servers' | 'channels' | 'chat' | 'dms' | 'settings' | 'members' | 'search' | 'friends';
@@ -26,8 +26,12 @@ interface UiState {
   replyDrafts: Record<string, Message | undefined>;
   editingMessageId: string | null;
   drafts: Record<string, string>;
+  draftTimes: Record<string, number>;
   volatileDrafts: Record<string, string>;
   scrollBottomNonce: number;
+  threadRootId: string | null;
+  selectedMessageIds: string[];
+  highlightMessageId: string | null;
 
   setMobileView: (view: MobileView) => void;
   pushMobileView: (view: MobileView) => void;
@@ -45,7 +49,12 @@ interface UiState {
   setEditingMessage: (messageId: string | null) => void;
   setDraft: (channelId: string, value: string) => void;
   setVolatileDraft: (channelId: string, value: string) => void;
+  mergeRemoteDrafts: (drafts: Record<string, ComposerDraft>) => void;
   nudgeScrollBottom: () => void;
+  setThreadRoot: (messageId: string | null) => void;
+  toggleSelectedMessage: (messageId: string) => void;
+  clearSelectedMessages: () => void;
+  setHighlightMessage: (messageId: string | null) => void;
 }
 
 export const useUiStore = create<UiState>()(
@@ -63,8 +72,12 @@ export const useUiStore = create<UiState>()(
   replyDrafts: {},
   editingMessageId: null,
   drafts: {},
+  draftTimes: {},
   volatileDrafts: {},
   scrollBottomNonce: 0,
+  threadRootId: null,
+  selectedMessageIds: [],
+  highlightMessageId: null,
 
   setMobileView: (view) => set({ mobileView: view, mobileHistory: [] }),
 
@@ -110,17 +123,44 @@ export const useUiStore = create<UiState>()(
   setEditingMessage: (messageId) => set({ editingMessageId: messageId }),
 
   setDraft: (channelId, value) =>
-    set((state) => ({ drafts: { ...state.drafts, [channelId]: value } })),
+    set((state) => ({
+      drafts: { ...state.drafts, [channelId]: value },
+      draftTimes: { ...state.draftTimes, [channelId]: Date.now() },
+    })),
 
   setVolatileDraft: (channelId, value) =>
     set((state) => ({ volatileDrafts: { ...state.volatileDrafts, [channelId]: value } })),
 
+  mergeRemoteDrafts: (incoming) =>
+    set((state) => {
+      const drafts = { ...state.drafts };
+      const draftTimes = { ...state.draftTimes };
+      for (const [id, entry] of Object.entries(incoming)) {
+        const localTime = draftTimes[id] ?? 0;
+        if (entry.updatedAt >= localTime) {
+          drafts[id] = entry.text;
+          draftTimes[id] = entry.updatedAt;
+        }
+      }
+      return { drafts, draftTimes };
+    }),
+
   nudgeScrollBottom: () => set((state) => ({ scrollBottomNonce: state.scrollBottomNonce + 1 })),
+  setThreadRoot: (messageId) => set({ threadRootId: messageId }),
+  toggleSelectedMessage: (messageId) =>
+    set((state) => ({
+      selectedMessageIds: state.selectedMessageIds.includes(messageId)
+        ? state.selectedMessageIds.filter((id) => id !== messageId)
+        : [...state.selectedMessageIds, messageId],
+    })),
+  clearSelectedMessages: () => set({ selectedMessageIds: [] }),
+  setHighlightMessage: (messageId) => set({ highlightMessageId: messageId }),
     }),
     {
       name: 'tetherchat-ui',
       partialize: (state) => ({
         drafts: state.drafts,
+        draftTimes: state.draftTimes,
         collapsedCategories: state.collapsedCategories,
       }),
     },

@@ -88,6 +88,8 @@ model User {
   cryptoDevices           CryptoDevice[]
   vpnSubscriptions        VpnSubscription[]
   vpnOrders               VpnOrder[]
+  /** Composer drafts keyed by channel or conversation id. */
+  drafts                  Json             @default("{}")
 
   @@index([username])
 }
@@ -268,6 +270,9 @@ model Message {
   mentionsEveryone  Boolean   @default(false)
   mentionedUserIds  String[]  @default([])
   forwardedFromId   String?
+  /** Set on replies that live in a thread, not the main channel timeline. */
+  threadRootId      String?
+  threadReplyCount  Int       @default(0)
   createdAt         DateTime  @default(now())
   editedAt          DateTime?
   deletedAt         DateTime?
@@ -277,6 +282,8 @@ model Message {
   author        User                @relation(fields: [authorId], references: [id], onDelete: Cascade)
   replyTo       Message?            @relation("MessageReply", fields: [replyToId], references: [id], onDelete: SetNull)
   replies       Message[]           @relation("MessageReply")
+  threadRoot    Message?            @relation("MessageThread", fields: [threadRootId], references: [id], onDelete: SetNull)
+  threadReplies Message[]           @relation("MessageThread")
   forwardedFrom Message?            @relation("MessageForwards", fields: [forwardedFromId], references: [id], onDelete: SetNull)
   forwards      Message[]           @relation("MessageForwards")
   reactions     MessageReaction[]
@@ -290,6 +297,7 @@ model Message {
   @@index([authorId])
   @@index([replyToId])
   @@index([forwardedFromId])
+  @@index([threadRootId])
 }
 
 model MessageReaction {
@@ -318,9 +326,10 @@ model Attachment {
   width       Int?
   height      Int?
   durationMs  Int?
-  spoiler     Boolean  @default(false)
-  transcript  String?
-  createdAt   DateTime @default(now())
+  spoiler        Boolean  @default(false)
+  transcript     String?
+  thumbnailData  String?
+  createdAt      DateTime @default(now())
 
   message  Message? @relation(fields: [messageId], references: [id], onDelete: Cascade)
   uploader User     @relation("AttachmentUploader", fields: [uploaderId], references: [id], onDelete: Cascade)

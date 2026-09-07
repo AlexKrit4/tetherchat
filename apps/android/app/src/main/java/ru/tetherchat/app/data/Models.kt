@@ -157,6 +157,7 @@ data class Attachment(
   val durationMs: Int? = null,
   val spoiler: Boolean = false,
   val transcript: String? = null,
+  val thumbnailData: String? = null,
 ) {
   val isImage: Boolean get() = contentType.startsWith("image/")
   val isVideo: Boolean get() = contentType.startsWith("video/")
@@ -204,6 +205,8 @@ data class Message(
   val system: Boolean = false,
   val replyTo: MessageReference? = null,
   val forwardedFrom: MessageReference? = null,
+  val threadRootId: String? = null,
+  val threadReplyCount: Int = 0,
   val attachments: List<Attachment> = emptyList(),
   val reactions: List<Reaction> = emptyList(),
   val previews: List<LinkPreview> = emptyList(),
@@ -214,6 +217,13 @@ data class Message(
 data class MessagePage(
   val items: List<Message> = emptyList(),
   val hasMore: Boolean = false,
+)
+
+@Serializable
+data class MemberReadCursor(
+  val userId: String,
+  val lastReadMessageId: String? = null,
+  val lastReadAt: String? = null,
 )
 
 @Serializable
@@ -234,6 +244,8 @@ data class DirectConversation(
   val pinned: Boolean = false,
   val wallpaperUrl: String? = null,
   val peerHasPlusProtect: Boolean = false,
+  val selfLastReadAt: String? = null,
+  val memberReadCursors: List<MemberReadCursor> = emptyList(),
 ) {
   fun title(meId: String): String {
     if (isSaved) return "Избранное"

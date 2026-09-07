@@ -37,6 +37,11 @@ export interface MessageGroupProps {
   onJumpToMessage?: (messageId: string) => void;
   onForward?: (message: Message) => void;
   onReport?: (message: Message) => void;
+  onOpenThread?: (message: Message) => void;
+  onRetry?: (message: Message) => void;
+  onToggleSelect?: (message: Message) => void;
+  selected?: boolean;
+  seenByCount?: number;
   receipt?: MessageReceipt;
 }
 

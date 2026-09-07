@@ -1,4 +1,5 @@
-# Aurora redesign mockup on port 1488 (same backend as production).
+# Frozen Aurora mockup on port 1488. Production is Classic on 443; the live
+# experimental client is Graphite on 1489. Do not add a third mockup port.
 #
 #   docker compose -f docker-compose.prod.yml -f docker-compose.preview.yml up -d --build web-preview
 #

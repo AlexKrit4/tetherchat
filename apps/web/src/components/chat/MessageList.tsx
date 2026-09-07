@@ -16,6 +16,7 @@ import {
   useDeleteMessage,
   useEditMessage,
   useMessages,
+  useRetryMessage,
   useToggleReaction,
   useTogglePin,
 } from '@/hooks/useMessages';
@@ -60,7 +61,7 @@ export function MessageList() {
   const [atBottom, setAtBottom] = useState(true);
   const scrollBottomNonce = useUiStore((state) => state.scrollBottomNonce);
   const [actionSheetFor, setActionSheetFor] = useState<Message | null>(null);
-  const [forwardFor, setForwardFor] = useState<Message | null>(null);
+  const [forwardFor, setForwardFor] = useState<Message[]>([]);
   const [reportFor, setReportFor] = useState<Message | null>(null);
   const [emojiFor, setEmojiFor] = useState<Message | null>(null);
   const [profileFor, setProfileFor] = useState<string | null>(null);
@@ -77,6 +78,12 @@ export function MessageList() {
   const deleteMessage = useDeleteMessage(channelId ?? '');
   const toggleReaction = useToggleReaction(channelId ?? '');
   const togglePin = useTogglePin(channelId ?? '');
+  const retryMessage = useRetryMessage(channelId ?? '', isDm, isSecret);
+  const setThreadRoot = useUiStore((state) => state.setThreadRoot);
+  const selectedMessageIds = useUiStore((state) => state.selectedMessageIds);
+  const toggleSelectedMessage = useUiStore((state) => state.toggleSelectedMessage);
+  const clearSelectedMessages = useUiStore((state) => state.clearSelectedMessages);
+  const highlightMessageId = useUiStore((state) => state.highlightMessageId);
 
   const memberIndex = useMemo(() => {
     const index = new Map<string, ServerMember>();
@@ -260,9 +267,18 @@ export function MessageList() {
             Boolean(
               conversation?.peerLastReadAt && conversation.peerLastReadAt >= message.createdAt,
             );
+          const seenByCount =
+            mine && conversation?.memberReadCursors
+              ? conversation.memberReadCursors.filter(
+                  (cursor) =>
+                    cursor.userId !== currentUser?.id &&
+                    cursor.lastReadAt &&
+                    cursor.lastReadAt >= message.createdAt,
+                ).length
+              : undefined;
 
           return (
-            <div>
+            <div className={cn(highlightMessageId === message.id && 'bg-surface-accent/50')}>
               {entry.dayDivider ? <DayDivider label={dayLabel(entry.dayDivider)} /> : null}
               {entry.unreadDivider ? <UnreadDivider /> : null}
 
@@ -311,8 +327,13 @@ export function MessageList() {
                 onOpenActions={setActionSheetFor}
                 onOpenProfile={setProfileFor}
                 onJumpToMessage={jumpToMessage}
-                onForward={isSecret ? undefined : setForwardFor}
+                onForward={isSecret ? undefined : (target) => setForwardFor([target])}
                 onReport={mine || isSecret ? undefined : setReportFor}
+                onOpenThread={isSecret ? undefined : (target) => setThreadRoot(target.threadRootId ?? target.id)}
+                onRetry={retryMessage}
+                onToggleSelect={isSecret ? undefined : (target) => toggleSelectedMessage(target.id)}
+                selected={selectedMessageIds.includes(message.id)}
+                seenByCount={seenByCount}
                 receipt={
                   showReceipts && !message.pending && !message.failed
                     ? read
@@ -325,6 +346,27 @@ export function MessageList() {
           );
         }}
       />
+
+      {selectedMessageIds.length > 0 ? (
+        <div className="absolute inset-x-0 bottom-3 z-20 mx-auto flex w-max items-center gap-2 rounded-full bg-surface-floating px-3 py-2 shadow-floating">
+          <span className="text-sm text-text-heading">
+            {t('chat.selectedCount', { count: selectedMessageIds.length })}
+          </span>
+          <button
+            type="button"
+            className="rounded-full bg-brand px-3 py-1 text-sm font-medium text-white"
+            onClick={() => {
+              const selected = messages.filter((message) => selectedMessageIds.includes(message.id));
+              setForwardFor(selected);
+            }}
+          >
+            {t('chat.forward')}
+          </button>
+          <button type="button" className="text-sm text-text-muted" onClick={clearSelectedMessages}>
+            {t('common.cancel')}
+          </button>
+        </div>
+      ) : null}
 
       {!atBottom ? (
         isGraphite() ? (
@@ -374,7 +416,7 @@ export function MessageList() {
         onReply={(target) =>
           isSecret ? toast.error('Ответы пока недоступны в секретном чате') : setReplyDraft(channelId, target)
         }
-        onForward={isSecret ? undefined : setForwardFor}
+        onForward={isSecret ? undefined : (target) => setForwardFor([target])}
         onEdit={(target) => setEditingMessage(target.id)}
         onDelete={(target) =>
           deleteMessage.mutate(target.id, { onError: (error) => toast.error(errorMessage(error)) })
@@ -385,9 +427,11 @@ export function MessageList() {
         onReport={
           !isSecret && actionSheetFor && actionSheetFor.authorId !== currentUser?.id ? setReportFor : undefined
         }
+        onOpenThread={isSecret ? undefined : (target) => setThreadRoot(target.threadRootId ?? target.id)}
+        onSelect={isSecret ? undefined : (target) => toggleSelectedMessage(target.id)}
       />
 
-      <ForwardDialog message={forwardFor} onClose={() => setForwardFor(null)} />
+      <ForwardDialog messages={forwardFor} onClose={() => setForwardFor([])} />
       <ReportDialog message={reportFor} onClose={() => setReportFor(null)} />
 
       {emojiFor ? (

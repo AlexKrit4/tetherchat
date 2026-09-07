@@ -1,5 +1,7 @@
 import { Check, CheckCheck, CornerUpLeft, Forward } from 'lucide-react';
+import { useCallback } from 'react';
 import { cn } from '@/lib/cn';
+import { useSwipeReply } from '@/hooks/useSwipeReply';
 import { useT } from '@/i18n/useT';
 import { messageTimestamp, shortTime } from '@/lib/time';
 import { Avatar } from '@/components/ui/Avatar';
@@ -43,8 +45,14 @@ export function MessageRow({
   onJumpToMessage,
   onForward,
   onReport,
+  onOpenThread,
+  onRetry,
+  selected,
+  seenByCount,
 }: MessagePresentationProps) {
   const t = useT();
+  const reply = useCallback(() => onReply(message), [message, onReply]);
+  const swipeReply = useSwipeReply(reply, isMobile && !editing);
   // Avatar column plus the 16px gap, so quoted replies line up with the body.
   const textIndent = isMobile ? 'pl-[48px]' : 'pl-[56px]';
 
@@ -57,7 +65,10 @@ export function MessageRow({
         mentionsMe && 'bg-mention-bg',
         hovered && !mentionsMe && 'md:bg-[rgba(2,2,2,0.06)]',
         message.failed && 'opacity-70',
+        selected && 'bg-surface-accent/40',
       )}
+      onClick={message.failed && onRetry ? () => onRetry(message) : undefined}
+      role={message.failed ? 'button' : undefined}
     >
       {mentionsMe ? (
         <span aria-hidden className="absolute inset-y-0 left-0 w-0.5 bg-mention-text" />
@@ -121,7 +132,7 @@ export function MessageRow({
           </span>
         )}
 
-        <div className={cn('min-w-0 flex-1', !isGroupStart && isMobile && textIndent)}>
+        <div className={cn('min-w-0 flex-1', !isGroupStart && isMobile && textIndent)} {...(isMobile ? swipeReply : {})}>
           {isGroupStart ? (
             <div className="flex flex-wrap items-baseline gap-2">
               <button
@@ -164,7 +175,7 @@ export function MessageRow({
                     <span className="text-2xs text-text-faint">{t('chat.sending')}</span>
                   ) : null}
                   {message.failed ? (
-                    <span className="text-2xs text-danger">{t('chat.failed')}</span>
+                    <span className="text-2xs text-danger">{t('chat.retrySend')}</span>
                   ) : null}
                   {!isGroupStart ? <ReceiptMark receipt={receipt} /> : null}
                 </div>
@@ -179,6 +190,18 @@ export function MessageRow({
                 onAdd={onOpenEmojiPicker}
                 disabled={!actions.canReact}
               />
+              {(message.threadReplyCount ?? 0) > 0 && onOpenThread ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenThread(message)}
+                  className="mt-1 text-xs font-medium text-text-link hover:underline"
+                >
+                  {t('chat.threadReplies', { count: message.threadReplyCount ?? 0 })}
+                </button>
+              ) : null}
+              {typeof seenByCount === 'number' && seenByCount > 0 ? (
+                <p className="mt-0.5 text-2xs text-text-muted">{t('chat.seenBy', { count: seenByCount })}</p>
+              ) : null}
             </>
           )}
         </div>
@@ -195,6 +218,7 @@ export function MessageRow({
           onOpenEmojiPicker={onOpenEmojiPicker}
           onForward={onForward}
           onReport={onReport}
+          onOpenThread={onOpenThread}
           className="absolute -top-4 right-4"
         />
       ) : null}

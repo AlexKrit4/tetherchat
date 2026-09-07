@@ -310,6 +310,7 @@ export function MessageInput() {
       replyToId: replyTo?.id ?? null,
       attachmentIds: pending.map((attachment) => attachment.id),
       attachmentSpoilers: Object.fromEntries(pending.map((attachment) => [attachment.id, spoilerIds.has(attachment.id)])),
+      optimisticAttachments: pending,
       nonce: nonce(),
     });
 

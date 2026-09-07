@@ -16,6 +16,7 @@ import type {
   ServerMember,
 } from '@tetherchat/shared';
 import { isPlusActive } from './plus.js';
+import { signedFileUrl } from './fileTokens.js';
 
 export const publicUserSelect = {
   id: true,
@@ -99,7 +100,7 @@ export type MessageRow = Prisma.MessageGetPayload<{ include: typeof messageInclu
 export function toAttachment(row: MessageRow['attachments'][number]): Attachment {
   return {
     id: row.id,
-    url: row.url,
+    url: signedFileUrl(row.id),
     filename: row.filename,
     contentType: row.contentType,
     size: row.size,
@@ -108,6 +109,7 @@ export function toAttachment(row: MessageRow['attachments'][number]): Attachment
     durationMs: row.durationMs ?? null,
     spoiler: row.spoiler ?? false,
     transcript: row.transcript ?? null,
+    thumbnailData: row.thumbnailData ?? null,
   };
 }
 
@@ -177,6 +179,8 @@ export function toMessage(row: MessageRow, currentUserId: string | null): Messag
     system: row.system,
     replyTo: toReference(row.replyTo),
     forwardedFrom: toReference(row.forwardedFrom),
+    threadRootId: row.threadRootId ?? null,
+    threadReplyCount: row.threadReplyCount ?? 0,
     attachments: row.attachments.map(toAttachment),
     reactions: toReactions(row.reactions, currentUserId),
     previews: row.previews.map(toLinkPreview),
@@ -277,6 +281,7 @@ export function toConversation(row: ConversationRow, currentUserId?: string): Di
   const peer =
     currentUserId && isOneToOne ? active.find((member) => member.userId !== currentUserId) : undefined;
   const selfMember = currentUserId ? row.members.find((member) => member.userId === currentUserId) : undefined;
+  const smallGroup = row.isGroup && !isSaved && !isAi && !isVpn && !isMonitor && active.length >= 3 && active.length <= 12;
 
   return {
     id: row.id,
@@ -293,6 +298,14 @@ export function toConversation(row: ConversationRow, currentUserId?: string): Di
     lastMessageAt: row.lastMessageAt?.toISOString() ?? null,
     peerLastReadMessageId: isOneToOne ? (peer?.lastReadMessageId ?? null) : null,
     peerLastReadAt: isOneToOne ? (peer?.lastReadAt?.toISOString() ?? null) : null,
+    memberReadCursors: smallGroup
+      ? active.map((member) => ({
+          userId: member.userId,
+          lastReadMessageId: member.lastReadMessageId,
+          lastReadAt: member.lastReadAt?.toISOString() ?? null,
+        }))
+      : undefined,
+    selfLastReadAt: selfMember?.lastReadAt?.toISOString() ?? null,
     pinned: Boolean(selfMember?.pinnedAt),
     wallpaperUrl: selfMember?.wallpaperUrl ?? null,
     peerHasPlusProtect: Boolean(row.isSecret && peer && isPlusActive(peer.user)),
