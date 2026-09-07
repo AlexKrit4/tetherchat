@@ -1,4 +1,5 @@
 import { splitBioLinks } from '@/lib/plusDisplay';
+import { safeHref } from '@/lib/safeHref';
 
 export function BioText({ text, plus }: { text: string; plus?: boolean }) {
   if (!plus) {
@@ -7,11 +8,12 @@ export function BioText({ text, plus }: { text: string; plus?: boolean }) {
 
   return (
     <p className="whitespace-pre-wrap break-words text-base text-text">
-      {splitBioLinks(text).map((part, index) =>
-        part.type === 'link' ? (
+      {splitBioLinks(text).map((part, index) => {
+        const href = part.type === 'link' ? safeHref(part.value) : undefined;
+        return href ? (
           <a
             key={`${part.value}-${index}`}
-            href={part.value}
+            href={href}
             target="_blank"
             rel="noopener noreferrer"
             className="text-text-link hover:underline"
@@ -20,8 +22,8 @@ export function BioText({ text, plus }: { text: string; plus?: boolean }) {
           </a>
         ) : (
           <span key={index}>{part.value}</span>
-        ),
-      )}
+        );
+      })}
     </p>
   );
 }
