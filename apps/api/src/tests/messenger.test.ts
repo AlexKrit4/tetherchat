@@ -1,6 +1,7 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import type { DirectConversation, Message, Session } from '@tetherchat/shared';
 import { prisma } from '../db.js';
+import { storage } from '../lib/storage.js';
 import { closeTestApp, createServer, createUser, firstChannel, linkFriends, testApp } from './harness.js';
 import type { TestUser } from './harness.js';
 
@@ -206,6 +207,80 @@ describe('forward', () => {
     });
     expect(forwarded.statusCode).toBe(201);
     expect(forwarded.json<Message>().forwardedFrom?.id).toBe(original.id);
+  });
+
+  it('keeps forwarded attachments downloadable through the signed file URL', async () => {
+    const alice = await createUser();
+    const bob = await createUser();
+    const carol = await createUser();
+    created.push(alice, bob, carol);
+    await linkFriends(alice, bob);
+    await linkFriends(alice, carol);
+    const app = await testApp();
+
+    const withBob = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/dms',
+        headers: alice.auth,
+        payload: { userIds: [bob.id] },
+      })
+    ).json<DirectConversation>();
+    const withCarol = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/dms',
+        headers: alice.auth,
+        payload: { userIds: [carol.id] },
+      })
+    ).json<DirectConversation>();
+
+    const bytes = Buffer.from('forward-me-please');
+    const stored = await storage().put({
+      body: bytes,
+      contentType: 'text/plain',
+      filename: 'note.txt',
+      prefix: `attachments/${bob.id}`,
+    });
+    const uploaded = await prisma.attachment.create({
+      data: {
+        uploaderId: bob.id,
+        storageKey: stored.key,
+        url: stored.url,
+        filename: 'note.txt',
+        contentType: 'text/plain',
+        size: bytes.byteLength,
+      },
+    });
+
+    const original = (
+      await app.inject({
+        method: 'POST',
+        url: `/api/dms/${withBob.id}/messages`,
+        headers: bob.auth,
+        payload: { content: 'file', attachmentIds: [uploaded.id] },
+      })
+    ).json<Message>();
+    expect(original.attachments).toHaveLength(1);
+
+    const forwardedResponse = await app.inject({
+      method: 'POST',
+      url: `/api/dms/${withCarol.id}/messages`,
+      headers: alice.auth,
+      payload: { forwardMessageId: original.id },
+    });
+    expect(forwardedResponse.statusCode).toBe(201);
+    const forwarded = forwardedResponse.json<Message>();
+    expect(forwarded.attachments).toHaveLength(1);
+    expect(forwarded.attachments[0]?.id).not.toBe(original.attachments[0]?.id);
+
+    const fileUrl = new URL(forwarded.attachments[0]!.url);
+    const downloaded = await app.inject({
+      method: 'GET',
+      url: `${fileUrl.pathname}${fileUrl.search}`,
+    });
+    expect(downloaded.statusCode).toBe(200);
+    expect(downloaded.body).toBe('forward-me-please');
   });
 });
 

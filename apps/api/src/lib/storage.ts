@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
-import { dirname, extname, join, resolve } from 'node:path';
+import { dirname, extname, resolve, sep } from 'node:path';
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getConfig } from '../config.js';
 
@@ -25,6 +25,39 @@ export const PUBLIC_STORAGE_PREFIXES = ['avatars/', 'icons/', 'wallpapers/'] as 
 
 export function isPublicStorageKey(key: string): boolean {
   return PUBLIC_STORAGE_PREFIXES.some((prefix) => key.startsWith(prefix));
+}
+
+/**
+ * Forwarded attachments reuse the original blob via
+ * `${originalKey}#${messageId}:${attachmentId}` (storageKey is unique).
+ * Reads must strip that suffix; deletes must not, or a forward would
+ * unlink the source file.
+ */
+export function physicalStorageKey(key: string): string {
+  const hash = key.indexOf('#');
+  const raw = (hash === -1 ? key : key.slice(0, hash)).replaceAll('\\', '/');
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
+/** Reject path traversal and absolute keys before touching the disk. */
+export function isSafeStorageKey(key: string): boolean {
+  const physical = physicalStorageKey(key);
+  if (!physical || physical.includes('\0') || physical.startsWith('/') || physical.includes('://')) {
+    return false;
+  }
+  return !physical.split('/').some((segment) => segment === '..' || segment === '');
+}
+
+function localObjectPath(root: string, key: string): string | null {
+  if (!isSafeStorageKey(key)) return null;
+  const target = resolve(root, physicalStorageKey(key));
+  const prefix = root.endsWith(sep) ? root : root + sep;
+  if (target !== root && !target.startsWith(prefix)) return null;
+  return target;
 }
 
 function safeExtension(filename: string, contentType: string): string {
@@ -65,15 +98,18 @@ class LocalStorage implements Storage {
 
   async put(input: { body: Buffer; contentType: string; filename: string; prefix: string }) {
     const key = buildKey(input.prefix, input.filename, input.contentType);
-    const target = join(this.root, key);
+    const target = localObjectPath(this.root, key);
+    if (!target) throw new Error('Refusing to write an unsafe storage key');
     await mkdir(dirname(target), { recursive: true });
     await writeFile(target, input.body);
     return { key, url: publicUrlFor(key) };
   }
 
   async get(key: string): Promise<StoredObject | null> {
+    const target = localObjectPath(this.root, key);
+    if (!target) return null;
     try {
-      const body = await readFile(join(this.root, key));
+      const body = await readFile(target);
       return { body };
     } catch {
       return null;
@@ -81,7 +117,12 @@ class LocalStorage implements Storage {
   }
 
   async remove(key: string) {
-    await unlink(join(this.root, key)).catch(() => undefined);
+    // Forwarded copies share the original blob; their keys contain `#` so we
+    // must not unlink the source when the copy is deleted.
+    if (key.includes('#')) return;
+    const target = localObjectPath(this.root, key);
+    if (!target) return;
+    await unlink(target).catch(() => undefined);
   }
 }
 
@@ -120,11 +161,13 @@ class S3Storage implements Storage {
 
   async get(key: string): Promise<StoredObject | null> {
     const config = getConfig();
+    const objectKey = physicalStorageKey(key);
+    if (!objectKey) return null;
     try {
       const out = await this.client.send(
         new GetObjectCommand({
           Bucket: config.S3_BUCKET,
-          Key: key,
+          Key: objectKey,
         }),
       );
       const bytes = await out.Body?.transformToByteArray();
@@ -136,6 +179,7 @@ class S3Storage implements Storage {
   }
 
   async remove(key: string) {
+    if (key.includes('#')) return;
     const config = getConfig();
     await this.client
       .send(new DeleteObjectCommand({ Bucket: config.S3_BUCKET, Key: key }))
