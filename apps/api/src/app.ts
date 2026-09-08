@@ -31,7 +31,7 @@ import { uploadRoutes, attachmentRoutes } from './routes/uploads.js';
 import { userRoutes } from './routes/users.js';
 import { fileRoutes } from './routes/files.js';
 import { searchRoutes } from './routes/search.js';
-import { isPublicStorageKey, storage } from './lib/storage.js';
+import { isPublicStorageKey, isSafeStorageKey, storage } from './lib/storage.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const config = getConfig();
@@ -83,7 +83,7 @@ export async function buildApp(): Promise<FastifyInstance> {
     await mkdir(root, { recursive: true });
     app.get('/files/*', async (request, reply) => {
       const key = (request.params as { '*': string })['*'];
-      if (!key || !isPublicStorageKey(key)) {
+      if (!key || !isSafeStorageKey(key) || !isPublicStorageKey(key)) {
         throw ApiError.notFound();
       }
       const stored = await storage().get(key);
