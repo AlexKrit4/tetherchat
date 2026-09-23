@@ -190,7 +190,8 @@ export async function createMessage(input: CreateMessageInput): Promise<Message>
     });
     const sameTarget =
       target.kind === 'channel' ? root?.channelId === target.id : root?.conversationId === target.id;
-    if (!root || root.deletedAt || !sameTarget || root.threadRootId) {
+    // A soft-deleted root still owns its replies; new replies stay in the thread.
+    if (!root || !sameTarget || root.threadRootId) {
       throw ApiError.badRequest('That thread does not exist here');
     }
     threadRootId = root.id;
@@ -571,7 +572,14 @@ export async function editMessage(
 export async function deleteMessage(messageId: string, userId: string): Promise<void> {
   const existing = await prisma.message.findUnique({
     where: { id: messageId },
-    select: { authorId: true, channelId: true, conversationId: true, deletedAt: true },
+    select: {
+      authorId: true,
+      channelId: true,
+      conversationId: true,
+      deletedAt: true,
+      threadRootId: true,
+      _count: { select: { threadReplies: true } },
+    },
   });
   if (!existing || existing.deletedAt) throw ApiError.notFound('Message not found');
 
@@ -581,7 +589,25 @@ export async function deleteMessage(messageId: string, userId: string): Promise<
     assertPermission(context, Permission.MANAGE_MESSAGES);
   }
 
-  await prisma.message.delete({ where: { id: messageId } });
+  // Hard-deleting a thread root SetNulls threadRootId on every reply (schema
+  // onDelete: SetNull), which then matches the main timeline filter
+  // `threadRootId: null` and dumps the sidebar conversation into the channel.
+  if (!existing.threadRootId && existing._count.threadReplies > 0) {
+    await prisma.message.update({
+      where: { id: messageId },
+      data: { deletedAt: new Date(), content: '', ciphertext: null, encryptionIv: null },
+    });
+  } else {
+    await prisma.$transaction(async (tx) => {
+      if (existing.threadRootId) {
+        await tx.message.update({
+          where: { id: existing.threadRootId },
+          data: { threadReplyCount: { decrement: 1 } },
+        });
+      }
+      await tx.message.delete({ where: { id: messageId } });
+    });
+  }
 
   const room = existing.channelId ?? existing.conversationId!;
   const event = { messageId, channelId: room };
@@ -690,14 +716,17 @@ export async function listMessages(
 ): Promise<{ items: Message[]; hasMore: boolean }> {
   const limit = Math.min(Math.max(options.limit ?? LIMITS.messagePageSize, 1), 100);
   const scope = target.channelId
-    ? { channelId: target.channelId, deletedAt: null }
-    : { conversationId: target.conversationId, deletedAt: null };
+    ? { channelId: target.channelId }
+    : { conversationId: target.conversationId };
   const where = options.threadRootId
     ? {
         ...scope,
-        OR: [{ id: options.threadRootId }, { threadRootId: options.threadRootId }],
+        OR: [
+          { id: options.threadRootId },
+          { threadRootId: options.threadRootId, deletedAt: null },
+        ],
       }
-    : { ...scope, threadRootId: null };
+    : { ...scope, deletedAt: null, threadRootId: null };
 
   const cursorBoundary = await resolveCursor(options.before ?? options.after ?? options.around);
 
@@ -775,7 +804,7 @@ export async function listThread(rootId: string, userId: string): Promise<{ root
     where: { id: rootId },
     include: messageInclude,
   });
-  if (!root || root.deletedAt) throw ApiError.notFound('Thread not found');
+  if (!root) throw ApiError.notFound('Thread not found');
   if (root.threadRootId) throw ApiError.badRequest('That message is already inside a thread');
 
   let serverId: string | null = null;

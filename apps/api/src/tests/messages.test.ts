@@ -322,4 +322,58 @@ describe('messages', () => {
     expect(cleared?.unread).toBe(false);
     expect(cleared?.mentionCount).toBe(0);
   });
+
+  it('keeps thread replies off the main timeline after the root is deleted', async () => {
+    const app = await testApp();
+    const fresh = await createServer(owner, 'Thread Delete');
+    const target = firstChannel(fresh).id;
+
+    const root = (
+      await app.inject({
+        method: 'POST',
+        url: `/api/channels/${target}/messages`,
+        headers: owner.auth,
+        payload: { content: 'thread starter' },
+      })
+    ).json<Message>();
+
+    const replied = await app.inject({
+      method: 'POST',
+      url: `/api/channels/${target}/messages`,
+      headers: owner.auth,
+      payload: { content: 'sidebar only', threadRootId: root.id },
+    });
+    expect(replied.statusCode).toBe(201);
+    const reply = replied.json<Message>();
+    expect(reply.threadRootId).toBe(root.id);
+
+    const deleted = await app.inject({
+      method: 'DELETE',
+      url: `/api/messages/${root.id}`,
+      headers: owner.auth,
+    });
+    expect(deleted.statusCode).toBe(204);
+
+    const timeline = await app.inject({
+      method: 'GET',
+      url: `/api/channels/${target}/messages`,
+      headers: owner.auth,
+    });
+    const items = timeline.json<{ items: Message[] }>().items;
+    expect(items.some((item) => item.id === reply.id)).toBe(false);
+    expect(items.some((item) => item.content === 'sidebar only')).toBe(false);
+    expect(items.some((item) => item.id === root.id)).toBe(false);
+
+    const thread = await app.inject({
+      method: 'GET',
+      url: `/api/messages/${root.id}/thread`,
+      headers: owner.auth,
+    });
+    expect(thread.statusCode).toBe(200);
+    const body = thread.json<{ root: Message; items: Message[] }>();
+    expect(body.root.id).toBe(root.id);
+    expect(body.root.content).toBe('');
+    expect(body.items.map((item) => item.id)).toEqual([reply.id]);
+    expect(body.items[0]?.content).toBe('sidebar only');
+  });
 });
