@@ -1,6 +1,7 @@
 import { afterAll, describe, expect, it } from 'vitest';
-import type { DirectConversation, Message, Session } from '@tetherchat/shared';
+import type { ChatMediaItem, DirectConversation, Message, Paginated, Session } from '@tetherchat/shared';
 import { prisma } from '../db.js';
+import { storage } from '../lib/storage.js';
 import { closeTestApp, createServer, createUser, firstChannel, linkFriends, testApp } from './harness.js';
 import type { TestUser } from './harness.js';
 
@@ -206,6 +207,77 @@ describe('forward', () => {
     });
     expect(forwarded.statusCode).toBe(201);
     expect(forwarded.json<Message>().forwardedFrom?.id).toBe(original.id);
+  });
+});
+
+describe('chat media', () => {
+  it('lists attachments through signed file URLs, not the public storage path', async () => {
+    const alice = await createUser();
+    const bob = await createUser();
+    created.push(alice, bob);
+    await linkFriends(alice, bob);
+    const app = await testApp();
+
+    const conversation = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/dms',
+        headers: alice.auth,
+        payload: { userIds: [bob.id] },
+      })
+    ).json<DirectConversation>();
+
+    const bytes = Buffer.from('fake-jpeg-bytes');
+    const stored = await storage().put({
+      body: bytes,
+      contentType: 'image/jpeg',
+      filename: 'photo.jpg',
+      prefix: `attachments/${alice.id}`,
+    });
+    const uploaded = await prisma.attachment.create({
+      data: {
+        uploaderId: alice.id,
+        storageKey: stored.key,
+        url: stored.url,
+        filename: 'photo.jpg',
+        contentType: 'image/jpeg',
+        size: bytes.byteLength,
+      },
+    });
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/dms/${conversation.id}/messages`,
+      headers: alice.auth,
+      payload: { content: '', attachmentIds: [uploaded.id] },
+    });
+
+    const media = await app.inject({
+      method: 'GET',
+      url: `/api/dms/${conversation.id}/media`,
+      headers: bob.auth,
+    });
+    expect(media.statusCode).toBe(200);
+    const page = media.json<Paginated<ChatMediaItem>>();
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0].url).toContain(`/api/files/${uploaded.id}?`);
+    expect(page.items[0].url).toContain('sig=');
+    expect(page.items[0].url).not.toContain('/files/attachments/');
+    expect(page.items[0].url).not.toBe(stored.url);
+
+    const path = page.items[0].url.replace(/^https?:\/\/[^/]+/, '');
+    const download = await app.inject({ method: 'GET', url: path });
+    expect(download.statusCode).toBe(200);
+    expect(download.rawPayload.equals(bytes)).toBe(true);
+
+    const outsider = await createUser();
+    created.push(outsider);
+    const leaked = await app.inject({
+      method: 'GET',
+      url: `/api/dms/${conversation.id}/media`,
+      headers: outsider.auth,
+    });
+    expect(leaked.statusCode).toBe(403);
   });
 });
 

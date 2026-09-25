@@ -1,5 +1,6 @@
 import type { ChatMediaItem, Paginated } from '@tetherchat/shared';
 import { prisma } from '../db.js';
+import { signedFileUrl } from '../lib/fileTokens.js';
 
 export async function listChatMedia(input: {
   channelId?: string;
@@ -41,7 +42,7 @@ export async function listChatMedia(input: {
           {
             id: row.id,
             messageId: row.messageId,
-            url: row.url,
+            url: signedFileUrl(row.id),
             filename: row.filename,
             contentType: row.contentType,
             width: row.width,
