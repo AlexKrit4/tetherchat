@@ -143,7 +143,7 @@ function removeMessage(client: QueryClient, channelId: string, messageId: string
 export const messageCache = { upsertMessage, removeMessage };
 
 export function hydrateOutbox(client: QueryClient, author: Message['author']): void {
-  for (const item of listOutbox()) {
+  for (const item of listOutbox(author.id)) {
     if (item.payload.threadRootId) continue;
     client.setQueryData<MessageInfiniteData>(queryKeys.messages(item.channelId), (current) => {
       const message = outboxAsMessage(item, author);
@@ -243,6 +243,7 @@ export function useSendMessage(channelId: string, isDm: boolean, isSecret = fals
       };
       putOutbox({
         nonce: input.nonce,
+        userId: user.id,
         channelId,
         createdAt: Date.now(),
         status: 'pending',
@@ -276,13 +277,13 @@ export function useSendMessage(channelId: string, isDm: boolean, isSecret = fals
     },
 
     onSuccess: (message, input) => {
-      removeOutbox(input.nonce);
+      if (user) removeOutbox(input.nonce, user.id);
       removeMessage(client, channelId, `pending-${input.nonce}`);
       upsertMessage(client, channelId, message);
     },
 
     onError: (_error, input) => {
-      markOutboxFailed(input.nonce);
+      if (user) markOutboxFailed(input.nonce, user.id);
       const fail = (item: Message) =>
         item.id === `pending-${input.nonce}` ? { ...item, pending: false, failed: true } : item;
       client.setQueryData<MessageInfiniteData>(queryKeys.messages(channelId), (current) => {
@@ -324,7 +325,7 @@ export async function drainOutbox(): Promise<void> {
   const user = useAuthStore.getState().user;
   if (!user) return;
   const { queryClient } = await import('@/lib/queryClient');
-  for (const item of listOutbox()) {
+  for (const item of listOutbox(user.id)) {
     try {
       const message = await deliverMessage(
         item.channelId,
@@ -333,11 +334,11 @@ export async function drainOutbox(): Promise<void> {
         user.id,
         { ...item.payload, nonce: item.nonce },
       );
-      removeOutbox(item.nonce);
+      removeOutbox(item.nonce, user.id);
       removeMessage(queryClient, item.channelId, `pending-${item.nonce}`);
       upsertMessage(queryClient, item.channelId, message);
     } catch {
-      markOutboxFailed(item.nonce);
+      markOutboxFailed(item.nonce, user.id);
     }
   }
 }

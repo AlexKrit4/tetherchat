@@ -13,6 +13,7 @@ export interface OutboxPayload {
 
 export interface OutboxItem {
   nonce: string;
+  userId: string;
   channelId: string;
   createdAt: number;
   status: 'pending' | 'failed';
@@ -21,13 +22,31 @@ export interface OutboxItem {
 
 const KEY = 'tetherchat-outbox';
 
+function isOutboxItem(value: unknown): value is OutboxItem {
+  if (!value || typeof value !== 'object') return false;
+  const item = value as Partial<OutboxItem>;
+  return (
+    typeof item.nonce === 'string' &&
+    item.nonce.length > 0 &&
+    typeof item.userId === 'string' &&
+    item.userId.length > 0 &&
+    typeof item.channelId === 'string' &&
+    item.channelId.length > 0 &&
+    typeof item.createdAt === 'number' &&
+    (item.status === 'pending' || item.status === 'failed') &&
+    Boolean(item.payload) &&
+    typeof item.payload === 'object'
+  );
+}
+
 function read(): OutboxItem[] {
   if (typeof localStorage === 'undefined') return [];
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
-    return Array.isArray(parsed) ? (parsed as OutboxItem[]) : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(isOutboxItem);
   } catch {
     return [];
   }
@@ -38,23 +57,30 @@ function write(items: OutboxItem[]): void {
   localStorage.setItem(KEY, JSON.stringify(items.slice(-200)));
 }
 
-export function listOutbox(channelId?: string): OutboxItem[] {
-  const items = read();
-  return channelId ? items.filter((item) => item.channelId === channelId) : items;
+export function listOutbox(userId: string, channelId?: string): OutboxItem[] {
+  return read().filter((item) => {
+    if (item.userId !== userId) return false;
+    return channelId ? item.channelId === channelId : true;
+  });
 }
 
 export function putOutbox(item: OutboxItem): void {
-  const items = read().filter((entry) => entry.nonce !== item.nonce);
+  if (!item.userId) return;
+  const items = read().filter((entry) => entry.nonce !== item.nonce || entry.userId !== item.userId);
   items.push(item);
   write(items);
 }
 
-export function markOutboxFailed(nonce: string): void {
-  write(read().map((item) => (item.nonce === nonce ? { ...item, status: 'failed' } : item)));
+export function markOutboxFailed(nonce: string, userId: string): void {
+  write(
+    read().map((item) =>
+      item.nonce === nonce && item.userId === userId ? { ...item, status: 'failed' } : item,
+    ),
+  );
 }
 
-export function removeOutbox(nonce: string): void {
-  write(read().filter((item) => item.nonce !== nonce));
+export function removeOutbox(nonce: string, userId: string): void {
+  write(read().filter((item) => !(item.nonce === nonce && item.userId === userId)));
 }
 
 export function outboxAsMessage(
