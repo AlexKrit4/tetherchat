@@ -27,6 +27,8 @@ interface UiState {
   editingMessageId: string | null;
   drafts: Record<string, string>;
   draftTimes: Record<string, number>;
+  /** Account that owns `drafts`. Null means leftover data from before owner tracking. */
+  draftOwnerId: string | null;
   volatileDrafts: Record<string, string>;
   scrollBottomNonce: number;
   threadRootId: string | null;
@@ -49,6 +51,9 @@ interface UiState {
   setEditingMessage: (messageId: string | null) => void;
   setDraft: (channelId: string, value: string) => void;
   setVolatileDraft: (channelId: string, value: string) => void;
+  /** Drop persisted drafts unless they already belong to this user. */
+  adoptDraftOwner: (userId: string) => void;
+  clearDrafts: () => void;
   mergeRemoteDrafts: (drafts: Record<string, ComposerDraft>) => void;
   nudgeScrollBottom: () => void;
   setThreadRoot: (messageId: string | null) => void;
@@ -73,6 +78,7 @@ export const useUiStore = create<UiState>()(
   editingMessageId: null,
   drafts: {},
   draftTimes: {},
+  draftOwnerId: null,
   volatileDrafts: {},
   scrollBottomNonce: 0,
   threadRootId: null,
@@ -131,6 +137,14 @@ export const useUiStore = create<UiState>()(
   setVolatileDraft: (channelId, value) =>
     set((state) => ({ volatileDrafts: { ...state.volatileDrafts, [channelId]: value } })),
 
+  adoptDraftOwner: (userId) =>
+    set((state) => {
+      if (state.draftOwnerId === userId) return state;
+      return { draftOwnerId: userId, drafts: {}, draftTimes: {}, volatileDrafts: {} };
+    }),
+
+  clearDrafts: () => set({ draftOwnerId: null, drafts: {}, draftTimes: {}, volatileDrafts: {} }),
+
   mergeRemoteDrafts: (incoming) =>
     set((state) => {
       const drafts = { ...state.drafts };
@@ -161,6 +175,7 @@ export const useUiStore = create<UiState>()(
       partialize: (state) => ({
         drafts: state.drafts,
         draftTimes: state.draftTimes,
+        draftOwnerId: state.draftOwnerId,
         collapsedCategories: state.collapsedCategories,
       }),
     },

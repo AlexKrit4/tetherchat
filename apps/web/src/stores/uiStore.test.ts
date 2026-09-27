@@ -74,6 +74,34 @@ describe('per-channel drafts', () => {
     setReplyDraft('channel-a', null);
     expect(useUiStore.getState().replyDrafts['channel-a']).toBeUndefined();
   });
+
+  it('drops leftover drafts when another account signs in', () => {
+    useUiStore.getState().adoptDraftOwner('alice');
+    useUiStore.getState().setDraft('shared-group', 'wifi password is hunter2');
+
+    useUiStore.getState().adoptDraftOwner('bob');
+    expect(useUiStore.getState().draftOwnerId).toBe('bob');
+    expect(useUiStore.getState().drafts).toEqual({});
+    expect(useUiStore.getState().draftTimes).toEqual({});
+
+    useUiStore.getState().mergeRemoteDrafts({
+      'shared-group': { text: 'bob leftover', updatedAt: 10 },
+    });
+    expect(useUiStore.getState().drafts).toEqual({ 'shared-group': 'bob leftover' });
+  });
+
+  it('keeps drafts when the same user is adopted again', () => {
+    useUiStore.getState().adoptDraftOwner('alice');
+    useUiStore.getState().setDraft('dm-1', 'still mine');
+    useUiStore.getState().adoptDraftOwner('alice');
+    expect(useUiStore.getState().drafts).toEqual({ 'dm-1': 'still mine' });
+  });
+
+  it('treats unowned persisted drafts as another account', () => {
+    useUiStore.setState({ drafts: { leak: 'from previous session' }, draftTimes: { leak: 1 }, draftOwnerId: null });
+    useUiStore.getState().adoptDraftOwner('bob');
+    expect(useUiStore.getState().drafts).toEqual({});
+  });
 });
 
 describe('collapsed categories', () => {
