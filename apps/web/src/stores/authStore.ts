@@ -12,6 +12,7 @@ import {
   stashOtherFromCurrent,
 } from '@/lib/accounts';
 import { isDesktopApp } from '@/lib/desktop';
+import { useUiStore } from '@/stores/uiStore';
 
 type AuthStatus = 'loading' | 'authenticated' | 'anonymous';
 
@@ -101,6 +102,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await api.post('/api/auth/logout').catch(() => undefined);
     disconnectSocket();
     queryClient.clear();
+    useUiStore.getState().clearDrafts();
     if (other?.refreshToken) {
       try {
         const session = await refreshWithToken(other.refreshToken);
@@ -146,6 +148,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const previous = get().user && store.current ? store.current : null;
     disconnectSocket();
     queryClient.clear();
+    useUiStore.getState().clearDrafts();
     const session = await refreshWithToken(store.other.refreshToken);
     applySession(session);
     saveAccounts({
