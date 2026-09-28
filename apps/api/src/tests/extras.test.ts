@@ -44,7 +44,7 @@ describe('two-factor authentication', () => {
       method: 'POST',
       url: '/api/auth/2fa/enable',
       headers: user.auth,
-      payload: { code: totpCode(payload.secret) },
+      payload: { code: totpCode(payload.secret), password: user.password },
     });
     expect(enable.statusCode).toBe(200);
     expect(enable.json<SelfUser>().totpEnabled).toBe(true);
@@ -65,6 +65,87 @@ describe('two-factor authentication', () => {
     });
     expect(finished.statusCode).toBe(200);
     expect(finished.json<{ accessToken: string }>().accessToken).toBeTruthy();
+  });
+
+  it('rejects 2FA enable without the account password', async () => {
+    const user = await createUser();
+    created.push(user);
+    const app = await testApp();
+
+    const setup = await app.inject({
+      method: 'POST',
+      url: '/api/auth/2fa/setup',
+      headers: user.auth,
+    });
+    const secret = setup.json<TotpSetup>().secret;
+
+    const missing = await app.inject({
+      method: 'POST',
+      url: '/api/auth/2fa/enable',
+      headers: user.auth,
+      payload: { code: totpCode(secret) },
+    });
+    expect(missing.statusCode).toBe(400);
+
+    const wrong = await app.inject({
+      method: 'POST',
+      url: '/api/auth/2fa/enable',
+      headers: user.auth,
+      payload: { code: totpCode(secret), password: 'not-the-real-password' },
+    });
+    expect(wrong.statusCode).toBe(401);
+
+    const row = await prisma.user.findUniqueOrThrow({
+      where: { id: user.id },
+      select: { totpEnabled: true },
+    });
+    expect(row.totpEnabled).toBe(false);
+  });
+
+  it('drops other refresh sessions when 2FA is enabled', async () => {
+    const user = await createUser();
+    created.push(user);
+    const app = await testApp();
+
+    const otherLogin = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { login: user.email, password: user.password },
+    });
+    expect(otherLogin.statusCode).toBe(200);
+    const otherRefresh = otherLogin.json<{ refreshToken: string }>().refreshToken;
+
+    const setup = await app.inject({
+      method: 'POST',
+      url: '/api/auth/2fa/setup',
+      headers: user.auth,
+    });
+    const secret = setup.json<TotpSetup>().secret;
+
+    const enable = await app.inject({
+      method: 'POST',
+      url: '/api/auth/2fa/enable',
+      headers: {
+        ...user.auth,
+        'x-refresh-token': user.refreshToken ?? '',
+      },
+      payload: { code: totpCode(secret), password: user.password },
+    });
+    expect(enable.statusCode).toBe(200);
+
+    const stolen = await app.inject({
+      method: 'POST',
+      url: '/api/auth/refresh',
+      payload: { refreshToken: otherRefresh },
+    });
+    expect(stolen.statusCode).toBe(401);
+
+    const current = await app.inject({
+      method: 'POST',
+      url: '/api/auth/refresh',
+      payload: { refreshToken: user.refreshToken },
+    });
+    expect(current.statusCode).toBe(200);
   });
 });
 
@@ -320,7 +401,7 @@ describe('reports and admin', () => {
       method: 'POST',
       url: '/api/auth/2fa/enable',
       headers: admin.auth,
-      payload: { code: totpCode(secret) },
+      payload: { code: totpCode(secret), password: admin.password },
     });
 
     const denied = await app.inject({

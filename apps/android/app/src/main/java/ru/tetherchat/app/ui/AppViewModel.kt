@@ -1055,10 +1055,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application), De
     }
   }
 
-  fun enableTotp(code: String) {
+  fun enableTotp(code: String, password: String) {
     viewModelScope.launch {
       busy = true
-      runCatching { withContext(Dispatchers.IO) { api.totpEnable(code.trim()) } }
+      runCatching { withContext(Dispatchers.IO) { api.totpEnable(code.trim(), password) } }
         .onSuccess {
           me = it
           totpSetup = null

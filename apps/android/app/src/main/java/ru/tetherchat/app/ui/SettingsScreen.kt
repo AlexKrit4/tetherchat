@@ -846,11 +846,12 @@ private fun TwoFactorBlock(model: AppViewModel) {
         }
         Text("Секрет: ${setup.secret}", color = TextMuted, fontSize = 12.sp)
         Field("Код из приложения", code, 8) { code = it.filter { ch -> ch.isDigit() } }
+        Field("Пароль", password, 128) { password = it }
         Button(
-          onClick = { model.enableTotp(code) },
+          onClick = { model.enableTotp(code, password) },
           colors = ButtonDefaults.buttonColors(containerColor = Brand),
           modifier = Modifier.fillMaxWidth(),
-          enabled = code.length >= 6 && !model.busy,
+          enabled = code.length >= 6 && password.isNotBlank() && !model.busy,
         ) { Text("Включить") }
       }
     }
