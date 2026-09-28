@@ -205,16 +205,45 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   app.post('/2fa/enable', { preHandler: app.requireAuth }, async (request) => {
-    const { code } = z.object({ code: z.string().min(6).max(8) }).parse(request.body);
+    const { code, password } = z
+      .object({
+        code: z.string().min(6).max(8),
+        password: z.string().min(1).max(LIMITS.password.max),
+      })
+      .parse(request.body);
     const packed = await redis().get(`totp:setup:${request.userId}`);
     if (!packed) throw ApiError.badRequest('Сначала начните настройку двухфакторки');
+
+    const account = await prisma.user.findUniqueOrThrow({
+      where: { id: request.userId },
+      select: { passwordHash: true },
+    });
+    if (!(await verifyPassword(password, account.passwordHash))) {
+      throw ApiError.unauthorized('Неверный пароль');
+    }
+
     const secret = decryptSecret(packed);
     if (!verifyTotp(secret, code)) throw ApiError.unauthorized('Неверный код двухфакторки');
 
-    await prisma.user.update({
-      where: { id: request.userId },
-      data: { totpEnabled: true, totpSecretEnc: packed },
-    });
+    const currentRefresh = presentedRefreshToken(request);
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: request.userId },
+        data: { totpEnabled: true, totpSecretEnc: packed },
+      }),
+      ...(currentRefresh
+        ? [
+            prisma.refreshToken.updateMany({
+              where: {
+                userId: request.userId,
+                revokedAt: null,
+                tokenHash: { not: hashToken(currentRefresh) },
+              },
+              data: { revokedAt: new Date() },
+            }),
+          ]
+        : []),
+    ]);
     await redis().del(`totp:setup:${request.userId}`);
     const user = await prisma.user.findUniqueOrThrow({
       where: { id: request.userId },

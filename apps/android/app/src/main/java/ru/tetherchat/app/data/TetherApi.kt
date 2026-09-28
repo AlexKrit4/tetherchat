@@ -49,7 +49,8 @@ class TetherApi(private val session: SessionStore) {
     post<TotpLoginBody, AuthResponse>("/api/auth/login/totp", TotpLoginBody(ticket, code), authed = false).also(session::save)
 
   fun totpSetup(): TotpSetup = postRaw("/api/auth/2fa/setup", "{}")
-  fun totpEnable(code: String): SelfUser = post("/api/auth/2fa/enable", TotpCodeBody(code))
+  fun totpEnable(code: String, password: String): SelfUser =
+    post("/api/auth/2fa/enable", TotpDisableBody(code, password))
   fun totpDisable(code: String, password: String): SelfUser =
     post("/api/auth/2fa/disable", TotpDisableBody(code, password))
   fun adminCredentials(code: String): AdminCredentials =

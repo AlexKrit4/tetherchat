@@ -25,11 +25,12 @@ export function TwoFactorSettings() {
   });
 
   const enable = useMutation({
-    mutationFn: () => api.post<SelfUser>('/api/auth/2fa/enable', { code }),
+    mutationFn: () => api.post<SelfUser>('/api/auth/2fa/enable', { code, password }),
     onSuccess: (updated) => {
       setUser(updated);
       setSetup(null);
       setCode('');
+      setPassword('');
       toast.success(t('settings.twoFactorOn'));
     },
     onError: (error) => toast.error(errorMessage(error)),
@@ -95,7 +96,18 @@ export function TwoFactorSettings() {
             autoComplete="one-time-code"
             onChange={(event) => setCode(event.target.value)}
           />
-          <Button loading={enable.isPending} disabled={code.length < 6} onClick={() => enable.mutate()}>
+          <Input
+            label={t('auth.password')}
+            type="password"
+            value={password}
+            autoComplete="current-password"
+            onChange={(event) => setPassword(event.target.value)}
+          />
+          <Button
+            loading={enable.isPending}
+            disabled={code.length < 6 || password.length < 8}
+            onClick={() => enable.mutate()}
+          >
             {t('settings.twoFactorConfirm')}
           </Button>
         </>
